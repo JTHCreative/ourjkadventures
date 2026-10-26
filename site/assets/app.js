@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var CONTACT_EMAIL = 'ourjkadventures@gmail.com';
+  var CONTACT_EMAIL = 'support@ourjkadventures.com';
   var PIN_IMG = {};
   ['aussie', 'beagle', 'cavalier', 'corgi', 'dachshund', 'french-bulldog', 'german-shepherd', 'golden', 'husky', 'pit-bull',
     'pomeranian', 'poodle', 'pug', 'rottweiler', 'shiba', 'yorkie'].forEach(function (s) { PIN_IMG[s] = 'assets/img/pins/' + s + '.webp'; });
