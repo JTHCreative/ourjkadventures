@@ -34,7 +34,7 @@ Work top to bottom. Each phase ships on its own. Tick boxes as you go and add no
 
 ## Phase 3. Accounts
 Built on the current static site, before the Astro port (see decisions, 2026-10-26).
-- [ ] Firebase project with Email/Password and Google providers (owner, `setup/firebase.md`). Project `jk-adventures-website` exists; providers, domains, database, rules and Cloudflare secrets still to do
+- [x] Firebase project with Email/Password and Google providers (owner, `setup/firebase.md`)
 - [x] Pages: `sign-in.html`, `create-account.html`, `reset-password.html`, `account.html` (signed-in home). Flat files like the rest of the site
 - [x] Header shows "sign in" or the person's first name (from a small `jka_user` hint so other pages don't load Firebase)
 - [x] Server verifies Firebase ID tokens (RS256, `aud`, `iss`, keys from Google's JWKS, cached). `server/firebase.js`
@@ -43,8 +43,11 @@ Built on the current static site, before the Astro port (see decisions, 2026-10-
 - [x] Verify-email message sent on sign-up; account page shows whether it's confirmed. (Phase 4 must refuse charges until it is.)
 - [x] Account deletion (deletes Auth user and Firestore data, needs a sign-in from the last 5 minutes) and a privacy page (`privacy.html`, owner to review)
 - [x] Checkout passes the signed-in uid to Square (order `metadata.uid`) and pre-fills email. Untested against Square while the shop is closed
+- [x] Owner set up Firebase and Cloudflare; live click-through passed (2026-10-26)
+- [x] Account page: check mark next to a confirmed email; links to "your orders" and "your details"
+- [x] `account-details.html`: first and last name, optional phone, change email (link to the new address), delete account
+- [x] `orders.html`: paid orders placed while signed in, read from Square (see architecture)
 - [ ] Owner: lowercase email templates in Firebase (Claude Code can draft)
-- [ ] Owner: live click-through (steps 10 to 13 in `setup/firebase.md`) after merging
 
 Tests: `node --test tests/*.test.mjs` (ticket checks and `/api/account` with Google faked). The pages were
 also driven end to end in a browser against the real Firebase library with Google's services faked.
