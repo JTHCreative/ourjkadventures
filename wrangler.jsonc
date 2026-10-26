@@ -11,12 +11,3 @@
      "observability": { "enabled": true },
      "keep_vars": true
    }
-{
-  // ...
-  "vars": {
-    "SQUARE_ENV": "sandbox",
-    "SQUARE_LOCATION_ID": "LBENHPJ824E2H",
-    "SUPPORT_EMAIL": "jkadventures25@gmail.com"
-  },
-  // ...
-}
