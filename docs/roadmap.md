@@ -70,7 +70,7 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 **Done when:** every rule in the spec has a test, and a full path from 0 to 10 and redemption works in sandbox.
 
 ## Phase 5. Polish
-- [ ] Contact email wrapping fix at narrow widths
+- [x] Contact email wrapping fix at narrow widths (breaks after the @)
 - [ ] Real product photos for the Bay Area board
 - [ ] Chinese Zodiac and Hometown Series pages when those pins exist
 - [ ] Remaining 3D models as they arrive (`/add-3d-model`)

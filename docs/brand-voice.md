@@ -10,7 +10,7 @@ The north star is `manifesto.md`. Its test applies to every page and every line 
 - **Warm, sincere, adult.** A friend who loves the same thing, not a brand performing excitement.
 - **Specific beats generic.** Name the breed, the place, the thing.
 - **Short sentences that end in a period**, including buttons in sentence form ("in your bag.", "one moment.").
-- **Errors are calm and helpful**, and offer the email: "we could not start checkout. try again, or write to us at ourjkadventures@gmail.com."
+- **Errors are calm and helpful**, and offer the email: "we could not start checkout. try again, or write to us at support@ourjkadventures.com."
 
 ### Examples from the live site
 | Good | Why |
