@@ -5,6 +5,12 @@
 //   SQUARE_ENV                     "sandbox" while testing, "production" when live
 //   TAX_PERCENT  (optional)        e.g. "9.25". leave empty for no tax line
 //   SUPPORT_EMAIL (optional)       shown to buyers on the Square checkout page
+//   FIREBASE_PROJECT_ID, FIREBASE_SERVICE_ACCOUNT  accounts, see server/firebase.js
+//
+// The account code lives in ../server so it is bundled into this worker but never published as a file.
+
+import { account } from '../server/account.js';
+import { configured as firebaseConfigured, userFromRequest } from '../server/firebase.js';
 
 const SQUARE_VERSION = '2026-09-16';
 const MAX_LINES = 30;
@@ -14,6 +20,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/api/checkout') return checkout(request, env, url);
+    if (url.pathname === '/api/account') return account(request, env);
     return env.ASSETS.fetch(request);
   }
 };
@@ -58,6 +65,14 @@ async function checkout(request, env, url) {
   }
 
   const order = { location_id: env.SQUARE_LOCATION_ID, line_items: lines };
+
+  // a signed-in buyer: tag the order with their account so the Collector's Path can find it later,
+  // and fill in their email on Square's page. A missing or bad ticket just means a signed-out checkout.
+  let buyer = null;
+  if (firebaseConfigured(env)) {
+    try { buyer = await userFromRequest(request, env); } catch (e) { buyer = null; }
+  }
+  if (buyer) order.metadata = { uid: buyer.sub };
   const tax = Number(env.TAX_PERCENT);
   if (tax > 0) order.taxes = [{ uid: 'sales-tax', name: 'sales tax', percentage: String(tax), scope: 'ORDER' }];
 
@@ -72,6 +87,7 @@ async function checkout(request, env, url) {
     };
   }
   if (env.SUPPORT_EMAIL) options.merchant_support_email = env.SUPPORT_EMAIL;
+  const prefill = buyer && buyer.email ? { buyer_email: buyer.email } : null;
 
   const host = env.SQUARE_ENV === 'sandbox' ? 'https://connect.squareupsandbox.com' : 'https://connect.squareup.com';
   let res;
@@ -86,7 +102,8 @@ async function checkout(request, env, url) {
       body: JSON.stringify({
         idempotency_key: crypto.randomUUID(),
         order: order,
-        checkout_options: options
+        checkout_options: options,
+        ...(prefill ? { pre_populated_data: prefill } : {})
       })
     });
   } catch (e) {

@@ -11,11 +11,15 @@ an everyday analogy when a concept is technical.
 ## Where things are
 | Path | What it is |
 |---|---|
-| `site/` | The live static site. Plain HTML, CSS and JS, no build step. Cloudflare Pages serves this folder. |
+| `site/` | The live static site. Plain HTML, CSS and JS, no build step. A Cloudflare Worker with static assets serves this folder (`wrangler.jsonc`), deployed from `main` |
 | `site/assets/app.js` | Bag, pup board, speech bubbles, 3D viewer, checkout call |
 | `site/assets/styles.css` | All styles. Design tokens are the CSS variables on `:root` |
 | `site/products.json` | Names, prices (cents), sold-out flags. The one source of truth for prices today |
-| `site/_worker.js` | Server side (Cloudflare Pages advanced mode). `/api/checkout` creates a Square payment link; everything else falls through to static files |
+| `site/_worker.js` | Server side (the Worker). `/api/checkout` creates a Square payment link, `/api/account` handles accounts; everything else falls through to static files |
+| `server/` | Server code the worker imports (Firebase ticket checks, Firestore, accounts). Bundled by wrangler, never published |
+| `site/assets/account.js` | Firebase sign-in in the browser; runs the account pages |
+| `firestore.rules` | Firestore rules: no browser access at all. The owner publishes them in the Firebase console |
+| `tests/` | `node --test tests/*.test.mjs` |
 | `site/assets/3d/*.glb` | 3D pin models, one per slug, shown with Google model-viewer |
 | `docs/architecture.md` | How it works now and the target shape |
 | `docs/roadmap.md` | The phases, in order, with "done when" checks. **Work from this.** |
@@ -50,7 +54,8 @@ an everyday analogy when a concept is technical.
 ## Running and checking
 Today (plain static site):
 ```
-npx wrangler pages dev site          # serves site/ and runs _worker.js locally on :8788
+npx wrangler dev                     # serves site/ and runs the worker locally on :8787
+node --test tests/*.test.mjs         # server tests (tickets, /api/account), Google faked
 ```
 Put Square sandbox values in `.dev.vars` to test checkout locally. Without them `/api/checkout` returns 503 by design.
 
@@ -60,6 +65,7 @@ Before calling any change done:
 3. Add to bag, change quantity, check out against the Square **sandbox**.
 4. Check a 360px-wide viewport.
 5. `grep -ri "wixstatic\|wixapis" site/` returns nothing.
+6. `node --test tests/*.test.mjs` passes. For account changes, also create, sign out, sign in, and delete an account.
 
 Update this section when the toolchain changes (for example after the Astro port).
 

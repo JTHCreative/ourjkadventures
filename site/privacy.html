@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>privacy. j+k adventures</title>
+<meta name="description" content="what j+k adventures keeps about you, and how to have it removed.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <filter id="jka-rough" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="4"/></filter>
+  <filter id="jka-rough-fine" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="2" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.5"/></filter>
+</svg>
+<header class="site-header">
+  <div class="wrap">
+    <a class="logo-link" href="index.html" aria-label="j+k adventures, home"><img class="logo" src="assets/img/logo.webp" width="400" height="221" alt="j+k adventures"></a>
+    <nav class="nav" aria-label="main">
+      <a href="index.html">home</a>
+      <a href="shop.html">shop</a>
+      <a href="about.html">about us</a>
+      <a href="contact.html">contact</a>
+      <a href="account.html" data-account-link>sign in</a>
+      <button class="cart-btn" type="button" data-cart aria-label="open your bag">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
+        <span class="cart-count" data-cart-count hidden>0</span>
+      </button>
+    </nav>
+  </div>
+</header>
+<main>
+
+<section class="section">
+  <div class="wrap narrow center">
+    <p class="eyebrow">privacy</p>
+    <h1 class="display" style="margin-top:var(--space-2)">your details.</h1>
+    <p class="body-lg muted" style="margin-top:var(--space-4)">what we keep, why, and how to have it removed. last updated october 2026.</p>
+  </div>
+  <div class="wrap narrow prose" style="margin-top:var(--space-6)">
+    <h2>who we are</h2>
+    <p>j+k adventures is a small enamel pin shop. you can reach us at <a href="mailto:jkadventures25@gmail.com">jkadventures25@gmail.com</a>.</p>
+
+    <h2>if you make an account</h2>
+    <p>we keep your email, your first name if you give it, and the date you joined. if you sign in with google, google tells us your email and name. later, your account will also hold your collector's path: the pins you have registered and the rewards you have earned.</p>
+    <p>accounts are run on google firebase. your password goes to firebase, and we never see it.</p>
+
+    <h2>if you buy something</h2>
+    <p>checkout happens on square's payment page. square handles your card, your shipping address and your receipt, and we never see your card number. we see your order, your name, your email and where to send it, so we can pack and post it. if you are signed in, we link the order to your account.</p>
+
+    <h2>your bag</h2>
+    <p>what is in your bag is saved in your own browser, not with us, until you check out.</p>
+
+    <h2>what we do not do</h2>
+    <ul>
+      <li>we do not sell or share your details with anyone for their own use.</li>
+      <li>we do not run advertising trackers.</li>
+      <li>we only email you about your account or your orders.</li>
+    </ul>
+
+    <h2>the services we use</h2>
+    <p>cloudflare hosts this site. google firebase runs accounts. square takes payments. our fonts come from google fonts, and the 3d pin viewer comes from jsdelivr. each sees the basic details any website sees when your browser asks it for something, such as your ip address.</p>
+
+    <h2>removing your details</h2>
+    <p>you can delete your account at any time from <a href="account.html">your account page</a>. that removes your login and everything we keep with it. square keeps its own record of past orders, as payment rules require. for anything else, write to us at <a href="mailto:jkadventures25@gmail.com">jkadventures25@gmail.com</a> and we will help.</p>
+  </div>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="links">
+      <a href="shop.html">shop</a>
+      <a href="about.html">about us</a>
+      <a href="contact.html">contact</a>
+      <a href="https://www.instagram.com/jkadventures25/" target="_blank" rel="noopener">instagram</a>
+      <a href="mailto:jkadventures25@gmail.com">email</a>
+      <a href="privacy.html">privacy</a>
+    </div>
+    <p class="caption">&copy; 2026 j+k adventures.</p>
+  </div>
+</footer>
+<script src="assets/app.js"></script>
+</body>
+</html>
