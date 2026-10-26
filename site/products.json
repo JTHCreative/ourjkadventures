@@ -1,0 +1,127 @@
+{
+  "currency": "USD",
+  "shipping_cents": 500,
+  "shipping_label": "shipping",
+  "items": [
+    {
+      "slug": "aussie",
+      "name": "aussie",
+      "kind": "pin",
+      "price_cents": 1200,
+      "sold_out": false
+    },
+    {
+      "slug": "beagle",
+      "name": "beagle",
+      "kind": "pin",
+      "price_cents": 1200,
+      "sold_out": false
+    },
+    {
+      "slug": "cavalier",
+      "name": "cavalier",
+      "kind": "pin",
+      "price_cents": 1200,
+      "sold_out": false
+    },
+    {
+      "slug": "corgi",
+      "name": "corgi",
+      "kind": "pin",
+      "price_cents": 1200,
+      "sold_out": false
+    },
+    {
+      "slug": "dachshund",
+      "name": "dachshund",
+      "kind": "pin",
+      "price_cents": 1200,
+      "sold_out": false
+    },
+    {
+      "slug": "french-bulldog",
+      "name": "french bulldog",
+      "kind": "pin",
+      "price_cents": 1200,
+      "sold_out": false
+    },
+    {
+      "slug": "german-shepherd",
+      "name": "german shepherd",
+      "kind": "pin",
+      "price_cents": 1200,
+      "sold_out": false
+    },
+    {
+      "slug": "golden",
+      "name": "golden",
+      "kind": "pin",
+      "price_cents": 1200,
+      "sold_out": false
+    },
+    {
+      "slug": "husky",
+      "name": "husky",
+      "kind": "pin",
+      "price_cents": 1200,
+      "sold_out": false
+    },
+    {
+      "slug": "pit-bull",
+      "name": "pit bull",
+      "kind": "pin",
+      "price_cents": 1200,
+      "sold_out": false
+    },
+    {
+      "slug": "pomeranian",
+      "name": "pomeranian",
+      "kind": "pin",
+      "price_cents": 1200,
+      "sold_out": false
+    },
+    {
+      "slug": "poodle",
+      "name": "poodle",
+      "kind": "pin",
+      "price_cents": 1200,
+      "sold_out": false
+    },
+    {
+      "slug": "pug",
+      "name": "pug",
+      "kind": "pin",
+      "price_cents": 1200,
+      "sold_out": false
+    },
+    {
+      "slug": "rottweiler",
+      "name": "rottweiler",
+      "kind": "pin",
+      "price_cents": 1200,
+      "sold_out": false
+    },
+    {
+      "slug": "shiba",
+      "name": "shiba",
+      "kind": "pin",
+      "price_cents": 1200,
+      "sold_out": false
+    },
+    {
+      "slug": "yorkie",
+      "name": "yorkie",
+      "kind": "pin",
+      "price_cents": 1200,
+      "sold_out": false
+    },
+    {
+      "slug": "bay-area-pin-board",
+      "name": "bay area pin board",
+      "kind": "board",
+      "price_cents": 8000,
+      "sold_out": false,
+      "description": "the bay area pin board. a home for the pins you love."
+    }
+  ]
+}

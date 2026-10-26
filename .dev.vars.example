@@ -1,0 +1,12 @@
+# copy to .dev.vars (gitignored) for local testing with `npx wrangler pages dev site`
+SQUARE_ACCESS_TOKEN=your-sandbox-token
+SQUARE_LOCATION_ID=your-sandbox-location-id
+SQUARE_ENV=sandbox
+TAX_PERCENT=
+SUPPORT_EMAIL=jkadventures25@gmail.com
+# phase 2
+SQUARE_WEBHOOK_SIGNATURE_KEY=
+SQUARE_WEBHOOK_URL=
+# phase 3
+FIREBASE_PROJECT_ID=
+FIREBASE_SERVICE_ACCOUNT=
