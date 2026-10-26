@@ -48,3 +48,15 @@ for the packing tool.
 refuses every order (403), even if someone crafts the request by hand. Anything other than
 `"shop_open": true` counts as closed, so a missing or mistyped switch fails safe. Every item is also
 marked `sold_out: true` as a second lock. The owner flips the switch when Square stock is ready.
+
+## 2026-10-26 Accounts: the browser never touches Firestore
+The browser loads only Firebase's sign-in library (pinned, from Google's own CDN at gstatic.com). It
+never reads Firestore. It sends its sign-in ticket to our server at `/api/account`, which checks the
+ticket and returns that person's own details. So `firestore.rules` can block every browser outright.
+This narrows the earlier spec, which let a signed-in browser read its own `users/{uid}` document.
+Why: a smaller page (no Firestore library), one door to lock instead of two, and the rules can't be
+gotten subtly wrong. The server checks tickets and talks to Firestore with built-in crypto only, no
+npm libraries. Its code lives in `server/` (bundled into the worker by wrangler, never published).
+Deleting an account needs a sign-in from the last 5 minutes. Built on the current static site,
+before the Astro port, so accounts arrive sooner. Google Analytics from the Firebase snippet was
+left out: no tracking without a decision and a cookie notice.

@@ -3,9 +3,8 @@
 Work top to bottom. Each phase ships on its own. Tick boxes as you go and add notes for anything discovered.
 
 ## Phase 0. Repo and automatic deploys
-- [ ] Repo on GitHub with this folder as the root
-- [ ] Cloudflare Pages project connected to the repo (owner does this, see `setup/cloudflare.md`)
-      Build command: none. Output directory: `site`.
+- [x] Repo on GitHub with this folder as the root
+- [x] Deployed as a Cloudflare Worker with static assets (`wrangler.jsonc`), built from `main` on every push. (Planned as Pages; the Worker is what's live.)
 - [ ] Square sandbox values set in Cloudflare; a test order goes through end to end
 - [ ] Custom domain attached; old Wix site cancelled only after the new one is verified
 
@@ -34,15 +33,21 @@ Work top to bottom. Each phase ships on its own. Tick boxes as you go and add no
 **Done when:** selling a pin on the Square Reader lowers the count the website shows, and a sold-out item can't be checked out.
 
 ## Phase 3. Accounts
-- [ ] Firebase project with Email/Password and Google providers (owner, `setup/firebase.md`)
-- [ ] Pages: `/account/sign-in`, `/account/create`, `/account/reset`, `/account` (signed-in home)
-- [ ] Header shows "sign in" or the person's first name
-- [ ] Server verifies Firebase ID tokens (RS256, `aud` = project ID, `iss` = `https://securetoken.google.com/<project ID>`, keys from Google's securetoken JWKS, cached)
-- [ ] Server writes to Firestore through the REST API using the service account (OAuth JWT bearer). The browser reads only its own `users/{uid}` doc
-- [ ] Firestore security rules in the repo (`firestore.rules`), deployed by the owner or via CLI
-- [ ] Email verification required before any charge is credited
-- [ ] Account deletion (deletes Auth user and Firestore data) and a privacy policy page
-- [ ] Checkout passes the signed-in uid to Square (order `metadata.uid`) and pre-fills email
+Built on the current static site, before the Astro port (see decisions, 2026-10-26).
+- [ ] Firebase project with Email/Password and Google providers (owner, `setup/firebase.md`). Project `jk-adventures-website` exists; providers, domains, database, rules and Cloudflare secrets still to do
+- [x] Pages: `sign-in.html`, `create-account.html`, `reset-password.html`, `account.html` (signed-in home). Flat files like the rest of the site
+- [x] Header shows "sign in" or the person's first name (from a small `jka_user` hint so other pages don't load Firebase)
+- [x] Server verifies Firebase ID tokens (RS256, `aud`, `iss`, keys from Google's JWKS, cached). `server/firebase.js`
+- [x] Server writes to Firestore through the REST API using the service account (OAuth JWT bearer). The browser never reads Firestore; it gets its own details from `/api/account`
+- [x] Firestore security rules in the repo (`firestore.rules`): deny all browser access. Owner publishes them
+- [x] Verify-email message sent on sign-up; account page shows whether it's confirmed. (Phase 4 must refuse charges until it is.)
+- [x] Account deletion (deletes Auth user and Firestore data, needs a sign-in from the last 5 minutes) and a privacy page (`privacy.html`, owner to review)
+- [x] Checkout passes the signed-in uid to Square (order `metadata.uid`) and pre-fills email. Untested against Square while the shop is closed
+- [ ] Owner: lowercase email templates in Firebase (Claude Code can draft)
+- [ ] Owner: live click-through (steps 10 to 13 in `setup/firebase.md`) after merging
+
+Tests: `node --test tests/*.test.mjs` (ticket checks and `/api/account` with Google faked). The pages were
+also driven end to end in a browser against the real Firebase library with Google's services faked.
 
 **Done when:** someone can create an account with email or Google, sign out and back in, see their account page, and delete it.
 

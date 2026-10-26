@@ -2,20 +2,28 @@
 
 ## In one picture
 The site is a shop window. Square is the register. A small Cloudflare program is the clerk who walks
-between them and holds the register key, so the window never does. Later, Firebase becomes the coat
-check: it holds customers' passwords and hands out tickets, and the clerk checks tickets.
+between them and holds the register key, so the window never does. Firebase is the coat check: it
+holds customers' passwords and hands out tickets, and the clerk checks tickets before opening a
+customer's folder in Firestore (the filing cabinet).
 
 ```
-browser ──► Cloudflare Pages ──► static files (HTML, CSS, JS, images, GLBs)
-               │
-               └─► _worker.js  /api/checkout ──► Square Checkout API ──► Square-hosted payment page
-                                                                          │
-                                       thank-you.html ◄── redirect after paying
+browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, JS, images, GLBs)
+   │           │
+   │           ├─► /api/checkout ──► Square Checkout API ──► Square-hosted payment page
+   │           │                                                  │
+   │           │                    thank-you.html ◄── redirect after paying
+   │           └─► /api/account  ──► checks the Firebase ticket ──► Firestore (service account)
+   │
+   └─► Firebase Authentication (sign in, sign up, reset, verify email) ──► ticket (ID token)
 ```
 
-## Now (phase 0)
-- **Hosting:** Cloudflare Pages, free plan. The domain is registered on Cloudflare too.
-- **Pages:** 9 hand-written HTML files in `site/`. Each repeats the same `<head>`, header, nav and footer. Change one, change all nine.
+## Now
+- **Hosting:** a Cloudflare Worker with static assets, free plan, configured in `wrangler.jsonc` and
+  built from `main` on every push. `site/_worker.js` is the worker; `site/.assetsignore` keeps it from
+  being published as a file. Code it imports from `server/` is bundled in by wrangler. Runtime settings
+  live in the Worker's **Variables and Secrets**; `keep_vars` stops deploys wiping them.
+  (The docs used to say Cloudflare Pages and `functions/`; that is not what runs.)
+- **Pages:** 14 hand-written HTML files in `site/`. Each repeats the same `<head>`, header, nav and footer. Change one, change all.
 - **`site/assets/app.js`** (vanilla JS, one IIFE):
   - loads `products.json`, builds the pup board and the board card
   - the bag lives in `localStorage` (`jka_cart`, `{slug: qty}`), max 20 per line
@@ -27,12 +35,28 @@ browser ──► Cloudflare Pages ──► static files (HTML, CSS, JS, images
   - creates a Square payment link: `POST /v2/online-checkout/payment-links` with order line items, optional `order.taxes` from `TAX_PERCENT`, a flat `shipping_fee`, `ask_for_shipping_address`, `redirect_url` = `/thank-you.html`
   - uses `connect.squareupsandbox.com` when `SQUARE_ENV=sandbox`
   - Square API version is pinned in `SQUARE_VERSION`
+- **Shop switch:** `shop_open` in `products.json`. Anything but `true` means every button reads
+  "coming soon" and `/api/checkout` refuses all orders.
 - **Inventory:** not tracked. `sold_out` in `products.json` is set by hand.
+- **Accounts** (phase 3):
+  - `site/assets/account.js` (ES module) loads Firebase Auth 12.19.0 from gstatic.com and runs
+    `sign-in.html`, `create-account.html`, `reset-password.html` and `account.html`
+    (picked by `<body data-account-page>`). Email/password and Google (popup).
+  - Other pages don't load Firebase. The header reads a `jka_user` hint in localStorage (first name,
+    or absent when signed out). At checkout, `app.js` imports `account.js` only if that hint exists,
+    and sends the ticket as `Authorization: Bearer`.
+  - `server/firebase.js` checks tickets against Google's published keys and calls Firestore and the
+    Auth admin API with the service account. Built-in crypto only, no npm libraries.
+  - `server/account.js`: `POST /api/account` creates `users/{uid}` on first visit and returns the
+    person's own details; `DELETE` removes the document and the login (needs a sign-in in the last
+    5 minutes).
+  - `firestore.rules` blocks all browser access.
+  - Checkout adds `metadata.uid` to the Square order and pre-fills the buyer's email.
 - **Fonts:** Google Fonts (EB Garamond).
 
 ### Known gaps
 - Shipping is a $5 flat placeholder in `products.json`. The owner must confirm.
-- No order history, no accounts, no stock counts.
+- No order history, no stock counts.
 - Booth sales (Square Reader) and web sales don't share stock.
 - The contact email can wrap mid-word at narrow widths.
 
@@ -52,7 +76,7 @@ browser ──► Cloudflare Pages ──► static files (HTML, CSS, JS, images
 - **Firebase Authentication** (email/password and Google) plus **Firestore** for accounts and the
   Collector's Path (phases 3 and 4). See `collectors-path-spec.md`.
 
-## Secrets and settings (Cloudflare → project → Settings → Variables and secrets)
+## Secrets and settings (Cloudflare → Workers & Pages → ourjkadventures → Settings → Variables and Secrets)
 | Name | Kind | Phase |
 |---|---|---|
 | `SQUARE_ACCESS_TOKEN` | secret | 0 |
@@ -62,7 +86,7 @@ browser ──► Cloudflare Pages ──► static files (HTML, CSS, JS, images
 | `SUPPORT_EMAIL` | plain, optional | 0 |
 | `SQUARE_WEBHOOK_SIGNATURE_KEY` | secret | 2 |
 | `SQUARE_WEBHOOK_URL` | plain, the exact URL registered in Square (used in signature check) | 2 |
-| `FIREBASE_PROJECT_ID` | plain | 3 |
+| `FIREBASE_PROJECT_ID` | plain, `jk-adventures-website` | 3 |
 | `FIREBASE_SERVICE_ACCOUNT` | secret, JSON of the service account key | 3 |
 
 Browser-side Firebase config (apiKey, authDomain, projectId, appId) is **not** secret and can live in code.

@@ -1,4 +1,4 @@
-# copy to .dev.vars (gitignored) for local testing with `npx wrangler pages dev site`
+# copy to .dev.vars (gitignored) for local testing with `npx wrangler dev`
 SQUARE_ACCESS_TOKEN=your-sandbox-token
 SQUARE_LOCATION_ID=your-sandbox-location-id
 SQUARE_ENV=sandbox
