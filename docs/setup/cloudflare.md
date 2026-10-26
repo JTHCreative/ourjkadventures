@@ -1,30 +1,41 @@
 # Cloudflare setup (owner steps)
 
-## Connect the repo (once)
-1. Cloudflare dashboard > **Workers & Pages** > **Create** > **Pages** > **Connect to Git**.
-2. Pick the GitHub repo. Allow Cloudflare's GitHub app access to just this repo.
-3. Build settings, for now:
-   - Framework preset: **None**
-   - Build command: *(leave empty)*
-   - Build output directory: **site**
-   After the Astro port this becomes `npm run build` and `dist`.
-4. Save and deploy. You get a free `<project>.pages.dev` address.
-
-If you already made a drag-and-drop project, make a new one. An upload-only project can't be switched to Git.
+The site runs as a **Cloudflare Worker with static assets** named `ourjkadventures`, configured in
+`wrangler.jsonc` and built from this repo's `main` branch on every push. (Earlier notes described
+Cloudflare Pages; that is not what runs.)
 
 ## Variables and secrets
-Project > **Settings** > **Variables and secrets**. Add each to **Production** (and **Preview** if you want test deploys to work):
+**Workers & Pages** > **ourjkadventures** > **Settings** > **Variables and Secrets**. `wrangler.jsonc` has
+`"keep_vars": true`, so deploys don't wipe these.
 - `SQUARE_ACCESS_TOKEN` (type: Secret)
 - `SQUARE_LOCATION_ID`
-- `SQUARE_ENV` = `sandbox` while testing, `production` when live
+- `SQUARE_ENV` = `sandbox` while testing, `production` when live (production today)
 - `TAX_PERCENT` (optional, e.g. `9.25`)
-- `SUPPORT_EMAIL` (optional)
+- `SUPPORT_EMAIL` = `support@ourjkadventures.com` (shown on Square's checkout page)
+- `FIREBASE_SERVICE_ACCOUNT` (type: Secret) and `FIREBASE_PROJECT_ID`, see `firebase.md`
 
-Changes to variables apply on the next deploy. Push any commit, or use **Retry deployment**.
+After adding or changing one, press **Deploy**.
 
 ## Your domain
-Project > **Custom domains** > **Set up a custom domain** > type it in. Because the domain is already on
-Cloudflare, it adds the DNS records itself. Add both `yourdomain.com` and `www.yourdomain.com`.
+`ourjkadventures.com` and `www.ourjkadventures.com` are on Cloudflare and point at the Worker.
+
+## Email: support@ourjkadventures.com (set up 2026-10-26)
+Cloudflare **Email Routing** forwards mail for the domain to Gmail. It only receives; it cannot send.
+- Domain > **Email** > **Email Routing**: Enabled, DNS records configured.
+- **Destination addresses**: `ourjkadventures@gmail.com`, Verified.
+- **Routing rules** > Custom addresses: `support@ourjkadventures.com` > Send to an email > `ourjkadventures@gmail.com`, Active.
+
+If mail to support@ bounces with "address not found", check those three in that order. Test from a
+different account than the Gmail it forwards to, because Gmail can hide mail you sent to yourself.
+
+### Replying as support@ from Gmail (optional)
+Gmail > Settings > **Accounts and Import** > **Send mail as** > Add another email address:
+- SMTP server `smtp.gmail.com`, port `587`, TLS, username `ourjkadventures@gmail.com`.
+- Password: a Google **app password** (myaccount.google.com/apppasswords, needs 2-Step Verification on).
+  Never the Cloudflare server (`route*.mx.cloudflare.net`), which Gmail suggests but only receives mail.
+- Then choose **Reply from the same address the message was sent to**.
+- To help these replies avoid spam, add `include:_spf.google.com` to the domain's SPF TXT record:
+  `v=spf1 include:_spf.mx.cloudflare.net include:_spf.google.com ~all`
 
 ## Every update after this
-Push to `main` and Cloudflare publishes in about a minute. Pushes to other branches get their own preview address.
+Push to `main` and Cloudflare publishes in about a minute.
