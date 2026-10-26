@@ -3,7 +3,7 @@ SQUARE_ACCESS_TOKEN=your-sandbox-token
 SQUARE_LOCATION_ID=your-sandbox-location-id
 SQUARE_ENV=sandbox
 TAX_PERCENT=
-SUPPORT_EMAIL=jkadventures25@gmail.com
+SUPPORT_EMAIL=ourjkadventures@gmail.com
 # phase 2
 SQUARE_WEBHOOK_SIGNATURE_KEY=
 SQUARE_WEBHOOK_URL=

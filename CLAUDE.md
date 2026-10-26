@@ -49,7 +49,7 @@ an everyday analogy when a concept is technical.
 - Hover bubble text is `<breed> woof!` (the one place an exclamation mark is allowed, it's the dog talking).
 - Pins are $12. The Bay Area board is $80.
 - 3D models exist for 10 pups. Still missing: cavalier, dachshund, french-bulldog, poodle, rottweiler, yorkie (their "See in 3D" button stays faded).
-- Contact: jkadventures25@gmail.com. Instagram: @jkadventures25.
+- Contact: ourjkadventures@gmail.com. Instagram: @ourjkadventures.
 
 ## Running and checking
 Today (plain static site):
