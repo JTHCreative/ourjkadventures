@@ -209,10 +209,10 @@
     var btn = footEl.querySelector('.jka-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'one moment.'; }
     var items = Object.keys(cart).map(function (s) { return { slug: s, qty: cart[s] }; });
-    fetch('/api/checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: items })
+    signInTicket().then(function (token) {
+      var headers = { 'Content-Type': 'application/json' };
+      if (token) headers.Authorization = 'Bearer ' + token;
+      return fetch('/api/checkout', { method: 'POST', headers: headers, body: JSON.stringify({ items: items }) });
     }).then(function (r) {
       return r.json().then(function (j) { if (!r.ok || !j.url) throw new Error('checkout'); return j.url; });
     }).then(function (url) {
@@ -221,6 +221,21 @@
       if (btn) { btn.disabled = false; btn.textContent = 'check out'; }
       showError('we could not start checkout. try again, or write to us at ' + CONTACT_EMAIL + '.');
     });
+  }
+
+  /* ---------- accounts: the header link, and a sign-in ticket for checkout (see account.js) ---------- */
+  function paintAccountLink() {
+    var name = read('jka_user');
+    Array.prototype.forEach.call(document.querySelectorAll('[data-account-link]'), function (a) {
+      a.textContent = name === null ? 'sign in' : (name.toLowerCase() || 'your account');
+    });
+  }
+  // signed-out buyers, or a slow or blocked sign-in service, simply check out without a ticket
+  function signInTicket() {
+    if (read('jka_user') === null) return Promise.resolve(null);
+    var ticket = import('/assets/account.js').then(function (m) { return m.currentToken(); });
+    var giveUp = new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 4000); });
+    return Promise.race([ticket, giveUp]).catch(function () { return null; });
   }
 
   /* ---------- adding things ---------- */
@@ -501,6 +516,7 @@
       b.addEventListener('click', openBag);
     });
     paintCount();
+    paintAccountLink();
     loadShop();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
