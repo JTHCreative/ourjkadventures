@@ -41,3 +41,10 @@ The 3 and 6 rewards happen only on someone's first lap; the free pin at 10 repea
 never claim codes because they resell; the end customer redeems. Wholesale is marked with a Square
 customer group. The outside sticker is a QR code that links to the pin's page and carries the serial
 for the packing tool.
+
+## 2026-10-26 The shop stays closed until the owner opens it
+`products.json` has a `shop_open` master switch, set to `false`. While it is false every button reads
+"coming soon" and is disabled, the bag shows a calm note instead of "check out", and `/api/checkout`
+refuses every order (403), even if someone crafts the request by hand. Anything other than
+`"shop_open": true` counts as closed, so a missing or mistyped switch fails safe. Every item is also
+marked `sold_out: true` as a second lock. The owner flips the switch when Square stock is ready.

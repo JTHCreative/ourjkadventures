@@ -41,6 +41,8 @@ async function checkout(request, env, url) {
   const bySlug = {};
   (catalog.items || []).forEach((p) => { bySlug[p.slug] = p; });
   const currency = catalog.currency || 'USD';
+  // master switch: until products.json says "shop_open": true, nobody can check out
+  if (catalog.shop_open !== true) return json({ error: 'shop closed' }, 403);
 
   const lines = [];
   for (const w of wanted) {

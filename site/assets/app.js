@@ -28,6 +28,7 @@
       return r.json();
     }).then(function (j) {
       catalog.currency = j.currency || 'USD';
+      catalog.shop_open = j.shop_open === true;
       (j.items || []).forEach(function (p) { catalog.items[p.slug] = p; });
       return catalog;
     });
@@ -177,6 +178,10 @@
     total.appendChild(el('span', null, money(sum / 100, catalog.currency)));
     footEl.appendChild(total);
     footEl.appendChild(el('p', 'caption', 'shipping and tax are added at checkout.'));
+    if (!shopOpen()) {
+      footEl.appendChild(el('p', 'caption', 'the shop opens soon. your bag will keep these for you.'));
+      return;
+    }
     var go = el('button', 'jka-btn', 'check out');
     go.type = 'button';
     go.addEventListener('click', checkout);
@@ -257,7 +262,9 @@
   };
 
   function priceOf(p) { return money(p.price_cents / 100, catalog.currency); }
-  function soldOut(p) { return !!p.sold_out; }
+  function shopOpen() { return catalog.shop_open === true; }
+  function soldOut(p) { return !shopOpen() || !!p.sold_out; }
+  function soldOutLabel() { return shopOpen() ? 'sold out' : 'coming soon'; }
 
   function boardCard(p) {
     var card = el('article', 'card clean product product--board');
@@ -272,7 +279,7 @@
     info.appendChild(el('h3', 'name', p.name));
     info.appendChild(el('p', 'price', priceOf(p)));
     info.appendChild(el('p', 'body-sm muted', p.description || ''));
-    var b = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', soldOut(p) ? 'sold out' : 'add to bag');
+    var b = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', soldOut(p) ? soldOutLabel() : 'add to bag');
     b.type = 'button';
     if (soldOut(p)) b.disabled = true;
     else b.addEventListener('click', function () { addToBag(p.slug, b, 'add to bag'); });
@@ -426,7 +433,7 @@
     sheet.appendChild(el('h2', 'name', pupName(p)));
     sheet.appendChild(el('p', 'price', priceOf(p)));
     sheet.appendChild(el('p', 'about', PUP_ABOUT[p.slug] || ''));
-    var b = el('button', 'jka-btn', soldOut(p) ? 'sold out' : 'add to bag');
+    var b = el('button', 'jka-btn', soldOut(p) ? soldOutLabel() : 'add to bag');
     b.type = 'button';
     if (soldOut(p)) b.disabled = true;
     else b.addEventListener('click', function () { addToBag(p.slug, b, 'add to bag'); });
