@@ -33,13 +33,41 @@
 </header>
 <main>
 
-<section class="hero">
-  <div class="wrap">
-    <div class="jka-glow hero-pin"><img src="assets/img/pins/pomeranian.webp" width="150" height="150" alt="the pomeranian pin"></div>
+<section class="reel" aria-labelledby="reel-title">
+  <div class="reel-media" aria-hidden="true">
+    <div class="reel-felt">
+        <img class="reel-pin reel-pin--1" src="assets/img/pins/pomeranian.webp" alt="">
+        <img class="reel-pin reel-pin--2" src="assets/img/pins/aussie.webp" alt="">
+        <img class="reel-pin reel-pin--3" src="assets/img/pins/corgi.webp" alt="">
+        <img class="reel-pin reel-pin--4" src="assets/img/pins/shiba.webp" alt="">
+        <img class="reel-pin reel-pin--5" src="assets/img/pins/beagle.webp" alt="">
+        <img class="reel-pin reel-pin--6" src="assets/img/pins/husky.webp" alt="">
+        <img class="reel-pin reel-pin--7" src="assets/img/pins/pug.webp" alt="">
+        <img class="reel-pin reel-pin--8" src="assets/img/pins/golden.webp" alt="">
+    </div>
+    <!-- the reel: set data-mp4 (and optionally data-webm, data-poster) when the video files are in assets/video/ -->
+    <video class="reel-video" muted loop playsinline preload="none" data-mp4="" data-webm="" data-poster=""></video>
+  </div>
+  <div class="reel-text">
     <p class="eyebrow">small enamel pins</p>
-    <h1 class="display-xl">inside. out.</h1>
-    <p class="body-lg">pins for the things you love. wear them, pin them, and give them a wall you would want to look at.</p>
-    <a class="jka-btn" href="shop.html">visit the shop</a>
+    <h1 class="reel-title" id="reel-title">inside. out.</h1>
+    <p class="reel-sub">pins for the things you love, so the right people can find you.</p>
+    <a class="jka-btn jka-btn--on-media" href="shop.html">visit the shop</a>
+  </div>
+  <button class="reel-toggle" type="button" aria-label="pause the video" hidden>
+    <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
+    <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg>
+  </button>
+</section>
+
+<section class="section story">
+  <div class="wrap story-grid">
+    <h2 class="display story-title">the things you love.</h2>
+    <div class="story-body">
+      <p class="body-lg">we are j+k adventures, the two of us. we make small enamel pins, one specific thing at a time: a dog, a hometown, a year.</p>
+      <p class="body-lg muted">a pin is the smallest way to put a piece of what you love on your outside, so the people who love it too can find you.</p>
+      <p><a class="jka-btn" href="about.html">read our story</a></p>
+    </div>
   </div>
 </section>
 

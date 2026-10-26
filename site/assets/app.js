@@ -505,6 +505,48 @@
     });
   }
 
+  /* ---------- home: the reel ---------- */
+  // The video is set on the <video> as data-mp4 / data-webm / data-poster. Until then (or if it can't play)
+  // the pins on felt behind it stay in view. Someone who asks for less motion, or to save data, gets a
+  // still frame and a play button instead of autoplay.
+  function initReel() {
+    var reel = document.querySelector('.reel');
+    var video = reel && reel.querySelector('.reel-video');
+    if (!video) return;
+    var mp4 = video.getAttribute('data-mp4'), webm = video.getAttribute('data-webm'), poster = video.getAttribute('data-poster');
+    if (!mp4 && !webm) return;
+    var toggle = reel.querySelector('.reel-toggle');
+    var calm = (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ||
+      (navigator.connection && navigator.connection.saveData);
+
+    if (poster) { video.poster = poster; reel.classList.add('reel--ready'); }
+    [[webm, 'video/webm'], [mp4, 'video/mp4']].forEach(function (f) {
+      if (!f[0]) return;
+      var src = document.createElement('source');
+      src.src = f[0];
+      src.type = f[1];
+      video.appendChild(src);
+    });
+    function paint(paused) {
+      reel.classList.toggle('reel--paused', paused);
+      toggle.setAttribute('aria-label', paused ? 'play the video' : 'pause the video');
+    }
+    video.addEventListener('playing', function () { reel.classList.add('reel--playing'); paint(false); });
+    video.addEventListener('pause', function () { paint(true); });
+    // a missing or broken file: quietly keep the pins on felt
+    video.addEventListener('error', function () { reel.classList.remove('reel--playing', 'reel--ready'); toggle.hidden = true; }, true);
+    toggle.addEventListener('click', function () {
+      if (video.paused) { video.play().catch(function () {}); } else { video.pause(); }
+    });
+    toggle.hidden = false;
+    video.preload = calm ? 'metadata' : 'auto';
+    video.load();
+    if (calm) { paint(true); return; }
+    video.autoplay = true;
+    var tryPlay = video.play();
+    if (tryPlay && tryPlay.catch) tryPlay.catch(function () { paint(true); });
+  }
+
   /* ---------- start ---------- */
   function init() {
     countEls = Array.prototype.slice.call(document.querySelectorAll('[data-cart-count]'));
@@ -517,6 +559,7 @@
     });
     paintCount();
     paintAccountLink();
+    initReel();
     loadShop();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

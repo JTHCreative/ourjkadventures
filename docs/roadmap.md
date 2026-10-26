@@ -74,3 +74,5 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [ ] Real product photos for the Bay Area board
 - [ ] Chinese Zodiac and Hometown Series pages when those pins exist
 - [ ] Remaining 3D models as they arrive (`/add-3d-model`)
+- [x] Home page restructured: full-width video reel with the headline on top, then a two-column story section
+- [ ] Owner: send the reel video (MP4, ideally under 10 MB, no sound needed) and a still frame for the poster
