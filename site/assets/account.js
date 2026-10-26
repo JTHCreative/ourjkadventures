@@ -18,7 +18,7 @@ const app = initializeApp({
   appId: '1:5132579299:web:2b814e3274d611d37ff0d6'
 });
 const auth = getAuth(app);
-const CONTACT_EMAIL = 'jkadventures25@gmail.com';
+const CONTACT_EMAIL = 'ourjkadventures@gmail.com';
 const HINT = 'jka_user'; // the header reads this so other pages need not load Firebase
 
 /* ---------- small helpers ---------- */

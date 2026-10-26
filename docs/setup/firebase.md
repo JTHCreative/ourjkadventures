@@ -13,7 +13,7 @@ the accounts work is merged to `main`.
 ## In the Firebase console (console.firebase.google.com, open jk-adventures-website)
 1. **Build > Authentication > Get started > Sign-in method**:
    - Enable **Email/Password**. Leave "Email link (passwordless sign-in)" off.
-   - Enable **Google**. Set the support email to jkadventures25@gmail.com.
+   - Enable **Google**. Set the support email to ourjkadventures@gmail.com.
 2. **Authentication > Settings > Authorized domains**: add `ourjkadventures.com` and `www.ourjkadventures.com`.
    (`localhost` and the firebaseapp.com address are there already.) If you use Cloudflare preview
    links to test a branch, add that `workers.dev` address too.
