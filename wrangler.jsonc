@@ -1,0 +1,12 @@
+{
+  // Cloudflare Worker that serves the site and runs /api/checkout.
+  // "name" must match the Worker's name in your Cloudflare dashboard.
+  "name": "ourjkadventures",
+  "main": "site/_worker.js",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./site",
+    "binding": "ASSETS"
+  },
+  "observability": { "enabled": true }
+}
