@@ -8,5 +8,6 @@
     "directory": "./site",
     "binding": "ASSETS"
   },
-  "observability": { "enabled": true }
-}
+     "observability": { "enabled": true },
+     "keep_vars": true
+   }
