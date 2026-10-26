@@ -52,13 +52,16 @@ signed-in buyer without opening the package.
 ## Data (Firestore)
 ```
 users/{uid}
-  email, displayName, createdAt
+  email, firstName, lastName, phone, createdAt   // older documents may have displayName instead of firstName
   charges: number            // current count toward 10, server-written only
   lifetimeCharges: number
   earlyAccess: boolean       // set true the first time charges reach 3, never unset
   gift6Awarded: boolean      // set true the first time charges reach 6, never unset (first lap only)
   pendingGift6: boolean      // true until the owner ships the gift with their next order
   freePinAvailable: boolean  // true at 10 until redeemed
+
+users/{uid}/orders/{squareOrderId}  // note that this buyer started a checkout, for order history
+  createdAt
 
 users/{uid}/ledger/{entryId}  // append-only history, server-written only
   type: "earn" | "redeem" | "adjust"

@@ -9,7 +9,7 @@
 //
 // The account code lives in ../server so it is bundled into this worker but never published as a file.
 
-import { account } from '../server/account.js';
+import { account, noteOrder } from '../server/account.js';
 import { configured as firebaseConfigured, userFromRequest } from '../server/firebase.js';
 
 const SQUARE_VERSION = '2026-09-16';
@@ -20,7 +20,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/api/checkout') return checkout(request, env, url);
-    if (url.pathname === '/api/account') return account(request, env);
+    if (url.pathname === '/api/account' || url.pathname === '/api/account/orders') return account(request, env);
     return env.ASSETS.fetch(request);
   }
 };
@@ -115,6 +115,11 @@ async function checkout(request, env, url) {
   if (!res.ok || !target) {
     console.log('square error', res.status, JSON.stringify(data && data.errors));
     return json({ error: 'square' }, 502);
+  }
+  // remember that this signed-in buyer started this order, for their order history.
+  // never blocks checkout: a missed note only means the order won't be listed.
+  if (buyer && link.order_id) {
+    try { await noteOrder(env, buyer.sub, link.order_id); } catch (e) { console.log('order note failed', e.message); }
   }
   return json({ url: target });
 }

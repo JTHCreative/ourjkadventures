@@ -171,6 +171,27 @@ export async function firestoreCreate(env, collection, id, data, fetchFn = fetch
   return true;
 }
 
+// Changes only the named fields of a document that already exists.
+export async function firestoreUpdate(env, path, data, fetchFn = fetch) {
+  const token = await accessToken(env, fetchFn);
+  const mask = Object.keys(data).map((k) => 'updateMask.fieldPaths=' + encodeURIComponent(k)).join('&');
+  const res = await fetchFn(docsBase(env) + '/' + path + '?' + mask + '&currentDocument.exists=true', {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: toFields(data) })
+  });
+  if (!res.ok) throw new Error('firestore update ' + res.status);
+}
+
+// Lists a collection: [{ id, ...fields }], up to `limit` documents.
+export async function firestoreList(env, collection, limit = 100, fetchFn = fetch) {
+  const token = await accessToken(env, fetchFn);
+  const res = await fetchFn(docsBase(env) + '/' + collection + '?pageSize=' + limit, { headers: { Authorization: 'Bearer ' + token } });
+  if (!res.ok) throw new Error('firestore list ' + res.status);
+  const body = await res.json();
+  return (body.documents || []).map((d) => ({ id: decodeURIComponent(d.name.split('/').pop()), ...fromFields(d.fields) }));
+}
+
 export async function firestoreDelete(env, path, fetchFn = fetch) {
   const token = await accessToken(env, fetchFn);
   const res = await fetchFn(docsBase(env) + '/' + path, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });

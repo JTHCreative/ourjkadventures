@@ -44,12 +44,8 @@
         <div class="account-rows">
           <div class="row">
             <span class="caption">email</span>
-            <span class="body-sm" data-email style="overflow-wrap:anywhere"></span>
-          </div>
-          <div class="row">
-            <span class="caption">email check</span>
-            <span class="body-sm" data-verify role="status"></span>
-            <button class="linklike" type="button" data-verify-again hidden>send the link again</button>
+            <span class="body-sm email-line"><span data-email></span><span class="verified" data-verified hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="sr-only">confirmed</span></span></span>
+            <span class="caption" data-unverified hidden>not confirmed yet. <button class="linklike" type="button" data-verify-again>send the link again</button></span>
           </div>
           <div class="row">
             <span class="caption">the collector's path</span>
@@ -57,21 +53,12 @@
           </div>
         </div>
       </div>
+      <nav class="account-links" aria-label="your account">
+        <a class="card clean" href="orders.html"><span class="title">your orders</span><span class="body-sm muted">what you have ordered while signed in.</span></a>
+        <a class="card clean" href="account-details.html"><span class="title">your details</span><span class="body-sm muted">name, email and phone.</span></a>
+      </nav>
       <div class="account-actions">
         <button class="jka-btn jka-btn--quiet" type="button" data-sign-out>sign out</button>
-        <button class="linklike" type="button" data-delete-start>delete my account</button>
-      </div>
-      <div class="card clean danger-zone" id="delete-zone" hidden>
-        <form class="form" id="delete-form" novalidate>
-          <p class="body-sm">this removes your account and everything in it. it cannot be undone.</p>
-          <div class="field">
-            <label for="password">your password, to make sure it is you</label>
-            <input id="password" name="password" type="password" autocomplete="current-password">
-          </div>
-          <p class="form-msg" role="alert" hidden></p>
-          <button class="jka-btn" type="submit">delete my account</button>
-          <button class="linklike" type="button" data-delete-cancel>keep my account</button>
-        </form>
       </div>
     </div>
   </div>

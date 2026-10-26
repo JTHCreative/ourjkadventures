@@ -60,3 +60,17 @@ npm libraries. Its code lives in `server/` (bundled into the worker by wrangler,
 Deleting an account needs a sign-in from the last 5 minutes. Built on the current static site,
 before the Astro port, so accounts arrive sooner. Google Analytics from the Firebase snippet was
 left out: no tracking without a decision and a cookie notice.
+
+## 2026-10-26 Order history from notes, not a webhook
+Square doesn't know which website account placed an order. At checkout, the worker writes a small note
+(`users/{uid}/orders/{orderId}`) for signed-in buyers, and the orders page asks Square for those orders,
+showing only paid ones whose `metadata.uid` matches. Considered: a Square webhook that records paid
+orders (phase 2 plans one). The note approach needs no Square setup and shows Square's current status
+each time. Trade-off: orders placed signed out or at the booth don't appear. When the phase 2 webhook
+lands it can fill gaps if needed.
+
+## 2026-10-26 Account details
+First and last name and phone live in Firestore only; phone is optional and only for reaching someone
+about an order. Email lives in Firebase Authentication. Changing it sends a link to the new address and
+switches only when that is clicked, so a typo can't lock anyone out; the old address gets Firebase's
+"your email was changed" notice. Google sign-ins don't get an email change, since Google owns that email.

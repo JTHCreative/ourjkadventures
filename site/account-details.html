@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>your details. j+k adventures</title>
+<meta name="description" content="your details at j+k adventures.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css">
+<meta name="robots" content="noindex">
+</head>
+<body data-account-page="details">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <filter id="jka-rough" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="4"/></filter>
+  <filter id="jka-rough-fine" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="2" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.5"/></filter>
+</svg>
+<header class="site-header">
+  <div class="wrap">
+    <a class="logo-link" href="index.html" aria-label="j+k adventures, home"><img class="logo" src="assets/img/logo.webp" width="400" height="221" alt="j+k adventures"></a>
+    <nav class="nav" aria-label="main">
+      <a href="index.html">home</a>
+      <a href="shop.html">shop</a>
+      <a href="about.html">about us</a>
+      <a href="contact.html">contact</a>
+      <a href="account.html" data-account-link>sign in</a>
+      <button class="cart-btn" type="button" data-cart aria-label="open your bag">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
+        <span class="cart-count" data-cart-count hidden>0</span>
+      </button>
+    </nav>
+  </div>
+</header>
+<main>
+
+<section class="section">
+  <div class="wrap auth center">
+    <p class="eyebrow">your account</p>
+    <h1 class="display" style="margin-top:var(--space-2)">your details.</h1>
+    <p class="body-lg muted" style="margin-top:var(--space-4)" data-details-intro>we only use these for your orders and your account.</p>
+    <p class="notice" id="account-notice" role="status" hidden></p>
+    <div id="details-view" hidden>
+      <div class="card clean" style="margin-top:var(--space-6)">
+        <form class="form" id="details-form" novalidate>
+          <h2 class="title">name and phone</h2>
+          <div class="field">
+            <label for="firstName">first name</label>
+            <input id="firstName" name="firstName" type="text" autocomplete="given-name" maxlength="40">
+          </div>
+          <div class="field">
+            <label for="lastName">last name</label>
+            <input id="lastName" name="lastName" type="text" autocomplete="family-name" maxlength="40">
+          </div>
+          <div class="field">
+            <label for="phone">phone <span class="muted">(optional)</span></label>
+            <input id="phone" name="phone" type="tel" autocomplete="tel" maxlength="30" aria-describedby="phone-hint">
+            <span class="hint" id="phone-hint">only used if we need to reach you about an order.</span>
+          </div>
+          <p class="form-msg" role="status" hidden></p>
+          <button class="jka-btn" type="submit">save my details</button>
+        </form>
+      </div>
+
+      <div class="card clean" style="margin-top:var(--space-5)">
+        <div class="form">
+          <h2 class="title">email</h2>
+          <p class="body-sm">you sign in with <span data-current-email style="overflow-wrap:anywhere"></span>.</p>
+          <p class="body-sm muted" data-google-email hidden>you sign in with google, so your email follows your google account.</p>
+        </div>
+        <form class="form" id="email-form" novalidate style="margin-top:var(--space-4)">
+          <div class="field">
+            <label for="newEmail">new email</label>
+            <input id="newEmail" name="newEmail" type="email" autocomplete="email">
+          </div>
+          <div class="field">
+            <label for="currentPassword">your password, to make sure it is you</label>
+            <input id="currentPassword" name="password" type="password" autocomplete="current-password">
+          </div>
+          <p class="form-msg" role="status" hidden></p>
+          <button class="jka-btn jka-btn--quiet" type="submit">send a confirmation link</button>
+        </form>
+      </div>
+
+      <div class="account-actions">
+        <button class="linklike" type="button" data-delete-start>delete my account</button>
+      </div>
+      <div class="card clean danger-zone" id="delete-zone" hidden>
+        <form class="form" id="delete-form" novalidate>
+          <p class="body-sm">this removes your account and everything in it. it cannot be undone.</p>
+          <div class="field">
+            <label for="deletePassword">your password, to make sure it is you</label>
+            <input id="deletePassword" name="password" type="password" autocomplete="current-password">
+          </div>
+          <p class="form-msg" role="alert" hidden></p>
+          <button class="jka-btn" type="submit">delete my account</button>
+          <button class="linklike" type="button" data-delete-cancel>keep my account</button>
+        </form>
+      </div>
+    </div>
+    <p class="center" style="margin-top:var(--space-6)"><a href="account.html">back to your account</a></p>
+  </div>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="links">
+      <a href="shop.html">shop</a>
+      <a href="about.html">about us</a>
+      <a href="contact.html">contact</a>
+      <a href="https://www.instagram.com/jkadventures25/" target="_blank" rel="noopener">instagram</a>
+      <a href="mailto:jkadventures25@gmail.com">email</a>
+      <a href="privacy.html">privacy</a>
+    </div>
+    <p class="caption">&copy; 2026 j+k adventures.</p>
+  </div>
+</footer>
+<script src="assets/app.js"></script>
+<script type="module" src="assets/account.js"></script>
+</body>
+</html>

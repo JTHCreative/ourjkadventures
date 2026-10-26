@@ -35,21 +35,34 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   - creates a Square payment link: `POST /v2/online-checkout/payment-links` with order line items, optional `order.taxes` from `TAX_PERCENT`, a flat `shipping_fee`, `ask_for_shipping_address`, `redirect_url` = `/thank-you.html`
   - uses `connect.squareupsandbox.com` when `SQUARE_ENV=sandbox`
   - Square API version is pinned in `SQUARE_VERSION`
+- **Home page:** a full-width video "reel" with the headline on top (`.reel` in `index.html`), then a
+  two-column story section, the three sets and the pin board. The video is set with `data-mp4`,
+  `data-webm` and `data-poster` on the `<video>`; `initReel()` in `app.js` adds the sources, autoplays
+  muted and looped, and shows a pause button. Reduced motion or save-data means no autoplay. Until a
+  video is set, or if it fails, pins on felt show instead. Files go in `site/assets/video/`
+  (Cloudflare's limit is 25 MiB per file).
 - **Shop switch:** `shop_open` in `products.json`. Anything but `true` means every button reads
   "coming soon" and `/api/checkout` refuses all orders.
 - **Inventory:** not tracked. `sold_out` in `products.json` is set by hand.
 - **Accounts** (phase 3):
   - `site/assets/account.js` (ES module) loads Firebase Auth 12.19.0 from gstatic.com and runs
-    `sign-in.html`, `create-account.html`, `reset-password.html` and `account.html`
-    (picked by `<body data-account-page>`). Email/password and Google (popup).
+    `sign-in.html`, `create-account.html`, `reset-password.html`, `account.html`, `account-details.html`
+    and `orders.html` (picked by `<body data-account-page>`). Email/password and Google (popup).
+    Email changes use Firebase's `verifyBeforeUpdateEmail`: the switch happens only when the link sent
+    to the new address is clicked. Google sign-ins can't change email here.
   - Other pages don't load Firebase. The header reads a `jka_user` hint in localStorage (first name,
     or absent when signed out). At checkout, `app.js` imports `account.js` only if that hint exists,
     and sends the ticket as `Authorization: Bearer`.
   - `server/firebase.js` checks tickets against Google's published keys and calls Firestore and the
     Auth admin API with the service account. Built-in crypto only, no npm libraries.
   - `server/account.js`: `POST /api/account` creates `users/{uid}` on first visit and returns the
-    person's own details; `DELETE` removes the document and the login (needs a sign-in in the last
-    5 minutes).
+    person's own details (and copies a changed email in); `PATCH` changes `firstName`, `lastName`,
+    `phone` only; `DELETE` removes the order notes, the document and the login (needs a sign-in in the
+    last 5 minutes). `GET /api/account/orders` lists order history.
+  - Order history (`server/orders.js`): when a signed-in buyer starts checkout, the worker writes a
+    note `users/{uid}/orders/{squareOrderId}`. The orders page asks Square for those orders
+    (`BatchRetrieveOrders`) and shows only ones with this uid in `metadata` and a payment (tenders).
+    Orders placed signed out, at the booth, or before accounts existed don't appear.
   - `firestore.rules` blocks all browser access.
   - Checkout adds `metadata.uid` to the Square order and pre-fills the buyer's email.
 - **Fonts:** Google Fonts (EB Garamond).
