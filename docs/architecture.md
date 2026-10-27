@@ -35,7 +35,7 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   - creates a Square payment link: `POST /v2/online-checkout/payment-links` with order line items, optional `order.taxes` from `TAX_PERCENT`, a flat `shipping_fee`, `ask_for_shipping_address`, `redirect_url` = `/thank-you.html`
   - uses `connect.squareupsandbox.com` when `SQUARE_ENV=sandbox`
   - Square API version is pinned in `SQUARE_VERSION`
-- **Home page:** a full-width video "reel" with the headline on top (`.reel` in `index.html`), then a
+- **Home page:** a slim see-through header (`.site-header--over`, light logo `logo-white.svg`) sits on top of a full-width video "reel" with the headline on top (`.reel` in `index.html`), then a
   two-column story section, the three sets and the pin board. The video is set with `data-mp4`,
   `data-webm` and `data-poster` on the `<video>`; `initReel()` in `app.js` adds the sources, autoplays
   muted and looped, and shows a pause button. Reduced motion or save-data means no autoplay. Until a
