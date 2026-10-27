@@ -139,6 +139,21 @@ h1, h2, h3 { font-weight: 500; text-transform: none; }
 }
 .cart-count[hidden] { display: none; }
 
+/* home page: a slim see-through header that sits on top of the reel, with the light logo */
+.site-header--over { position: absolute; top: 0; left: 0; right: 0; z-index: 2; padding: var(--space-4) 0; }
+.site-header--over .wrap { max-width: 1200px; display: flex; align-items: center; justify-content: space-between; gap: var(--space-5); }
+.site-header--over .logo { width: 132px; }
+.site-header--over .nav { margin-top: 0; justify-content: flex-end; }
+.site-header--over .nav a, .site-header--over .nav button.cart-btn { color: var(--on-media); text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35); }
+.site-header--over .nav a:hover, .site-header--over .nav button.cart-btn:hover { border-bottom-color: rgba(249, 249, 247, 0.6); }
+.site-header--over .nav a[aria-current="page"] { border-bottom-color: var(--on-media); }
+.site-header--over a:focus-visible, .site-header--over button:focus-visible { outline-color: var(--on-media); }
+/* keep the placeholder pins clear of the header */
+.site-header--over + main .reel-pin--1 { top: 24%; }
+.site-header--over + main .reel-pin--2 { top: 20%; }
+.site-header--over + main .reel-pin--5 { top: 16%; }
+.site-header--over + main .reel { min-height: min(100vh, 900px); min-height: min(100svh, 900px); padding-top: calc(var(--space-8) + 72px); }
+
 .site-footer { margin-top: var(--space-8); padding: var(--space-6) 0 var(--space-7); border-top: 1.5px solid var(--line); text-align: center; }
 .site-footer .links { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2) var(--space-5); margin-bottom: var(--space-4); }
 .site-footer a { color: var(--ink); }
@@ -244,7 +259,7 @@ h1, h2, h3 { font-weight: 500; text-transform: none; }
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: linear-gradient(180deg, rgba(58, 53, 50, 0.30) 0%, rgba(58, 53, 50, 0.42) 55%, rgba(58, 53, 50, 0.62) 100%);
+  background: linear-gradient(180deg, rgba(58, 53, 50, 0.55) 0%, rgba(58, 53, 50, 0.32) 22%, rgba(58, 53, 50, 0.42) 60%, rgba(58, 53, 50, 0.62) 100%);
 }
 
 /* until the video arrives (or if it can't play): pins resting on the felt */
@@ -701,6 +716,11 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
   .product--board .art { flex: none; width: 100%; max-width: 280px; }
   .logo { width: 144px; }
   .reel { min-height: min(78svh, 640px); padding: var(--space-7) var(--space-4); }
+  .site-header--over .wrap { flex-direction: column; gap: var(--space-3); }
+  .site-header--over .logo { width: 128px; }
+  .site-header--over .nav { justify-content: center; }
+  .site-header--over + main .reel-pin--1, .site-header--over + main .reel-pin--2 { display: none; }
+  .site-header--over + main .reel { min-height: min(92svh, 760px); padding-top: calc(var(--space-6) + 150px); }
   .reel-sub { font-size: 19px; line-height: 28px; }
   .reel-pin--5, .reel-pin--7, .reel-pin--8 { display: none; }
   .reel-pin--1 { top: 6%; left: 4%; }
