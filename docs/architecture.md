@@ -41,7 +41,12 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   `data-webm` and `data-poster` on the `<video>`; `initReel()` in `app.js` adds the sources, autoplays
   muted and looped, and shows a pause button. Reduced motion or save-data means no autoplay. Until a
   video is set, or if it fails, pins on felt show instead. Files go in `site/assets/video/`
-  (Cloudflare's limit is 25 MiB per file).
+  (Cloudflare's limit is 25 MiB per file). Today's reel is `reel.webm` (VP9, about 3 MB) and
+  `reel.mp4` (H.264, about 4.5 MB), both 1280 wide with no sound, plus `reel-poster.jpg` (the
+  first frame). They were made from the 30-second 1080p hero loop with ffmpeg:
+  `-vf scale=1280:-2 -an`, then `-c:v libx264 -preset slower -crf 30 -movflags +faststart` for
+  the mp4 and two-pass `-c:v libvpx-vp9 -b:v 850k` for the webm. Keep the full-size original out
+  of `site/` so it isn't published.
 - **Shop switch:** `shop_open` in `products.json`. Anything but `true` means every button reads
   "coming soon" and `/api/checkout` refuses all orders.
 - **Inventory:** not tracked. `sold_out` in `products.json` is set by hand.
