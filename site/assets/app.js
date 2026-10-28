@@ -460,6 +460,22 @@
     }
   }
 
+  // phones can't hover, so pressing and holding a pin does what hovering does: a shake and a woof.
+  // letting go after a hold does not open the pin; a quick tap still does.
+  function addHoldShake(b) {
+    var timer = null;
+    function stop() { clearTimeout(timer); timer = null; b.classList.remove('is-held'); }
+    b.addEventListener('pointerdown', function (e) {
+      if (e.pointerType !== 'touch') return;
+      b.removeAttribute('data-held');
+      timer = setTimeout(function () { b.setAttribute('data-held', '1'); b.classList.add('is-held'); }, 300);
+    });
+    b.addEventListener('pointerup', stop);
+    b.addEventListener('pointercancel', function () { stop(); b.removeAttribute('data-held'); });
+    b.addEventListener('pointerleave', stop);
+    b.addEventListener('contextmenu', function (e) { if (timer || b.classList.contains('is-held')) e.preventDefault(); });
+  }
+
   function buildPupBoard(grid, bySlug) {
     grid.textContent = '';
     var shown = 0;
@@ -476,7 +492,11 @@
       img.alt = '';
       img.draggable = false;
       b.appendChild(img);
-      b.addEventListener('click', function () { showPup(p, b); });
+      addHoldShake(b);
+      b.addEventListener('click', function () {
+        if (b.getAttribute('data-held')) { b.removeAttribute('data-held'); return; }
+        showPup(p, b);
+      });
       grid.appendChild(b);
       shown++;
     });
