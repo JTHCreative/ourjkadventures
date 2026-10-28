@@ -481,6 +481,9 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
   aspect-ratio: 1 / 1;
   border-radius: 14px;
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 .pup-pin img {
   width: 74%;
@@ -533,15 +536,15 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 }
 .pup-pin:nth-child(4n+1)::before { left: 0; --tx: 0; }
 .pup-pin:nth-child(4n)::before { left: auto; right: 0; --tx: 0; }
-.pup-pin:focus-visible::before { opacity: 1; transform: translate(var(--tx), -100%); }
-.pup-pin:focus-visible::after { opacity: 1; transform: translate(-50%, -50%) rotate(45deg); }
+.pup-pin:focus-visible::before, .pup-pin.is-held::before { opacity: 1; transform: translate(var(--tx), -100%); }
+.pup-pin:focus-visible::after, .pup-pin.is-held::after { opacity: 1; transform: translate(-50%, -50%) rotate(45deg); }
 @media (hover: hover) {
   .pup-pin:hover::before { opacity: 1; transform: translate(var(--tx), -100%); }
   .pup-pin:hover::after { opacity: 1; transform: translate(-50%, -50%) rotate(45deg); }
 }
 .pup-pin[aria-pressed="true"] { background: radial-gradient(circle, rgba(246, 227, 200, 0.16), transparent 70%); }
 .pup-pin[aria-pressed="true"] img { transform: scale(1.12); }
-.pup-pin:focus-visible img { animation: pup-wiggle 0.6s ease-in-out; transform: scale(1.2); }
+.pup-pin:focus-visible img, .pup-pin.is-held img { animation: pup-wiggle 0.6s ease-in-out; transform: scale(1.2); }
 @media (hover: hover) {
   .pup-pin:hover img { animation: pup-wiggle 0.6s ease-in-out; transform: scale(1.2); }
 }
@@ -576,7 +579,7 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
   .reel-pin { animation: none; }
   .reel-video { transition: none; }
   .pup-pin img, .pup-pin::before, .pup-pin::after { transition: none; }
-  .pup-pin:hover img, .pup-pin:focus-visible img { animation: none; }
+  .pup-pin:hover img, .pup-pin:focus-visible img, .pup-pin.is-held img { animation: none; }
   .pup-sheet { animation: none; }
 }
 
