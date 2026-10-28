@@ -535,18 +535,41 @@
     if (!video) return;
     var mp4 = video.getAttribute('data-mp4'), webm = video.getAttribute('data-webm'), poster = video.getAttribute('data-poster');
     if (!mp4 && !webm) return;
+    // phones held upright get a tall, cropped copy: fewer bytes, and sharper than the wide one stretched to fit
+    var phone = window.matchMedia && (video.getAttribute('data-mp4-phone') || video.getAttribute('data-webm-phone')) ?
+      window.matchMedia('(max-width: 760px) and (orientation: portrait)') : null;
     var toggle = reel.querySelector('.reel-toggle');
     var calm = (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) ||
       (navigator.connection && navigator.connection.saveData);
 
     if (poster) { video.poster = poster; reel.classList.add('reel--ready'); }
-    [[webm, 'video/webm'], [mp4, 'video/mp4']].forEach(function (f) {
-      if (!f[0]) return;
-      var src = document.createElement('source');
-      src.src = f[0];
-      src.type = f[1];
-      video.appendChild(src);
-    });
+    function addSources() {
+      var small = phone && phone.matches;
+      video.textContent = '';
+      [[small ? video.getAttribute('data-webm-phone') : webm, 'video/webm'],
+       [small ? video.getAttribute('data-mp4-phone') : mp4, 'video/mp4']].forEach(function (f) {
+        if (!f[0]) return;
+        var src = document.createElement('source');
+        src.src = f[0];
+        src.type = f[1];
+        video.appendChild(src);
+      });
+    }
+    addSources();
+    // turning the phone sideways swaps copies, picking up at the same moment
+    if (phone) {
+      var swap = function () {
+        var at = video.currentTime, wasPlaying = !video.paused;
+        addSources();
+        video.addEventListener('loadedmetadata', function resume() {
+          video.removeEventListener('loadedmetadata', resume);
+          video.currentTime = at;
+        });
+        video.load();
+        if (wasPlaying) video.play().catch(function () {});
+      };
+      if (phone.addEventListener) phone.addEventListener('change', swap); else if (phone.addListener) phone.addListener(swap);
+    }
     function paint(paused) {
       reel.classList.toggle('reel--paused', paused);
       toggle.setAttribute('aria-label', paused ? 'play the video' : 'pause the video');

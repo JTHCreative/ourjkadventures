@@ -47,6 +47,12 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   `-vf scale=1280:-2 -an`, then `-c:v libx264 -preset slower -crf 30 -movflags +faststart` for
   the mp4 and two-pass `-c:v libvpx-vp9 -b:v 850k` for the webm. Keep the full-size original out
   of `site/` so it isn't published.
+  Upright phones (`max-width: 760px` and portrait) get `reel-phone.webm` (~1.9 MB) and
+  `reel-phone.mp4` (~2.4 MB) instead, set with `data-webm-phone` / `data-mp4-phone`. These are the
+  tall middle strip the phone would show anyway (`-vf crop=608:1080,scale=540:960`, mp4 as above,
+  webm two-pass at `-b:v 500k`), so they are smaller and sharper there. Turning the phone swaps
+  copies at the same moment. `_headers` lets browsers keep `/assets/video/*` for a week, so give a
+  new video a new file name or visitors may see the old one for up to a week.
 - **Shop switch:** `shop_open` in `products.json`. Anything but `true` means every button reads
   "coming soon" and `/api/checkout` refuses all orders.
 - **Inventory:** not tracked. `sold_out` in `products.json` is set by hand.
