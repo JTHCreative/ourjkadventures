@@ -41,12 +41,20 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   `data-webm` and `data-poster` on the `<video>`; `initReel()` in `app.js` adds the sources, autoplays
   muted and looped, and shows a pause button. Reduced motion or save-data means no autoplay. Until a
   video is set, or if it fails, pins on felt show instead. Files go in `site/assets/video/`
-  (Cloudflare's limit is 25 MiB per file). Today's reel is `reel.webm` (VP9, about 3 MB) and
-  `reel.mp4` (H.264, about 4.5 MB), both 1280 wide with no sound, plus `reel-poster.jpg` (the
-  first frame). They were made from the 30-second 1080p hero loop with ffmpeg:
-  `-vf scale=1280:-2 -an`, then `-c:v libx264 -preset slower -crf 30 -movflags +faststart` for
-  the mp4 and two-pass `-c:v libvpx-vp9 -b:v 850k` for the webm. Keep the full-size original out
-  of `site/` so it isn't published.
+  (Cloudflare's limit is 25 MiB per file). Today's reel is hero loop v4 (44 seconds, 1080p):
+  `reel-v4.webm` (VP9, ~4.7 MB) and `reel-v4.mp4` (H.264, ~5.5 MB), both 1280 wide with no sound,
+  plus `reel-v4-poster.jpg` (the first frame). Upright phones (`max-width: 760px` and portrait) get
+  `reel-v4-phone.webm` (~2.7 MB) and `reel-v4-phone.mp4` (~3.3 MB) instead, set with
+  `data-webm-phone` / `data-mp4-phone`. These are the tall middle strip the phone would show anyway,
+  so they are smaller and sharper there. Turning the phone swaps copies at the same moment.
+  Made with ffmpeg, `-an` (no sound) on all of them:
+  - wide: `-vf scale=1280:-2`; phone: `-vf crop=608:1080,scale=540:960`
+  - webm: two-pass `-c:v libvpx-vp9`, `-b:v 850k` wide, `-b:v 500k` phone
+  - mp4: two-pass `-c:v libx264 -preset slower -profile:v high -pix_fmt yuv420p -movflags +faststart`,
+    `-b:v 1000k -maxrate 2000k -bufsize 2000k` wide, `-b:v 600k -maxrate 1200k -bufsize 1200k` phone
+  `_headers` lets browsers keep `/assets/video/*` for a week, so a new video needs new file names
+  (for example `reel-v5.*`) or returning visitors may see the old one for up to a week. Keep
+  full-size originals out of the repo (they stay in Drive or git history).
 - **Shop switch:** `shop_open` in `products.json`. Anything but `true` means every button reads
   "coming soon" and `/api/checkout` refuses all orders.
 - **Inventory:** not tracked. `sold_out` in `products.json` is set by hand.
