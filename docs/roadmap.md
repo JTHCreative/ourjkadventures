@@ -75,4 +75,8 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [ ] Chinese Zodiac and Hometown Series pages when those pins exist
 - [ ] Remaining 3D models as they arrive (`/add-3d-model`)
 - [x] Home page restructured: full-width video reel with the headline on top, then a two-column story section
-- [ ] Owner: send the reel video (MP4, ideally under 10 MB, no sound needed) and a still frame for the poster
+- [x] Owner: send the reel video (MP4, ideally under 10 MB, no sound needed) and a still frame for the poster. Hero loop v4 is live, with tall phone copies
+- [x] Floating shop + bag pill once the header scrolls away
+- [x] Pup pin reviews: 1 to 5 stars and a note from signed-in accounts, approved by the owner first, "kind words." on the home page (`setup/reviews.md`)
+- [ ] Owner: approve the first reviews in the Firebase console
+- [ ] Later: a small admin page for approving reviews, once the phase 4 `admin` claim exists

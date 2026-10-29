@@ -34,6 +34,17 @@ export function fakeGoogle() {
       return Response.json({ orders: ids.map((id) => squareOrders[id]).filter(Boolean) });
     }
     if (opts.headers && opts.headers.Authorization !== 'Bearer server-token') return new Response('no', { status: 401 });
+    if (url.endsWith('/documents:runQuery')) {
+      // top-level collection, equality filters only (all the server uses)
+      const sq = JSON.parse(opts.body).structuredQuery;
+      const col = sq.from[0].collectionId;
+      const w = sq.where ? (sq.where.compositeFilter ? sq.where.compositeFilter.filters : [sq.where]) : [];
+      const rows = Object.keys(docs).filter((k) => k.split('/').length === 2 && k.startsWith(col + '/'))
+        .filter((k) => w.every((f) => JSON.stringify(docs[k][f.fieldFilter.field.fieldPath]) === JSON.stringify(f.fieldFilter.value)))
+        .slice(0, sq.limit || 1000)
+        .map((k) => ({ document: { name: 'projects/x/databases/(default)/documents/' + k, fields: docs[k] } }));
+      return Response.json(rows.length ? rows : [{ readTime: 'now' }]);
+    }
     const m = /documents\/([^?]+)(?:\?(.*))?$/.exec(url);
     if (m) {
       const q = new URLSearchParams(m[2] || '');
@@ -52,8 +63,10 @@ export function fakeGoogle() {
         return Response.json({});
       }
       if (method === 'PATCH') {
-        if (!docs[p]) return new Response('{}', { status: 404 });
-        Object.assign(docs[p], JSON.parse(opts.body).fields);
+        // with currentDocument.exists=true it only updates; without it, it creates or replaces
+        if (!docs[p] && q.get('currentDocument.exists') === 'true') return new Response('{}', { status: 404 });
+        if (q.has('updateMask.fieldPaths')) docs[p] = Object.assign(docs[p] || {}, JSON.parse(opts.body).fields);
+        else docs[p] = JSON.parse(opts.body).fields;
         return Response.json({});
       }
       if (method === 'DELETE') { delete docs[p]; return Response.json({}); }

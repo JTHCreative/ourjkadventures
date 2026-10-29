@@ -1,13 +1,14 @@
 // j+k adventures: /api/account. The clerk checks the ticket, then opens that person's folder.
 //   POST   /api/account          sign-in hello: creates the folder on first visit, returns it
 //   PATCH  /api/account          changes first name, last name, phone
-//   DELETE /api/account          deletes the folder, its order notes and the login. Needs a sign-in from the last 5 minutes.
+//   DELETE /api/account          deletes the folder, its order notes, their reviews and the login. Needs a sign-in from the last 5 minutes.
 //   GET    /api/account/orders   paid orders placed while signed in, read from Square
 
 import {
   configured, userFromRequest, firestoreGet, firestoreCreate, firestoreUpdate, firestoreList, firestoreDelete, deleteAuthUser
 } from './firebase.js';
 import { paidOrders } from './orders.js';
+import { deleteReviewsBy } from './reviews.js';
 
 const RECENT_SIGN_IN = 5 * 60; // seconds
 
@@ -74,6 +75,7 @@ export async function account(request, env, fetchFn = fetch) {
       // Firestore does not remove a folder's contents with it, so clear the order notes first
       const notes = await firestoreList(env, path + '/orders', 300, fetchFn);
       for (const n of notes) await firestoreDelete(env, path + '/orders/' + encodeURIComponent(n.id), fetchFn);
+      await deleteReviewsBy(env, uid, fetchFn);
       await firestoreDelete(env, path, fetchFn);
       await deleteAuthUser(env, uid, fetchFn);
       return json({ deleted: true });

@@ -78,6 +78,18 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
     (`BatchRetrieveOrders`) and shows only ones with this uid in `metadata` and a payment (tenders).
     Orders placed signed out, at the booth, or before accounts existed don't appear.
   - `firestore.rules` blocks all browser access.
+- **Reviews** (`server/reviews.js`, `/api/reviews`): signed-in people with a confirmed email rate a pin
+  1 to 5 stars with an optional note (600 characters). One review per person per pin, stored as
+  `reviews/{slug}_{uid}` with `status` `pending`, `approved` or `hidden`. New and edited reviews are
+  `pending` until the owner approves them in the Firebase console (`setup/reviews.md`). The public
+  reads approved reviews only through the worker, which keeps them in memory for 10 minutes so busy
+  pages don't run up Firestore reads; responses also tell browsers they may reuse them for 5 minutes.
+  `GET ?slug=` gives one pin's approved reviews and average (all ratings count), plus the reader's own
+  review when a ticket is sent. `GET ?featured=1` gives up to 6 approved 4 and 5 star reviews with
+  words for the home page's "kind words." section, which stays hidden while there are none. Names
+  shown are first name and last initial; the uid never leaves the server. Account deletion removes
+  that person's reviews. The sign-in page honors `?next=<page>.html` (own pages only) so "sign in to
+  leave a review" returns to the pup club.
   - Checkout adds `metadata.uid` to the Square order and pre-fills the buyer's email.
 - **Fonts:** Google Fonts (EB Garamond).
 

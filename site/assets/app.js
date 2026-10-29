@@ -447,17 +447,220 @@
     sheet.appendChild(art);
     sheet.appendChild(el('h2', 'name', pupName(p)));
     sheet.appendChild(el('p', 'price', priceOf(p)));
+    var starLine = el('p', 'pup-star-line');
+    starLine.hidden = true;
+    sheet.appendChild(starLine);
     sheet.appendChild(el('p', 'about', PUP_ABOUT[p.slug] || ''));
     var b = el('button', 'jka-btn', soldOut(p) ? soldOutLabel() : 'add to bag');
     b.type = 'button';
     if (soldOut(p)) b.disabled = true;
     else b.addEventListener('click', function () { addToBag(p.slug, b, 'add to bag'); });
     sheet.appendChild(b);
+    sheet.appendChild(reviewBlock(p, starLine));
     panel.appendChild(sheet);
     panel.hidden = false;
     if (window.matchMedia && window.matchMedia('(max-width: 760px)').matches) {
       panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+  }
+
+  /* ---------- reviews: stars and notes on each pup, approved by us first (see server/reviews.js) ---------- */
+  // five stars, filled to the nearest half
+  function starsEl(value) {
+    var wrap = el('span', 'stars');
+    wrap.setAttribute('role', 'img');
+    wrap.setAttribute('aria-label', value + ' out of 5 stars');
+    wrap.appendChild(el('span', 'stars-empty', '\u2605\u2605\u2605\u2605\u2605'));
+    var full = el('span', 'stars-full', '\u2605\u2605\u2605\u2605\u2605');
+    full.style.width = (Math.round(value * 2) / 2 / 5 * 100) + '%';
+    wrap.appendChild(full);
+    return wrap;
+  }
+  var MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+  function monthYear(iso) {
+    var m = /^(\d{4})-(\d{2})/.exec(iso || '');
+    return m ? MONTHS[Number(m[2]) - 1] + ' ' + m[1] : '';
+  }
+  function reviewItem(r, showPin) {
+    var item = el('article', 'review');
+    var top = el('div', 'review-top');
+    if (showPin && PIN_IMG[r.slug]) {
+      var img = el('img', 'review-pin');
+      img.src = PIN_IMG[r.slug];
+      img.alt = 'the ' + (r.slug === 'golden' ? 'goldie' : (PUP_BREED[r.slug] || r.slug)) + ' pin';
+      img.width = 48;
+      img.height = 48;
+      img.loading = 'lazy';
+      top.appendChild(img);
+    }
+    top.appendChild(starsEl(r.rating));
+    item.appendChild(top);
+    if (r.text) item.appendChild(el('p', 'review-text', r.text));
+    item.appendChild(el('p', 'review-by', r.name + (monthYear(r.date) ? ', ' + monthYear(r.date) : '') + '.'));
+    return item;
+  }
+  function reviewRequest(method, query, token, body) {
+    var headers = {};
+    if (token) headers.Authorization = 'Bearer ' + token;
+    if (body) headers['Content-Type'] = 'application/json';
+    return fetch('/api/reviews' + query, { method: method, headers: headers, body: body ? JSON.stringify(body) : undefined })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j.status_code = r.status; return j; }); });
+  }
+
+  function reviewBlock(p, starLine) {
+    var block = el('section', 'pup-reviews');
+    block.setAttribute('aria-label', 'reviews of the ' + pupName(p) + ' pin');
+    block.hidden = true;
+    var list = el('div', 'review-list');
+    var form = el('div', 'review-form');
+    block.appendChild(el('h3', 'pup-reviews-title', 'reviews'));
+    block.appendChild(list);
+    block.appendChild(form);
+
+    signInTicket().then(function (token) {
+      return reviewRequest('GET', '?slug=' + encodeURIComponent(p.slug), token).then(function (data) {
+        // no reviews service (or it is resting): leave the panel as it was
+        if (data.status_code !== 200) return;
+        paintSummary(data);
+        paintList(data.reviews || []);
+        paintForm(token, data.mine);
+        block.hidden = false;
+      });
+    }).catch(function () {});
+
+    function paintSummary(data) {
+      starLine.textContent = '';
+      if (!data.count) { starLine.appendChild(el('span', 'muted', 'no reviews yet.')); }
+      else {
+        starLine.appendChild(starsEl(data.average));
+        starLine.appendChild(el('span', 'muted', ' ' + data.average + ', ' + data.count + (data.count === 1 ? ' review.' : ' reviews.')));
+      }
+      starLine.hidden = false;
+    }
+    function paintList(items) {
+      list.textContent = '';
+      items.slice(0, 3).forEach(function (r) { list.appendChild(reviewItem(r, false)); });
+      if (items.length > 3) {
+        var more = el('button', 'link-btn', 'show all ' + items.length + ' reviews.');
+        more.type = 'button';
+        more.addEventListener('click', function () {
+          more.remove();
+          items.slice(3).forEach(function (r) { list.appendChild(reviewItem(r, false)); });
+        });
+        list.appendChild(more);
+      }
+    }
+    function paintForm(token, mine) {
+      form.textContent = '';
+      if (!token) {
+        var line = el('p', 'muted');
+        var a = el('a', null, 'sign in');
+        a.href = 'sign-in.html?next=pup-club.html';
+        line.appendChild(a);
+        line.appendChild(document.createTextNode(' to leave a review.'));
+        form.appendChild(line);
+        return;
+      }
+      var f = el('form');
+      f.noValidate = true;
+      var fs = el('fieldset', 'star-input');
+      fs.appendChild(el('legend', null, mine ? 'your review' : 'leave a review'));
+      var picked = mine ? mine.rating : 0;
+      var labels = [];
+      for (var i = 1; i <= 5; i++) {
+        var radio = el('input');
+        radio.type = 'radio';
+        radio.name = 'rating';
+        radio.value = String(i);
+        radio.id = 'rating-' + p.slug + '-' + i;
+        radio.className = 'sr-only';
+        if (i === picked) radio.checked = true;
+        var lab = el('label', null, '\u2605');
+        lab.htmlFor = radio.id;
+        lab.appendChild(el('span', 'sr-only', i === 1 ? '1 star' : i + ' stars'));
+        fs.appendChild(radio);
+        fs.appendChild(lab);
+        labels.push(lab);
+      }
+      function light(n) { labels.forEach(function (l, k) { l.classList.toggle('on', k < n); }); }
+      light(picked);
+      fs.addEventListener('change', function (e) { picked = Number(e.target.value); light(picked); });
+      f.appendChild(fs);
+      var field = el('div', 'field');
+      var tl = el('label', null, 'a few words, if you like.');
+      tl.htmlFor = 'review-text-' + p.slug;
+      var ta = el('textarea');
+      ta.id = tl.htmlFor;
+      ta.rows = 3;
+      ta.maxLength = 600;
+      ta.value = mine ? mine.text : '';
+      field.appendChild(tl);
+      field.appendChild(ta);
+      f.appendChild(field);
+      var note = el('p', 'review-note');
+      note.setAttribute('role', 'status');
+      if (mine) note.textContent = mine.status === 'approved' ? 'your review is up. you can change it here.' : 'your review is waiting for us to read it.';
+      var row = el('div', 'review-actions');
+      var send = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', mine ? 'update your review.' : 'share your review.');
+      send.type = 'submit';
+      row.appendChild(send);
+      if (mine) {
+        var remove = el('button', 'link-btn', 'remove it.');
+        remove.type = 'button';
+        remove.addEventListener('click', function () {
+          remove.disabled = true;
+          reviewRequest('DELETE', '?slug=' + encodeURIComponent(p.slug), token).then(function (r) {
+            if (r.status_code !== 200) { remove.disabled = false; note.textContent = 'we could not remove it just now. try again in a moment.'; return; }
+            paintForm(token, null);
+            form.querySelector('.review-note').textContent = 'your review is gone.';
+          }).catch(function () { remove.disabled = false; });
+        });
+        row.appendChild(remove);
+      }
+      f.appendChild(row);
+      f.appendChild(note);
+      f.addEventListener('submit', function (e) {
+        e.preventDefault();
+        if (!picked) { note.textContent = 'pick from one to five stars first.'; return; }
+        send.disabled = true;
+        send.textContent = 'one moment.';
+        reviewRequest('POST', '', token, { slug: p.slug, rating: picked, text: ta.value }).then(function (r) {
+          send.disabled = false;
+          if (r.status_code === 200) {
+            paintForm(token, { rating: picked, text: ta.value.trim(), status: 'pending' });
+            form.querySelector('.review-note').textContent = 'thank you. we read every review before it shows up here.';
+            return;
+          }
+          send.textContent = mine ? 'update your review.' : 'share your review.';
+          note.textContent = r.error === 'confirm email' ? 'please confirm your email first. the link is in your inbox, or send a new one from your account page.'
+            : r.status_code === 401 ? 'please sign in again, then try once more.'
+            : 'we could not save your review. try again, or write to us at support@ourjkadventures.com.';
+        }).catch(function () {
+          send.disabled = false;
+          send.textContent = mine ? 'update your review.' : 'share your review.';
+          note.textContent = 'we could not save your review. try again, or write to us at support@ourjkadventures.com.';
+        });
+      });
+      form.appendChild(f);
+    }
+    return block;
+  }
+
+  // the home page: approved 4 and 5 star reviews with words. the section stays hidden until there is one.
+  function initKindWords() {
+    var section = document.getElementById('kind-words');
+    var list = section && section.querySelector('[data-kind-words]');
+    if (!list) return;
+    reviewRequest('GET', '?featured=1').then(function (data) {
+      var items = (data.status_code === 200 && data.reviews) || [];
+      if (!items.length) return;
+      items.forEach(function (r) {
+        var card = reviewItem(r, true);
+        card.classList.add('card', 'clean');
+        list.appendChild(card);
+      });
+      section.hidden = false;
+    }).catch(function () {});
   }
 
   // phones can't hover, so pressing and holding a pin does what hovering does: a shake and a woof.
@@ -642,6 +845,7 @@
     paintCount();
     paintAccountLink();
     initReel();
+    initKindWords();
     loadShop();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
