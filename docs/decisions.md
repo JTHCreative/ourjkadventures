@@ -49,14 +49,23 @@ refuses every order (403), even if someone crafts the request by hand. Anything 
 `"shop_open": true` counts as closed, so a missing or mistyped switch fails safe. Every item is also
 marked `sold_out: true` as a second lock. The owner flips the switch when Square stock is ready.
 
+## 2026-10-29 Admin is a confirmed email on a list, for now
+The owner approves reviews on `admin.html` instead of the Firebase console. Admin means: signed in,
+email confirmed, and the email is in `ADMIN_EMAILS` (default `ourjkadventures@gmail.com`). Confirming
+needs access to that inbox, so someone who signs up with the address can't pass. Considered: a
+Firebase custom `admin` claim, which the Collector's Path spec plans for the packing tool. A claim has
+to be set with the Admin API by a script, and the email list does the job with nothing to set up.
+When phase 4 adds the claim, `isAdmin` can accept either. The shop open/closed switch stays in
+`products.json` (a file edit and deploy); it isn't on the admin page.
+
 ## 2026-10-29 Reviews: accounts only, approved first, never filtered by stars
 Owner's choices: reviews come from signed-in accounts with a confirmed email (not only verified
 buyers, since the shop isn't open yet and booth buyers have no online order), every review waits for
 the owner's approval, and the home page features approved 4 and 5 star reviews that have words.
 Approval screens for spam, rudeness and private details, never for low ratings: the FTC's consumer
 review rule treats suppressing honest negative reviews as deceptive, so every approved rating counts
-toward a pin's average and shows on its panel. Approval happens in the Firebase console for now
-(no admin page yet). The worker caches approved reviews for 10 minutes because each Firestore query
+toward a pin's average and shows on its panel. Approval happens on `admin.html` (see the admin
+entry above), or in the Firebase console. The worker caches approved reviews for 10 minutes because each Firestore query
 is billed per document read. Same pattern as accounts: the browser never touches Firestore.
 
 ## 2026-10-26 Accounts: the browser never touches Firestore

@@ -10,3 +10,5 @@ SQUARE_WEBHOOK_URL=
 # phase 3
 FIREBASE_PROJECT_ID=
 FIREBASE_SERVICE_ACCOUNT=
+# optional: who may use admin.html (comma separated). defaults to ourjkadventures@gmail.com
+ADMIN_EMAILS=

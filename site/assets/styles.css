@@ -877,3 +877,17 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .order-items { list-style: none; padding: 0; margin: var(--space-3) 0; font-size: 18px; line-height: 27px; }
 .order-foot { padding-top: var(--space-3); border-top: 1.5px solid var(--line); }
 @media (max-width: 480px) { .account-links { grid-template-columns: 1fr; } }
+
+/* admin: reviews */
+.admin-tabs { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-6); }
+.admin-tabs [aria-pressed="true"] { --btn-bg: var(--ink); --btn-fg: var(--surface); --btn-line: var(--ink); }
+.admin-empty { margin-top: var(--space-6); }
+.admin-empty[hidden] { display: none; }
+.admin-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-4); margin-top: var(--space-5); text-align: left; }
+.admin-review { display: flex; flex-direction: column; gap: var(--space-2); }
+.admin-review-head { display: flex; align-items: center; gap: var(--space-3); }
+.admin-review-head img { width: 48px; height: 48px; object-fit: contain; }
+.admin-review-pin { font-size: 22px; line-height: 28px; }
+.admin-stars { color: var(--honey-600); font-size: 18px; line-height: 22px; letter-spacing: 2px; }
+.admin-review-text { font-size: 17px; line-height: 26px; white-space: pre-line; overflow-wrap: anywhere; }
+.admin-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-2); }

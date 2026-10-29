@@ -133,3 +133,63 @@ test('bad requests are refused calmly', async () => {
   assert.equal((await reviews(req('GET', null), env, g.fetchFn)).status, 400);
   assert.equal((await reviews(req('GET', null, { query: '?featured=1' }), {}, g.fetchFn)).status, 503);
 });
+
+/* ---------- the admin page ---------- */
+const adminReq = (method, token, body) => new Request('https://x.test/api/reviews/admin', {
+  method, headers: token ? { Authorization: 'Bearer ' + token } : {}, body: body ? JSON.stringify(body) : undefined
+});
+const ADMIN = { sub: 'owner1', email: 'ourjkadventures@gmail.com', email_verified: true };
+
+test('only the shop account, with its email confirmed, gets into the admin list', async () => {
+  const g = fresh();
+  assert.equal((await reviews(adminReq('GET', null), env, g.fetchFn)).status, 401);
+  assert.equal((await reviews(adminReq('GET', await sign({})), env, g.fetchFn)).status, 403);
+  assert.equal((await reviews(adminReq('GET', await sign({ ...ADMIN, email_verified: false })), env, g.fetchFn)).status, 403);
+  assert.equal((await reviews(adminReq('GET', await sign({ ...ADMIN, email: 'OurJKAdventures@Gmail.com ' })), env, g.fetchFn)).status, 200);
+  assert.equal((await reviews(adminReq('PATCH', await sign({}), { id: 'corgi_uid123', status: 'approved' }), env, g.fetchFn)).status, 403);
+  // a different list in Cloudflare replaces the default
+  const other = { ...env, ADMIN_EMAILS: 'helper@example.com, pup@example.com' };
+  assert.equal((await reviews(adminReq('GET', await sign({})), other, g.fetchFn)).status, 200);
+  assert.equal((await reviews(adminReq('GET', await sign(ADMIN)), other, g.fetchFn)).status, 403);
+});
+
+test('the admin sees every review, waiting ones first, and can approve, hide or send back', async () => {
+  const g = fresh();
+  const tok = await sign({});
+  await post(g, tok, { slug: 'corgi', rating: 5, text: 'joy.' });
+  await post(g, tok, { slug: 'pug', rating: 2, text: 'loose back.' });
+  approve(g, 'pug_uid123');
+  const admin = await sign(ADMIN);
+  const list = (await (await reviews(adminReq('GET', admin), env, g.fetchFn)).json()).reviews;
+  assert.deepEqual(list.map((r) => [r.id, r.status]), [['corgi_uid123', 'pending'], ['pug_uid123', 'approved']]);
+  assert.ok(list.every((r) => !('uid' in r)));
+  assert.equal(list[0].name, 'juniper h.');
+
+  const r = await reviews(adminReq('PATCH', admin, { id: 'corgi_uid123', status: 'approved' }), env, g.fetchFn);
+  assert.deepEqual(await r.json(), { id: 'corgi_uid123', status: 'approved' });
+  assert.equal((await getPin(g, 'corgi')).count, 1, 'shows at once on this server');
+  await reviews(adminReq('PATCH', admin, { id: 'pug_uid123', status: 'hidden' }), env, g.fetchFn);
+  assert.equal((await getPin(g, 'pug')).count, 0);
+  await reviews(adminReq('PATCH', admin, { id: 'pug_uid123', status: 'pending' }), env, g.fetchFn);
+  assert.equal(g.docs['reviews/pug_uid123'].status.stringValue, 'pending');
+  assert.equal(g.docs['reviews/pug_uid123'].text.stringValue, 'loose back.', 'nothing else changes');
+});
+
+test('the admin page refuses bad ids, unknown statuses and missing reviews', async () => {
+  const g = fresh();
+  const admin = await sign(ADMIN);
+  for (const id of ['', 'nounderscore', '../users_x', 'corgi_a/b', 7]) {
+    assert.equal((await reviews(adminReq('PATCH', admin, { id, status: 'approved' }), env, g.fetchFn)).status, 400, String(id));
+  }
+  assert.equal((await reviews(adminReq('PATCH', admin, { id: 'corgi_uid123', status: 'deleted' }), env, g.fetchFn)).status, 400);
+  assert.equal((await reviews(adminReq('PATCH', admin, { id: 'corgi_nobody', status: 'approved' }), env, g.fetchFn)).status, 404);
+  assert.equal((await reviews(adminReq('DELETE', admin), env, g.fetchFn)).status, 405);
+});
+
+test('the account page learns whether this is the admin', async () => {
+  const g = fresh();
+  const hi = async (claims) => (await (await account(new Request('https://x.test/api/account', { method: 'POST', headers: { Authorization: 'Bearer ' + await sign(claims) } }), env, g.fetchFn)).json()).admin;
+  assert.equal(await hi({}), false);
+  assert.equal(await hi(ADMIN), true);
+  assert.equal(await hi({ ...ADMIN, sub: 'owner2', email_verified: false }), false);
+});

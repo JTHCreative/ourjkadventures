@@ -9,6 +9,7 @@ import {
 } from './firebase.js';
 import { paidOrders } from './orders.js';
 import { deleteReviewsBy } from './reviews.js';
+import { isAdmin } from './admin.js';
 
 const RECENT_SIGN_IN = 5 * 60; // seconds
 
@@ -34,8 +35,9 @@ export function cleanPhone(s) {
   return s.replace(/\s+/g, ' ').trim();
 }
 
-function publicView(user, doc) {
+function publicView(user, doc, env) {
   return {
+    admin: isAdmin(user, env),
     email: user.email || doc.email || '',
     emailVerified: user.email_verified === true,
     firstName: doc.firstName || doc.displayName || '',
@@ -96,7 +98,7 @@ export async function account(request, env, fetchFn = fetch) {
       }
       if (!Object.keys(changes).length) return json({ error: 'nothing to change' }, 400);
       await firestoreUpdate(env, path, changes, fetchFn);
-      return json(publicView(user, (await firestoreGet(env, path, fetchFn)) || changes));
+      return json(publicView(user, (await firestoreGet(env, path, fetchFn)) || changes, env));
     }
 
     // POST: hello
@@ -125,7 +127,7 @@ export async function account(request, env, fetchFn = fetch) {
       await firestoreUpdate(env, path, { email: user.email }, fetchFn);
       doc.email = user.email;
     }
-    return json(publicView(user, doc));
+    return json(publicView(user, doc, env));
   } catch (e) {
     console.log('account error', e.message);
     return json({ error: 'unavailable' }, 503);

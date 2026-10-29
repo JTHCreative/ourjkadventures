@@ -3,15 +3,19 @@
 //   GET    /api/reviews?featured=1   approved 4 and 5 star reviews with words, newest first, for the home page
 //   POST   /api/reviews              { slug, rating, text }: leave or replace your review. Needs a confirmed email.
 //   DELETE /api/reviews?slug=corgi   remove your review
+//   GET    /api/reviews/admin        admin only: every review, waiting ones first
+//   PATCH  /api/reviews/admin        admin only: { id, status } to approve, hide, or send back to waiting
 // One review per person per pin, stored as reviews/{slug}_{uid}. Every new or changed review is "pending"
-// until the owner sets its status to "approved" in the Firebase console (docs/setup/reviews.md).
+// until the owner approves it on admin.html (or in the Firebase console). See docs/setup/reviews.md.
 // The ratings shown are never filtered by stars: only the home page picks out the 4 and 5 star ones.
 
-import { configured, userFromRequest, firestoreGet, firestoreSet, firestoreQuery, firestoreDelete } from './firebase.js';
+import { configured, userFromRequest, firestoreGet, firestoreSet, firestoreQuery, firestoreDelete, firestoreList, firestoreUpdate } from './firebase.js';
+import { isAdmin } from './admin.js';
 
 const MAX_TEXT = 600;
 const FEATURED = 6;
 const CACHE_MS = 10 * 60 * 1000; // approved reviews are re-read at most every 10 minutes per server
+const STATUSES = ['pending', 'approved', 'hidden'];
 
 let approvedCache = { list: null, until: 0 };
 
@@ -62,6 +66,7 @@ async function pinSlugs(request, env) {
 
 export async function reviews(request, env, fetchFn = fetch) {
   const url = new URL(request.url);
+  if (url.pathname === '/api/reviews/admin') return adminReviews(request, env, fetchFn);
   if (!['GET', 'POST', 'DELETE'].includes(request.method)) return json({ error: 'method' }, 405);
   if (!configured(env)) return json({ error: 'not configured' }, 503);
 
@@ -130,6 +135,46 @@ export async function reviews(request, env, fetchFn = fetch) {
     return json({ saved: true, status: 'pending' });
   } catch (e) {
     console.log('reviews error', e.message);
+    return json({ error: 'unavailable' }, 503);
+  }
+}
+
+// the admin page: see every review and change its status. Never shows the uid.
+async function adminReviews(request, env, fetchFn) {
+  if (!['GET', 'PATCH'].includes(request.method)) return json({ error: 'method' }, 405);
+  if (!configured(env)) return json({ error: 'not configured' }, 503);
+  try {
+    const user = await userFromRequest(request, env, fetchFn);
+    if (!user) return json({ error: 'signed out' }, 401);
+    if (!isAdmin(user, env)) return json({ error: 'not admin' }, 403);
+
+    if (request.method === 'GET') {
+      const order = { pending: 0, approved: 1, hidden: 2 };
+      const all = (await firestoreList(env, 'reviews', 300, fetchFn))
+        .map((r) => ({
+          id: r.id, slug: r.slug, rating: r.rating, text: r.text || '', name: r.name || 'a collector',
+          status: STATUSES.includes(r.status) ? r.status : 'pending',
+          date: String(r.updatedAt || r.createdAt || '').slice(0, 10)
+        }))
+        .sort((a, b) => (order[a.status] - order[b.status]) || b.date.localeCompare(a.date));
+      return json({ reviews: all });
+    }
+
+    let body = {};
+    try { body = await request.json(); } catch (e) {}
+    body = body || {};
+    if (typeof body.id !== 'string' || !/^[a-z0-9-]{1,40}_[A-Za-z0-9]{1,128}$/.test(body.id)) return json({ error: 'id' }, 400);
+    if (!STATUSES.includes(body.status)) return json({ error: 'status' }, 400);
+    try {
+      await firestoreUpdate(env, 'reviews/' + encodeURIComponent(body.id), { status: body.status, reviewedAt: new Date() }, fetchFn);
+    } catch (e) {
+      if (/ 404$/.test(e.message)) return json({ error: 'gone' }, 404);
+      throw e;
+    }
+    approvedCache = { list: null, until: 0 };
+    return json({ id: body.id, status: body.status });
+  } catch (e) {
+    console.log('admin reviews error', e.message);
     return json({ error: 'unavailable' }, 503);
   }
 }

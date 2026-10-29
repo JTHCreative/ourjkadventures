@@ -1,5 +1,5 @@
 /* j+k adventures: accounts. Firebase Authentication holds passwords and hands out sign-in tickets (ID tokens).
-   This file runs the sign-in, create, reset, account, details and orders pages, and lends a ticket to checkout (see app.js).
+   This file runs the sign-in, create, reset, account, details, orders and admin pages, and lends a ticket to checkout (see app.js).
    Customer details come from our own server at /api/account, never straight from Firestore. */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
 import {
@@ -266,6 +266,7 @@ async function accountPage() {
   try {
     const me = await hello(user);
     $('[data-greeting]').textContent = me.firstName ? 'hello, ' + me.firstName.toLowerCase() + '.' : 'hello.';
+    if (me.admin) $('[data-admin-link]').hidden = false;
   } catch (e) {
     couldNotOpen(notice);
   }
@@ -444,6 +445,105 @@ async function ordersPage() {
   list.hidden = false;
 }
 
+/* ---------- admin: approve or hide reviews (only the shop's own account; the server checks too) ---------- */
+const STATUS_WORD = { pending: 'waiting', approved: 'approved', hidden: 'hidden' };
+function pinName(slug) { return slug === 'golden' ? 'goldie' : String(slug || '').replace(/-/g, ' '); }
+
+async function adminPage() {
+  const user = await signedIn();
+  if (!user) return;
+  const notice = $('#account-notice');
+  const view = $('#admin-view');
+  const list = $('#admin-list');
+  const empty = $('#admin-empty');
+  const tabs = Array.from(document.querySelectorAll('[data-show]'));
+  let reviews;
+  try {
+    reviews = (await api(user, 'GET', '/api/reviews/admin')).reviews;
+  } catch (e) {
+    notice.textContent = e.status === 403 ? 'this page is only for the shop\'s own account.'
+      : 'we could not load the reviews just now. try again in a moment.';
+    notice.hidden = false;
+    return;
+  }
+  let showing = 'pending';
+
+  function paint() {
+    tabs.forEach(function (t) {
+      const n = reviews.filter(function (r) { return r.status === t.dataset.show; }).length;
+      t.textContent = STATUS_WORD[t.dataset.show] + ' (' + n + ')';
+      t.setAttribute('aria-pressed', String(t.dataset.show === showing));
+    });
+    list.textContent = '';
+    const these = reviews.filter(function (r) { return r.status === showing; });
+    empty.textContent = showing === 'pending' ? 'nothing waiting. all caught up.' : 'none here.';
+    empty.hidden = these.length > 0;
+    these.forEach(function (r) { list.appendChild(card(r)); });
+  }
+
+  function card(r) {
+    const c = document.createElement('article');
+    c.className = 'card clean admin-review';
+    const head = document.createElement('div');
+    head.className = 'admin-review-head';
+    const img = document.createElement('img');
+    img.src = 'assets/img/pins/' + r.slug + '.webp';
+    img.alt = '';
+    img.width = 48;
+    img.height = 48;
+    const what = document.createElement('div');
+    const title = document.createElement('h2');
+    title.className = 'admin-review-pin';
+    title.textContent = pinName(r.slug);
+    const stars = document.createElement('p');
+    stars.className = 'admin-stars';
+    stars.textContent = '\u2605'.repeat(r.rating) + '\u2606'.repeat(5 - r.rating);
+    stars.setAttribute('aria-label', r.rating + ' out of 5 stars');
+    what.append(title, stars);
+    head.append(img, what);
+    const text = document.createElement('p');
+    text.className = 'admin-review-text';
+    text.textContent = r.text || '(stars only, no words.)';
+    if (!r.text) text.classList.add('muted');
+    const by = document.createElement('p');
+    by.className = 'caption';
+    by.textContent = r.name + (dateText(r.date) ? ', ' + dateText(r.date) : '') + '.';
+    const actions = document.createElement('div');
+    actions.className = 'admin-actions';
+    const say = document.createElement('p');
+    say.className = 'caption';
+    say.setAttribute('role', 'status');
+    // the two moves this review doesn't already have
+    [['approved', 'approve.', 'jka-btn jka-btn--sm'], ['hidden', 'hide.', 'jka-btn jka-btn--quiet jka-btn--sm'], ['pending', 'back to waiting.', 'jka-btn jka-btn--quiet jka-btn--sm']]
+      .filter(function (a) { return a[0] !== r.status; })
+      .forEach(function (a) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = a[2];
+        b.textContent = a[1];
+        b.addEventListener('click', async function () {
+          actions.querySelectorAll('button').forEach(function (x) { x.disabled = true; });
+          say.textContent = 'one moment.';
+          try {
+            await api(user, 'PATCH', '/api/reviews/admin', { id: r.id, status: a[0] });
+            r.status = a[0];
+            paint();
+          } catch (e) {
+            actions.querySelectorAll('button').forEach(function (x) { x.disabled = false; });
+            say.textContent = e.status === 404 ? 'this review was removed by the person who wrote it.' : 'that did not save. try again in a moment.';
+          }
+        });
+        actions.appendChild(b);
+      });
+    c.append(head, text, by, actions, say);
+    return c;
+  }
+
+  tabs.forEach(function (t) { t.addEventListener('click', function () { showing = t.dataset.show; paint(); }); });
+  paint();
+  view.hidden = false;
+}
+
 const page = document.body.getAttribute('data-account-page');
 if (page === 'sign-in') signInPage();
 else if (page === 'create') createPage();
@@ -451,3 +551,4 @@ else if (page === 'reset') resetPage();
 else if (page === 'home') accountPage();
 else if (page === 'details') detailsPage();
 else if (page === 'orders') ordersPage();
+else if (page === 'admin') adminPage();

@@ -81,7 +81,7 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
 - **Reviews** (`server/reviews.js`, `/api/reviews`): signed-in people with a confirmed email rate a pin
   1 to 5 stars with an optional note (600 characters). One review per person per pin, stored as
   `reviews/{slug}_{uid}` with `status` `pending`, `approved` or `hidden`. New and edited reviews are
-  `pending` until the owner approves them in the Firebase console (`setup/reviews.md`). The public
+  `pending` until the owner approves them on `admin.html` (`setup/reviews.md`). The public
   reads approved reviews only through the worker, which keeps them in memory for 10 minutes so busy
   pages don't run up Firestore reads; responses also tell browsers they may reuse them for 5 minutes.
   `GET ?slug=` gives one pin's approved reviews and average (all ratings count), plus the reader's own
@@ -90,6 +90,12 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   shown are first name and last initial; the uid never leaves the server. Account deletion removes
   that person's reviews. The sign-in page honors `?next=<page>.html` (own pages only) so "sign in to
   leave a review" returns to the pup club.
+- **Admin** (`server/admin.js`): an account is admin when its email is confirmed and is in
+  `ADMIN_EMAILS` (plain Cloudflare variable, comma separated; default `ourjkadventures@gmail.com`).
+  `/api/account` returns `admin: true` so the account page shows a "reviews" link. `admin.html` (run by
+  `account.js`) lists every review via `GET /api/reviews/admin`, waiting first, and changes status with
+  `PATCH /api/reviews/admin { id, status }` (`pending`, `approved`, `hidden`). The server checks admin
+  on every request; the page hiding the link is only a convenience.
   - Checkout adds `metadata.uid` to the Square order and pre-fills the buyer's email.
 - **Fonts:** Google Fonts (EB Garamond).
 
@@ -127,5 +133,6 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
 | `SQUARE_WEBHOOK_URL` | plain, the exact URL registered in Square (used in signature check) | 2 |
 | `FIREBASE_PROJECT_ID` | plain, `jk-adventures-website` | 3 |
 | `FIREBASE_SERVICE_ACCOUNT` | secret, JSON of the service account key | 3 |
+| `ADMIN_EMAILS` | plain, optional. Who may use `admin.html`, comma separated. Default `ourjkadventures@gmail.com` | 3 |
 
 Browser-side Firebase config (apiKey, authDomain, projectId, appId) is **not** secret and can live in code.

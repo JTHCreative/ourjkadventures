@@ -16,8 +16,8 @@ an everyday analogy when a concept is technical.
 | `site/assets/styles.css` | All styles. Design tokens are the CSS variables on `:root` |
 | `site/products.json` | Names, prices (cents), sold-out flags. The one source of truth for prices today |
 | `site/_worker.js` | Server side (the Worker). `/api/checkout` creates a Square payment link, `/api/account` handles accounts, `/api/reviews` handles pin reviews; everything else falls through to static files |
-| `server/` | Server code the worker imports (Firebase ticket checks, Firestore, accounts). Bundled by wrangler, never published |
-| `site/assets/account.js` | Firebase sign-in in the browser; runs the account pages |
+| `server/` | Server code the worker imports (Firebase ticket checks, Firestore, accounts, reviews, who is admin). Bundled by wrangler, never published |
+| `site/assets/account.js` | Firebase sign-in in the browser; runs the account pages and the admin page (`admin.html`, review approval) |
 | `firestore.rules` | Firestore rules: no browser access at all. The owner publishes them in the Firebase console |
 | `tests/` | `node --test tests/*.test.mjs` |
 | `site/assets/3d/*.glb` | 3D pin models, one per slug, shown with Google model-viewer |

@@ -6,6 +6,7 @@
 //   TAX_PERCENT  (optional)        e.g. "9.25". leave empty for no tax line
 //   SUPPORT_EMAIL (optional)       shown to buyers on the Square checkout page
 //   FIREBASE_PROJECT_ID, FIREBASE_SERVICE_ACCOUNT  accounts, see server/firebase.js
+//   ADMIN_EMAILS (optional)        who may use admin.html. defaults to ourjkadventures@gmail.com, see server/admin.js
 //
 // The account code lives in ../server so it is bundled into this worker but never published as a file.
 
@@ -22,7 +23,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === '/api/checkout') return checkout(request, env, url);
     if (url.pathname === '/api/account' || url.pathname === '/api/account/orders') return account(request, env);
-    if (url.pathname === '/api/reviews') return reviews(request, env);
+    if (url.pathname === '/api/reviews' || url.pathname === '/api/reviews/admin') return reviews(request, env);
     return env.ASSETS.fetch(request);
   }
 };
