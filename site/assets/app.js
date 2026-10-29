@@ -590,8 +590,47 @@
     if (tryPlay && tryPlay.catch) tryPlay.catch(function () { paint(true); });
   }
 
+  // a small shop + bag pill that floats bottom right once the header has scrolled away,
+  // or on the home page once you're halfway past the video
+  function buildFloatShop() {
+    var header = document.querySelector('.site-header');
+    if (!header) return;
+    var bar = el('div', 'float-shop');
+    var shop = el('a', 'float-shop-link', 'shop');
+    shop.href = 'shop.html';
+    var bag = el('button', 'cart-btn');
+    bag.type = 'button';
+    bag.setAttribute('data-cart', '');
+    bag.setAttribute('aria-label', 'open your bag');
+    bag.appendChild(svg(['M5 8h14l-1 12H6L5 8z', 'M9 8V6.5a3 3 0 0 1 6 0V8']));
+    var count = el('span', 'cart-count', '0');
+    count.setAttribute('data-cart-count', '');
+    count.hidden = true;
+    bag.appendChild(count);
+    bar.appendChild(shop);
+    bar.appendChild(bag);
+    document.body.appendChild(bar);
+
+    var reel = document.querySelector('.reel');
+    var queued = false;
+    function place() {
+      queued = false;
+      var edge = reel ? reel.getBoundingClientRect().top + reel.offsetHeight / 2 : header.getBoundingClientRect().bottom;
+      bar.classList.toggle('show', edge < 0);
+    }
+    function queue() {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(place);
+    }
+    window.addEventListener('scroll', queue, { passive: true });
+    window.addEventListener('resize', queue);
+    place();
+  }
+
   /* ---------- start ---------- */
   function init() {
+    buildFloatShop();
     countEls = Array.prototype.slice.call(document.querySelectorAll('[data-cart-count]'));
     // square sends people back to thank-you.html after paying: empty the bag
     if (/thank-you(\.html)?$/.test(location.pathname)) save('jka_cart', null);

@@ -153,7 +153,45 @@ h1, h2, h3 { font-weight: 500; text-transform: none; }
 .site-header--over + main .reel-pin--5 { top: 16%; }
 .site-header--over + main .reel { min-height: min(100vh, 900px); min-height: min(100svh, 900px); padding-top: calc(var(--space-8) + 72px); }
 
+/* a small shop + bag pill, bottom right, once the header has scrolled away (built in app.js) */
+.float-shop {
+  position: fixed;
+  right: var(--space-4);
+  bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-1) var(--space-4) var(--space-1) var(--space-5);
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-card);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(12px);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
+}
+.float-shop.show { opacity: 1; visibility: visible; transform: none; transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s; }
+.float-shop-link, .float-shop .cart-btn {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+  text-decoration: none;
+  background: none;
+  border: 0;
+  padding: var(--space-2) 0;
+  cursor: pointer;
+  border-bottom: 1.5px solid transparent;
+}
+.float-shop-link:hover, .float-shop .cart-btn:hover { border-bottom-color: var(--line-strong); }
+
 .site-footer { margin-top: var(--space-8); padding: var(--space-6) 0 var(--space-7); border-top: 1.5px solid var(--line); text-align: center; }
+/* room at the very bottom so the floating shop pill never covers the last line */
+.site-footer { padding-bottom: calc(var(--space-7) + 64px); }
 .site-footer .links { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2) var(--space-5); margin-bottom: var(--space-4); }
 .site-footer a { color: var(--ink); }
 
@@ -581,6 +619,7 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
   .pup-pin img, .pup-pin::before, .pup-pin::after { transition: none; }
   .pup-pin:hover img, .pup-pin:focus-visible img, .pup-pin.is-held img { animation: none; }
   .pup-sheet { animation: none; }
+  .float-shop, .float-shop.show { transition: none; transform: none; }
 }
 
 /* ---------- see in 3D ---------- */
