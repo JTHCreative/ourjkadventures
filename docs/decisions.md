@@ -49,6 +49,16 @@ refuses every order (403), even if someone crafts the request by hand. Anything 
 `"shop_open": true` counts as closed, so a missing or mistyped switch fails safe. Every item is also
 marked `sold_out: true` as a second lock. The owner flips the switch when Square stock is ready.
 
+## 2026-10-29 Reviews: accounts only, approved first, never filtered by stars
+Owner's choices: reviews come from signed-in accounts with a confirmed email (not only verified
+buyers, since the shop isn't open yet and booth buyers have no online order), every review waits for
+the owner's approval, and the home page features approved 4 and 5 star reviews that have words.
+Approval screens for spam, rudeness and private details, never for low ratings: the FTC's consumer
+review rule treats suppressing honest negative reviews as deceptive, so every approved rating counts
+toward a pin's average and shows on its panel. Approval happens in the Firebase console for now
+(no admin page yet). The worker caches approved reviews for 10 minutes because each Firestore query
+is billed per document read. Same pattern as accounts: the browser never touches Firestore.
+
 ## 2026-10-26 Accounts: the browser never touches Firestore
 The browser loads only Firebase's sign-in library (pinned, from Google's own CDN at gstatic.com). It
 never reads Firestore. It sends its sign-in ticket to our server at `/api/account`, which checks the

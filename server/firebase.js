@@ -192,6 +192,38 @@ export async function firestoreList(env, collection, limit = 100, fetchFn = fetc
   return (body.documents || []).map((d) => ({ id: decodeURIComponent(d.name.split('/').pop()), ...fromFields(d.fields) }));
 }
 
+// Creates or replaces a whole document.
+export async function firestoreSet(env, path, data, fetchFn = fetch) {
+  const token = await accessToken(env, fetchFn);
+  const res = await fetchFn(docsBase(env) + '/' + path, {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: toFields(data) })
+  });
+  if (!res.ok) throw new Error('firestore set ' + res.status);
+}
+
+// Finds documents in a top-level collection whose fields equal the given values, e.g. { status: 'approved' }.
+// Returns [{ id, ...fields }], up to `limit`. Equality only, so Firestore needs no extra index.
+export async function firestoreQuery(env, collection, equals, limit = 500, fetchFn = fetch) {
+  const token = await accessToken(env, fetchFn);
+  const where = Object.keys(equals).map((k) => ({
+    fieldFilter: { field: { fieldPath: k }, op: 'EQUAL', value: toFields({ v: equals[k] }).v }
+  }));
+  const structuredQuery = { from: [{ collectionId: collection }], limit };
+  if (where.length === 1) structuredQuery.where = where[0];
+  else if (where.length > 1) structuredQuery.where = { compositeFilter: { op: 'AND', filters: where } };
+  const res = await fetchFn(docsBase(env) + ':runQuery', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ structuredQuery })
+  });
+  if (!res.ok) throw new Error('firestore query ' + res.status);
+  const rows = await res.json();
+  return (rows || []).filter((r) => r.document)
+    .map((r) => ({ id: decodeURIComponent(r.document.name.split('/').pop()), ...fromFields(r.document.fields) }));
+}
+
 export async function firestoreDelete(env, path, fetchFn = fetch) {
   const token = await accessToken(env, fetchFn);
   const res = await fetchFn(docsBase(env) + '/' + path, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });

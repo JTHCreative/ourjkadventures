@@ -108,6 +108,12 @@ async function api(user, method, path, body) {
   return res.json();
 }
 
+// where to go after signing in: a page of ours named in ?next=, like pup-club.html, or the account page
+function afterSignIn() {
+  const next = new URLSearchParams(location.search).get('next');
+  return next && /^[a-z0-9-]+\.html$/.test(next) ? next : 'account.html';
+}
+
 function remember(me) {
   setHint(me.firstName || '');
   paintHeader(me.firstName || '');
@@ -124,7 +130,7 @@ async function googleSignIn(kit) {
   try {
     const cred = await signInWithPopup(auth, new GoogleAuthProvider());
     await hello(cred.user).catch(function () {});
-    location.href = 'account.html';
+    location.href = afterSignIn();
   } catch (err) {
     kit.say(friendly(err));
   }
@@ -148,7 +154,7 @@ async function signInPage() {
     try {
       const cred = await signInWithEmailAndPassword(auth, form.email.value.trim(), form.password.value);
       await hello(cred.user).catch(function () {});
-      location.href = 'account.html';
+      location.href = afterSignIn();
     } catch (err) {
       kit.busy(false);
       kit.say(friendly(err));

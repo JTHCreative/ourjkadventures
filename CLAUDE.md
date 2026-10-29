@@ -15,7 +15,7 @@ an everyday analogy when a concept is technical.
 | `site/assets/app.js` | Bag, pup board, speech bubbles, 3D viewer, checkout call |
 | `site/assets/styles.css` | All styles. Design tokens are the CSS variables on `:root` |
 | `site/products.json` | Names, prices (cents), sold-out flags. The one source of truth for prices today |
-| `site/_worker.js` | Server side (the Worker). `/api/checkout` creates a Square payment link, `/api/account` handles accounts; everything else falls through to static files |
+| `site/_worker.js` | Server side (the Worker). `/api/checkout` creates a Square payment link, `/api/account` handles accounts, `/api/reviews` handles pin reviews; everything else falls through to static files |
 | `server/` | Server code the worker imports (Firebase ticket checks, Firestore, accounts). Bundled by wrangler, never published |
 | `site/assets/account.js` | Firebase sign-in in the browser; runs the account pages |
 | `firestore.rules` | Firestore rules: no browser access at all. The owner publishes them in the Firebase console |
@@ -55,7 +55,7 @@ an everyday analogy when a concept is technical.
 Today (plain static site):
 ```
 npx wrangler dev                     # serves site/ and runs the worker locally on :8787
-node --test tests/*.test.mjs         # server tests (tickets, /api/account), Google faked
+node --test tests/*.test.mjs         # server tests (tickets, /api/account, /api/reviews), Google faked
 ```
 Put Square sandbox values in `.dev.vars` to test checkout locally. Without them `/api/checkout` returns 503 by design.
 

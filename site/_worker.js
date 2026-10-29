@@ -1,4 +1,4 @@
-// j+k adventures: serves the static site and creates Square checkout links.
+// j+k adventures: serves the static site, creates Square checkout links, and runs accounts and reviews.
 // Secrets live in Cloudflare (Settings > Variables and secrets), never in the page:
 //   SQUARE_ACCESS_TOKEN  (secret)  your Square access token
 //   SQUARE_LOCATION_ID             the Square location that takes the sale
@@ -10,6 +10,7 @@
 // The account code lives in ../server so it is bundled into this worker but never published as a file.
 
 import { account, noteOrder } from '../server/account.js';
+import { reviews } from '../server/reviews.js';
 import { configured as firebaseConfigured, userFromRequest } from '../server/firebase.js';
 
 const SQUARE_VERSION = '2026-09-16';
@@ -21,6 +22,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === '/api/checkout') return checkout(request, env, url);
     if (url.pathname === '/api/account' || url.pathname === '/api/account/orders') return account(request, env);
+    if (url.pathname === '/api/reviews') return reviews(request, env);
     return env.ASSETS.fetch(request);
   }
 };
