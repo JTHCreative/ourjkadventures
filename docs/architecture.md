@@ -122,6 +122,14 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   that person's reviews. The sign-in page honors `?next=<page>.html` (own pages only) so "sign in to
   leave a review" returns to the pup club.
   - Checkout adds `metadata.uid` to the Square order and pre-fills the buyer's email.
+- **Pin boards:** `pin-boards.html` opens with the Bay Area board hanging in a living room (`.room` in the
+  page; `room-living.webp` and `room-living-900.webp` behind `bay-area-board-wall.webp`, placed on the wall in
+  percentages so it lines up at any width; phones see the middle of the room, closer). Hover, focus or a long
+  press wiggles it like a pup pin (`initRoom()` reuses `addHoldShake` and `pup-wiggle`); a tap or click opens
+  `bay-area-pin-board.html`. That page shows `bay-area-board-full.webp` (1118×1386) with a magnifier
+  (`initZoom()`: click or tap to zoom 2.4× where you pointed; the mouse or a dragging finger moves around;
+  arrow keys and Escape work too) next to the description, price, stock and add-to-bag (`#board-buy`).
+  Made from the owner's PNGs with Pillow, WebP quality 78 to 88; the originals live in git history.
 - **Fonts:** Google Fonts (EB Garamond).
 
 ### Known gaps

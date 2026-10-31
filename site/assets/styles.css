@@ -926,3 +926,57 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
   .admin-card { padding: var(--space-4); }
 }
 @media (prefers-reduced-motion: reduce) { .switch, .switch-knob { transition: none; } }
+
+/* ---------- pin boards: the board hanging in a living room ---------- */
+.room { margin: 0; }
+.room-frame { overflow: hidden; border-radius: var(--radius-lg); box-shadow: var(--shadow-card); background: var(--surface-sunken); }
+/* the scene keeps the photo's shape, so the board's place on the wall (in %) always lines up */
+.room-scene { position: relative; aspect-ratio: 1672 / 941; }
+.room-photo { display: block; width: 100%; height: 100%; }
+.room-board {
+  position: absolute; left: 38.2%; top: 9%; width: 20.7%;
+  display: block; border-radius: var(--radius-sm);
+  -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+}
+.room-board img {
+  display: block; width: 100%; height: auto; pointer-events: none;
+  transform-origin: 50% 40%;
+  transition: transform 0.28s cubic-bezier(0.3, 1.4, 0.5, 1);
+  filter: drop-shadow(0 3px 4px rgba(58, 53, 50, 0.28)) drop-shadow(0 12px 18px rgba(58, 53, 50, 0.22));
+}
+/* the same wiggle as the pup club pins */
+.room-board:focus-visible img, .room-board.is-held img { animation: pup-wiggle 0.6s ease-in-out; transform: scale(1.2); }
+@media (hover: hover) { .room-board:hover img { animation: pup-wiggle 0.6s ease-in-out; transform: scale(1.2); } }
+.room-board:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 4px; }
+.room figcaption { margin-top: var(--space-3); }
+/* phones: show the middle of the room, a little closer, so the board is big enough to tap */
+@media (max-width: 760px) {
+  .room-scene { width: 170%; margin-left: -32.45%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .room-board img { transition: none; }
+  .room-board:hover img, .room-board:focus-visible img, .room-board.is-held img { animation: none; transform: scale(1.06); }
+}
+.product--board a.art { display: flex; align-items: center; justify-content: center; border-radius: var(--radius-md); }
+.product--board a.art:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+
+/* ---------- a board's own page ---------- */
+.board-detail { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: var(--space-7); align-items: center; }
+.board-info { display: flex; flex-direction: column; gap: var(--space-3); }
+.board-info .buy { align-items: flex-start; }
+.zoom { margin: 0; }
+.zoom-view {
+  display: block; width: 100%; padding: 0; border: 0; background: transparent; overflow: hidden; cursor: zoom-in;
+  border-radius: var(--radius-md); aspect-ratio: 1118 / 1386;
+}
+.zoom-view img { display: block; width: 100%; height: 100%; transition: transform 0.25s ease; pointer-events: none; user-select: none; -webkit-user-select: none; }
+.zoom-view.is-zoomed { cursor: zoom-out; touch-action: none; }
+.zoom-view.is-zoomed img { transform: scale(2.4); }
+.zoom-view:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 3px; }
+.zoom figcaption { margin-top: var(--space-3); }
+@media (max-width: 760px) {
+  .board-detail { grid-template-columns: 1fr; gap: var(--space-5); }
+  .board-info { text-align: center; }
+  .board-info .buy { align-items: center; }
+}
+@media (prefers-reduced-motion: reduce) { .zoom-view img { transition: none; } }
