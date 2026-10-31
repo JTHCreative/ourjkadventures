@@ -865,12 +865,12 @@
   /* ---------- pin boards: the board on the living room wall ---------- */
   // it wiggles like a pup pin on hover, or on a long press on phones. a quick tap or click opens its page.
   function initRoom() {
-    var board = document.querySelector('.room-board');
-    if (!board) return;
-    addHoldShake(board);
-    board.addEventListener('click', function (e) {
-      // letting go after a long press only wiggles; it doesn't leave the page
-      if (board.getAttribute('data-held')) { e.preventDefault(); board.removeAttribute('data-held'); }
+    Array.prototype.forEach.call(document.querySelectorAll('.room-board'), function (board) {
+      addHoldShake(board);
+      board.addEventListener('click', function (e) {
+        // letting go after a long press only wiggles; it doesn't leave the page
+        if (board.getAttribute('data-held')) { e.preventDefault(); board.removeAttribute('data-held'); }
+      });
     });
   }
 
