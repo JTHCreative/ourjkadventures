@@ -54,8 +54,8 @@ Replace it with the personal access token from step 4.
 ### C. Link each website product to its Square item
 1. Sign in on the website with ourjkadventures@gmail.com, open **your account**, then **shop settings**
    (or go straight to `/admin`).
-2. Under **products and square**, each website pin is listed twice, standard and large. The board is
-   listed once. Pick the matching Square item from each dropdown. The dropdown shows Square's name,
+2. Under **products and square**, products are grouped: **pins** (split into pup club, hometown series and
+   chinese zodiac) and **pin boards**. Each pin is listed twice, standard and large. Each board is listed once. Pick the matching Square item from each dropdown. The dropdown shows Square's name,
    price and stock, for example "Large Aussie Pin (Exclusive) · $15.00 · 48 in stock".
 3. Leave a size "not linked" if you don't make it. A pin with only a standard size simply shows no size choice.
 4. Press **save links**. The shop shows the change within a minute.

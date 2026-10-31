@@ -147,6 +147,7 @@ test('the owner sees every website product, its sizes, and the Square items to c
   const body = await (await w.go('GET', '/api/admin/products', await sign({ email: OWNER }))).json();
   assert.equal(body.mode, 'sandbox');
   assert.ok(body.products.some((p) => p.key === 'aussie:large' && p.size === 'large'));
+  assert.ok(body.products.filter((p) => p.kind === 'pin').every((p) => p.series === 'pup-club'));
   assert.ok(body.products.some((p) => p.key === 'bay-area-pin-board'));
   assert.ok(!body.products.some((p) => p.key === 'bay-area-pin-board:large'));
   // archived items and items at another location are not offered
