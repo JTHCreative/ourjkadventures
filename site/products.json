@@ -1,6 +1,5 @@
 {
   "currency": "USD",
-  "shop_open": false,
   "shipping_cents": 500,
   "shipping_label": "shipping",
   "items": [

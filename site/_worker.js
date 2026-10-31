@@ -6,12 +6,15 @@
 //   TAX_PERCENT  (optional)        e.g. "9.25". leave empty for no tax line
 //   SUPPORT_EMAIL (optional)       shown to buyers on the Square checkout page
 //   FIREBASE_PROJECT_ID, FIREBASE_SERVICE_ACCOUNT  accounts, see server/firebase.js
+//   ADMIN_EMAILS                   who may use /admin, see server/admin.js
 //
 // The account code lives in ../server so it is bundled into this worker but never published as a file.
 
 import { account, noteOrder } from '../server/account.js';
 import { reviews } from '../server/reviews.js';
 import { configured as firebaseConfigured, userFromRequest } from '../server/firebase.js';
+import { admin } from '../server/admin.js';
+import { isShopOpen } from '../server/shop.js';
 
 const SQUARE_VERSION = '2026-09-16';
 const MAX_LINES = 30;
@@ -23,6 +26,7 @@ export default {
     if (url.pathname === '/api/checkout') return checkout(request, env, url);
     if (url.pathname === '/api/account' || url.pathname === '/api/account/orders') return account(request, env);
     if (url.pathname === '/api/reviews') return reviews(request, env);
+    if (url.pathname === '/api/admin' || url.pathname.startsWith('/api/admin/')) return admin(request, env);
     return env.ASSETS.fetch(request);
   }
 };
@@ -50,8 +54,8 @@ async function checkout(request, env, url) {
   const bySlug = {};
   (catalog.items || []).forEach((p) => { bySlug[p.slug] = p; });
   const currency = catalog.currency || 'USD';
-  // master switch: until products.json says "shop_open": true, nobody can check out
-  if (catalog.shop_open !== true) return json({ error: 'shop closed' }, 403);
+  // the open sign (settings/shop in Firestore, flipped on /admin). closed, or unreadable, means nobody checks out
+  if (!(await isShopOpen(env))) return json({ error: 'shop closed' }, 403);
 
   const lines = [];
   for (const w of wanted) {
