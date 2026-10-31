@@ -4,7 +4,7 @@
 // using the service account, the key only the server holds.
 //
 // Cloudflare settings (Settings > Variables and secrets):
-//   FIREBASE_PROJECT_ID        plain, e.g. jk-adventures-website
+//   FIREBASE_PROJECT_ID        plain, jk-adventures-website (that is also the default if it is left out)
 //   FIREBASE_SERVICE_ACCOUNT   secret, the full JSON of the service account key
 
 const JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
@@ -34,8 +34,11 @@ function jsonB64url(obj) { return bytesToB64url(new TextEncoder().encode(JSON.st
 function decodePart(s) { return JSON.parse(new TextDecoder().decode(b64urlToBytes(s))); }
 function now() { return Math.floor(Date.now() / 1000); }
 
+const DEFAULT_PROJECT = 'jk-adventures-website';
+export function projectId(env) { return env.FIREBASE_PROJECT_ID || DEFAULT_PROJECT; }
+
 export function configured(env) {
-  return !!(env.FIREBASE_PROJECT_ID && env.FIREBASE_SERVICE_ACCOUNT);
+  return !!env.FIREBASE_SERVICE_ACCOUNT;
 }
 
 /* ---------- checking the ticket (ID token) ---------- */
@@ -86,7 +89,7 @@ export async function verifyIdToken(token, projectId, fetchFn = fetch) {
 export async function userFromRequest(request, env, fetchFn = fetch) {
   const m = /^Bearer\s+(\S+)$/.exec(request.headers.get('Authorization') || '');
   if (!m) return null;
-  return verifyIdToken(m[1], env.FIREBASE_PROJECT_ID, fetchFn);
+  return verifyIdToken(m[1], projectId(env), fetchFn);
 }
 
 /* ---------- the server's own key (service account) ---------- */
@@ -145,7 +148,7 @@ function fromFields(fields) {
 }
 
 function docsBase(env) {
-  return 'https://firestore.googleapis.com/v1/projects/' + encodeURIComponent(env.FIREBASE_PROJECT_ID) + '/databases/(default)/documents';
+  return 'https://firestore.googleapis.com/v1/projects/' + encodeURIComponent(projectId(env)) + '/databases/(default)/documents';
 }
 
 // Returns the document's fields, or null if it does not exist.
@@ -233,7 +236,7 @@ export async function firestoreDelete(env, path, fetchFn = fetch) {
 /* ---------- Firebase Authentication (admin) ---------- */
 export async function deleteAuthUser(env, uid, fetchFn = fetch) {
   const token = await accessToken(env, fetchFn);
-  const res = await fetchFn('https://identitytoolkit.googleapis.com/v1/projects/' + encodeURIComponent(env.FIREBASE_PROJECT_ID) + '/accounts:delete', {
+  const res = await fetchFn('https://identitytoolkit.googleapis.com/v1/projects/' + encodeURIComponent(projectId(env)) + '/accounts:delete', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
     body: JSON.stringify({ localId: uid })

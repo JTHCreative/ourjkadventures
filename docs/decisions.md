@@ -42,7 +42,7 @@ never claim codes because they resell; the end customer redeems. Wholesale is ma
 customer group. The outside sticker is a QR code that links to the pin's page and carries the serial
 for the packing tool.
 
-## 2026-10-26 The shop stays closed until the owner opens it
+## 2026-10-26 The shop stays closed until the owner opens it (replaced 2026-10-31, see below)
 `products.json` has a `shop_open` master switch, set to `false`. While it is false every button reads
 "coming soon" and is disabled, the bag shows a calm note instead of "check out", and `/api/checkout`
 refuses every order (403), even if someone crafts the request by hand. Anything other than
@@ -84,3 +84,47 @@ First and last name and phone live in Firestore only; phone is optional and only
 about an order. Email lives in Firebase Authentication. Changing it sends a link to the new address and
 switches only when that is clicked, so a typo can't lock anyone out; the old address gets Firebase's
 "your email was changed" notice. Google sign-ins don't get an email change, since Google owns that email.
+
+## 2026-10-31 An owner's page at /admin, behind the same sign-in as customers
+Owner asked to run the shop without editing files. `/admin` uses the existing Firebase sign-in (the
+owner's account is a normal account), and the server decides who the owner is: a confirmed email listed
+in the `ADMIN_EMAILS` Cloudflare variable. We didn't use a Firebase custom claim (phase 4's planned
+`admin` claim) because setting one needs a script and a console trip, and a Cloudflare variable is one
+field the owner can change. We didn't give /admin its own separate sign-in either, since the owner asked
+for one account. The page only displays; every action goes through `/api/admin`, which re-checks the
+ticket and the list on each request, so finding the URL gets nobody anywhere. It isn't in any menu: the
+owner's account page shows a "shop settings" card when `/api/account` says `admin: true`. Firebase stays
+on the account pages only, as before. Review approval moved from the Firebase console to this page,
+still for spam, rudeness and private details, never for low ratings. A hidden review's writer is told
+it wasn't posted rather than left "waiting" forever.
+
+## 2026-10-31 The shop's open sign moves from products.json to Firestore
+Replaces the 2026-10-26 `shop_open` switch in `products.json`. Now `settings/shop { open }` in Firestore,
+flipped on `/admin`, read only by the server with the service account. Fails safe the same way: no
+document, anything but `true`, or Firestore unreachable means closed. Cached a minute per worker copy
+(retry after 10 seconds when a read fails), so a change reaches every visitor within about a minute
+without a Firestore read per page view. While closed, every product reads "coming soon" (the owner said
+"sold out"; the existing "coming soon" wording was kept because it is calmer and was the earlier choice)
+and no stock counts show.
+
+## 2026-10-31 Square is the shelf: prices and stock from Square, linked on /admin
+Owner's choice: once the shop is open, the site tracks Square's stock, shows "sold out" at 0 and the count
+otherwise. Prices come from Square too, so `price_cents` and `sold_out` left `products.json`; it now says
+only what the site shows and which sizes a product can come in. Square only had four items (standard and
+large aussie and pomeranian), named in Square's own style, so instead of matching by SKU or name (the
+earlier plan was SKU = slug and a sync script) the owner picks the Square item for each website product
+and size from a dropdown on `/admin`. Links are stored per Square environment (`settings/square_sandbox`,
+`settings/square_production`), so practice links never touch the real shop. One Square item can back
+only one website key, or its stock would be shown twice.
+
+Sizes: the owner chose one card per dog with a standard / large choice, not separate large products, so
+the pup board stays one dog per spot. A size shows only when it is linked. Names and descriptions: the
+owner chose to keep the site's own lowercase wording and take only price and stock from Square, because
+Square's text is title case with a sales tone. Square's names still appear on Square's payment page.
+
+The stock count is shown as a plain fact, "48 in stock.", the same words at any number, never "only 3
+left" (brand voice: no urgency). Checkout now sends `catalog_object_id` instead of a typed name and price,
+which is what makes Square lower the count on a web sale (before this, web sales never touched Square
+stock), and it checks the shelf fresh rather than trusting the one-minute catalog. Square's "sold out"
+tick wins over any count. Tax still comes from `TAX_PERCENT`, not Square's per-item tax, to avoid
+charging it twice. If Square can't be reached, everything shows as sold out.

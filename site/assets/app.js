@@ -1,4 +1,6 @@
-/* j+k adventures: shop and bag. Products live in products.json; checkout is handed to Square by /api/checkout (see _worker.js). */
+/* j+k adventures: shop and bag. The shelf comes from /api/catalog (our products, with Square's prices and stock);
+   checkout is handed to Square by /api/checkout (see _worker.js). The bag holds keys: "aussie" is the standard
+   aussie pin, "aussie:large" the large one. */
 (function () {
   'use strict';
 
@@ -18,18 +20,24 @@
     return mem[k] === undefined ? null : mem[k];
   }
 
-  /* ---------- the catalog (products.json) ---------- */
-  var catalog = { currency: 'USD', items: {} };
+  /* ---------- the catalog (/api/catalog) ---------- */
+  var catalog = { currency: 'USD', open: false, items: {}, byKey: {} };
   var catalogPromise = null;
-  function loadCatalog() {
-    if (catalogPromise) return catalogPromise;
-    catalogPromise = fetch('products.json', { cache: 'no-cache' }).then(function (r) {
+  function loadCatalog(fresh) {
+    if (catalogPromise && !fresh) return catalogPromise;
+    catalogPromise = fetch('/api/catalog', { cache: 'no-store' }).then(function (r) {
       if (!r.ok) throw new Error('catalog ' + r.status);
       return r.json();
     }).then(function (j) {
       catalog.currency = j.currency || 'USD';
-      catalog.shop_open = j.shop_open === true;
-      (j.items || []).forEach(function (p) { catalog.items[p.slug] = p; });
+      catalog.open = j.open === true;
+      catalog.items = {};
+      catalog.byKey = {};
+      (j.items || []).forEach(function (p) {
+        p.sizes = p.sizes || [];
+        catalog.items[p.slug] = p;
+        p.sizes.forEach(function (sz) { catalog.byKey[sz.key] = { product: p, size: sz }; });
+      });
       return catalog;
     });
     catalogPromise.catch(function () { catalogPromise = null; });
@@ -72,7 +80,10 @@
     try {
       var o = JSON.parse(read('jka_cart') || '{}');
       cart = {};
-      Object.keys(o).forEach(function (s) { var q = Math.floor(Number(o[s])); if (q > 0) cart[s] = Math.min(q, 20); });
+      Object.keys(o).forEach(function (s) {
+        var q = Math.floor(Number(o[s]));
+        if (/^[a-z0-9-]{1,40}(:large)?$/.test(s) && q > 0) cart[s] = Math.min(q, 20);
+      });
     } catch (e) { cart = {}; }
   }
   function saveCart() { save('jka_cart', Object.keys(cart).length ? JSON.stringify(cart) : null); }
@@ -135,89 +146,136 @@
     footEl.insertBefore(el('p', 'err', msg), footEl.firstChild);
   }
 
+  // the most of one thing the bag may hold: what is on the shelf, and never more than 20
+  function maxQty(entry) { return catalog.open ? Math.min(20, entry.size.stock) : 20; }
+  function buyable(entry) { return !!entry && catalog.open && entry.size.stock > 0; }
+
   function paintDrawer() {
     bodyEl.textContent = '';
     footEl.textContent = '';
-    var slugs = Object.keys(cart).filter(function (s) { return catalog.items[s]; });
-    if (!slugs.length) {
+    // keys for products we know, even ones not for sale right now, so the bag can say so
+    var keys = Object.keys(cart).filter(function (k) { return catalog.items[k.split(':')[0]]; });
+    if (!keys.length) {
       bodyEl.appendChild(el('p', 'empty', 'your bag is empty. a pin would look good in it.'));
       return;
     }
     var sum = 0;
-    slugs.forEach(function (s) {
-      var p = catalog.items[s];
-      var q = cart[s];
-      sum += p.price_cents * q;
+    var ready = 0;
+    var trimmed = false;
+    keys.forEach(function (k) {
+      var entry = catalog.byKey[k];
+      var name = lineName(k);
       var row = el('div', 'line');
-      var name = lineName(p);
       row.appendChild(el('div', 'lname', name));
-      row.appendChild(el('div', 'lprice', money(p.price_cents * q / 100, catalog.currency)));
       var ctl = el('div', 'lctl');
+      var rm = el('button', 'linklike', 'remove');
+      rm.type = 'button';
+      rm.setAttribute('aria-label', 'remove ' + name);
+      rm.addEventListener('click', function () { changeQty(k, 0); });
+
+      if (catalog.open && !buyable(entry)) {
+        // gone from the shelf since it went in the bag
+        row.appendChild(el('div', 'lprice', 'sold out.'));
+        ctl.appendChild(el('span', 'caption', 'it will not be in this order.'));
+        ctl.appendChild(rm);
+        row.appendChild(ctl);
+        bodyEl.appendChild(row);
+        return;
+      }
+      if (entry && cart[k] > maxQty(entry)) { cart[k] = maxQty(entry); trimmed = true; }
+      var q = cart[k];
+      if (entry) { sum += entry.size.price_cents * q; ready++; }
+      row.appendChild(el('div', 'lprice', entry ? money(entry.size.price_cents * q / 100, catalog.currency) : ''));
       var qty = el('div', 'qty');
-      var minus = el('button', null, '\u2212');
+      var minus = el('button', null, '−');
       minus.type = 'button';
       minus.setAttribute('aria-label', 'one fewer ' + name);
       var plus = el('button', null, '+');
       plus.type = 'button';
       plus.setAttribute('aria-label', 'one more ' + name);
+      if (entry && q >= maxQty(entry)) plus.disabled = true;
       qty.appendChild(minus);
       qty.appendChild(el('span', null, String(q)));
       qty.appendChild(plus);
-      minus.addEventListener('click', function () { changeQty(s, q - 1); });
-      plus.addEventListener('click', function () { changeQty(s, q + 1); });
-      var rm = el('button', 'linklike', 'remove');
-      rm.type = 'button';
-      rm.addEventListener('click', function () { changeQty(s, 0); });
+      minus.addEventListener('click', function () { changeQty(k, q - 1); });
+      plus.addEventListener('click', function () { changeQty(k, q + 1); });
       ctl.appendChild(qty);
       ctl.appendChild(rm);
       row.appendChild(ctl);
+      if (catalog.open && entry && q >= entry.size.stock) row.appendChild(el('p', 'caption lnote', 'that is all we have of this one.'));
       bodyEl.appendChild(row);
     });
+    if (trimmed) { saveCart(); paintCount(); }
     var total = el('div', 'total');
     total.appendChild(el('span', null, 'subtotal'));
     total.appendChild(el('span', null, money(sum / 100, catalog.currency)));
     footEl.appendChild(total);
     footEl.appendChild(el('p', 'caption', 'shipping and tax are added at checkout.'));
-    if (!shopOpen()) {
+    if (!catalog.open) {
       footEl.appendChild(el('p', 'caption', 'the shop opens soon. your bag will keep these for you.'));
       return;
     }
+    if (!ready) return;
     var go = el('button', 'jka-btn', 'check out');
     go.type = 'button';
     go.addEventListener('click', checkout);
     footEl.appendChild(go);
   }
 
-  function refreshCart() {
-    return loadCatalog().then(function () { paintCount(); paintDrawer(); }).catch(function () {
+  function refreshCart(fresh) {
+    return loadCatalog(fresh).then(function () { paintCount(); paintDrawer(); }).catch(function () {
       bodyEl.textContent = '';
       footEl.textContent = '';
       bodyEl.appendChild(el('p', 'empty', 'we could not open your bag just now. try again in a moment.'));
     });
   }
 
-  function changeQty(slug, qty) {
-    if (qty < 1) delete cart[slug]; else cart[slug] = Math.min(qty, 20);
+  function changeQty(key, qty) {
+    var entry = catalog.byKey[key];
+    if (qty < 1) delete cart[key]; else cart[key] = Math.min(qty, entry ? maxQty(entry) : 20);
     saveCart();
     paintCount();
     paintDrawer();
   }
 
-  function lineName(p) { return (p.slug === 'golden' ? 'goldie' : p.name) + (p.kind === 'board' ? '' : ' pin'); }
+  // "aussie pin", "large aussie pin", "goldie pin", "bay area pin board"
+  function lineName(key) {
+    var parts = key.split(':');
+    var p = catalog.items[parts[0]];
+    if (!p) return key;
+    return (parts[1] === 'large' ? 'large ' : '') + pupName(p) + (p.kind === 'board' ? '' : ' pin');
+  }
 
   function checkout() {
     var btn = footEl.querySelector('.jka-btn');
     if (btn) { btn.disabled = true; btn.textContent = 'one moment.'; }
-    var items = Object.keys(cart).map(function (s) { return { slug: s, qty: cart[s] }; });
+    var items = Object.keys(cart).filter(function (k) { return buyable(catalog.byKey[k]); })
+      .map(function (k) { return { key: k, qty: cart[k] }; });
     signInTicket().then(function (token) {
       var headers = { 'Content-Type': 'application/json' };
       if (token) headers.Authorization = 'Bearer ' + token;
       return fetch('/api/checkout', { method: 'POST', headers: headers, body: JSON.stringify({ items: items }) });
     }).then(function (r) {
-      return r.json().then(function (j) { if (!r.ok || !j.url) throw new Error('checkout'); return j.url; });
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (r.status === 409 || r.status === 403) {
+          // the server says exactly how many are left; the shared list may be up to a minute behind
+          (j.items || []).forEach(function (it) { var en = catalog.byKey[it.key]; if (en) en.size.stock = Math.max(0, Number(it.stock) || 0); });
+          var e = new Error('changed'); e.changed = true; e.closed = r.status === 403; throw e;
+        }
+        if (!r.ok || !j.url) throw new Error('checkout');
+        return j.url;
+      });
     }).then(function (url) {
       location.href = url;
-    }).catch(function () {
+    }).catch(function (err) {
+      if (err && err.changed) {
+        // someone else got there first, or the shop just closed: show the bag as it really is now
+        (err.closed ? refreshCart(true) : Promise.resolve(paintDrawer())).then(function () {
+          showError(err.closed ? 'the shop has just closed. your bag will keep these for you.'
+            : 'the shelf changed while you were shopping. your bag now shows what we have.');
+        });
+        return;
+      }
       if (btn) { btn.disabled = false; btn.textContent = 'check out'; }
       showError('we could not start checkout. try again, or write to us at ' + CONTACT_EMAIL + '.');
     });
@@ -239,12 +297,15 @@
   }
 
   /* ---------- adding things ---------- */
-  function addToBag(slug, btn, label) {
-    cart[slug] = Math.min((cart[slug] || 0) + 1, 20);
+  function addToBag(key, btn, label) {
+    var entry = catalog.byKey[key];
+    if (!buyable(entry)) return;
+    var before = cart[key] || 0;
+    cart[key] = Math.min(before + 1, maxQty(entry));
     saveCart();
     paintCount();
     btn.disabled = true;
-    btn.textContent = 'in your bag.';
+    btn.textContent = cart[key] > before ? 'in your bag.' : 'that is all we have.';
     setTimeout(function () { btn.textContent = label; btn.disabled = false; }, 1600);
   }
 
@@ -276,10 +337,64 @@
     'yorkie': 'a yorkshire terrier, small in size and large in personality. a tiny boss in a silky coat who runs the house with a bark and a wink.'
   };
 
-  function priceOf(p) { return money(p.price_cents / 100, catalog.currency); }
-  function shopOpen() { return catalog.shop_open === true; }
-  function soldOut(p) { return !shopOpen() || !!p.sold_out; }
-  function soldOutLabel() { return shopOpen() ? 'sold out' : 'coming soon'; }
+  function priceOf(sz) { return money(sz.price_cents / 100, catalog.currency); }
+  // the price line: "$12", or "$12 or $15" when a pin comes in two sizes. empty until it is linked to square
+  function priceRange(p) {
+    var prices = p.sizes.map(function (sz) { return sz.price_cents; }).filter(function (c, i, a) { return a.indexOf(c) === i; });
+    return prices.map(function (c) { return money(c / 100, catalog.currency); }).join(' or ');
+  }
+  function buttonLabel(sz) {
+    if (!catalog.open) return 'coming soon';
+    return sz && sz.stock > 0 ? 'add to bag' : 'sold out';
+  }
+  // a plain count, the same calm words whether there are 2 or 200
+  function stockText(sz) { return catalog.open && sz && sz.stock > 0 ? sz.stock + ' in stock.' : ''; }
+
+  // the buy button, the price and the stock line for one size, kept in step when the size changes
+  function buyArea(p, btnClass) {
+    var area = el('div', 'buy');
+    var price = el('p', 'price', '');
+    var stock = el('p', 'caption stock-line', '');
+    stock.setAttribute('aria-live', 'polite');
+    var btn = el('button', btnClass, '');
+    btn.type = 'button';
+    var current = p.sizes[0] || null;
+    function show(sz) {
+      current = sz;
+      price.textContent = sz ? priceOf(sz) : '';
+      stock.textContent = stockText(sz);
+      stock.hidden = !stock.textContent;
+      btn.textContent = buttonLabel(sz);
+      btn.disabled = !(sz && buyable(catalog.byKey[sz.key]));
+    }
+    btn.addEventListener('click', function () { if (current) addToBag(current.key, btn, 'add to bag'); });
+    area.appendChild(price);
+    if (p.sizes.length > 1) area.appendChild(sizePicker(p, show));
+    area.appendChild(stock);
+    area.appendChild(btn);
+    show(current);
+    return area;
+  }
+
+  function sizePicker(p, onPick) {
+    var fs = el('fieldset', 'size-pick');
+    fs.appendChild(el('legend', 'sr-only', 'size'));
+    p.sizes.forEach(function (sz, i) {
+      var id = 'size-' + p.slug + '-' + sz.size;
+      var radio = el('input');
+      radio.type = 'radio';
+      radio.name = 'size-' + p.slug;
+      radio.id = id;
+      radio.value = sz.key;
+      if (i === 0) radio.checked = true;
+      radio.addEventListener('change', function () { if (radio.checked) onPick(sz); });
+      var lab = el('label', null, sz.size + ', ' + priceOf(sz));
+      lab.htmlFor = id;
+      fs.appendChild(radio);
+      fs.appendChild(lab);
+    });
+    return fs;
+  }
 
   function boardCard(p) {
     var card = el('article', 'card clean product product--board');
@@ -292,13 +407,10 @@
     card.appendChild(art);
     var info = el('div', 'info');
     info.appendChild(el('h3', 'name', p.name));
-    info.appendChild(el('p', 'price', priceOf(p)));
-    info.appendChild(el('p', 'body-sm muted', p.description || ''));
-    var b = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', soldOut(p) ? soldOutLabel() : 'add to bag');
-    b.type = 'button';
-    if (soldOut(p)) b.disabled = true;
-    else b.addEventListener('click', function () { addToBag(p.slug, b, 'add to bag'); });
-    info.appendChild(b);
+    var buy = buyArea(p, 'jka-btn jka-btn--quiet jka-btn--sm');
+    var desc = el('p', 'body-sm muted', p.description || '');
+    buy.insertBefore(desc, buy.querySelector('.stock-line'));
+    info.appendChild(buy);
     card.appendChild(info);
     return card;
   }
@@ -446,16 +558,15 @@
     art.appendChild(img);
     sheet.appendChild(art);
     sheet.appendChild(el('h2', 'name', pupName(p)));
-    sheet.appendChild(el('p', 'price', priceOf(p)));
+    var buy = buyArea(p, 'jka-btn');
     var starLine = el('p', 'pup-star-line');
     starLine.hidden = true;
+    var about = el('p', 'about', PUP_ABOUT[p.slug] || '');
+    // name, price, stars, about, then size, stock and the button
+    sheet.appendChild(buy.querySelector('.price'));
     sheet.appendChild(starLine);
-    sheet.appendChild(el('p', 'about', PUP_ABOUT[p.slug] || ''));
-    var b = el('button', 'jka-btn', soldOut(p) ? soldOutLabel() : 'add to bag');
-    b.type = 'button';
-    if (soldOut(p)) b.disabled = true;
-    else b.addEventListener('click', function () { addToBag(p.slug, b, 'add to bag'); });
-    sheet.appendChild(b);
+    sheet.appendChild(about);
+    sheet.appendChild(buy);
     sheet.appendChild(reviewBlock(p, starLine));
     panel.appendChild(sheet);
     panel.hidden = false;
@@ -599,7 +710,11 @@
       f.appendChild(field);
       var note = el('p', 'review-note');
       note.setAttribute('role', 'status');
-      if (mine) note.textContent = mine.status === 'approved' ? 'your review is up. you can change it here.' : 'your review is waiting for us to read it.';
+      if (mine) {
+        note.textContent = mine.status === 'approved' ? 'your review is up. you can change it here.'
+          : mine.status === 'hidden' ? 'we did not post this review. write to us at ' + CONTACT_EMAIL + ' if you would like to know why.'
+          : 'your review is waiting for us to read it.';
+      }
       var row = el('div', 'review-actions');
       var send = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', mine ? 'update your review.' : 'share your review.');
       send.type = 'submit';
@@ -688,7 +803,7 @@
       var b = el('button', 'pup-pin');
       b.type = 'button';
       b.setAttribute('data-breed', PUP_BREED[s] || p.name);
-      b.setAttribute('aria-label', p.name + ' pin, ' + priceOf(p));
+      b.setAttribute('aria-label', pupName(p) + ' pin' + (priceRange(p) ? ', ' + priceRange(p) : ''));
       b.setAttribute('aria-pressed', 'false');
       var img = el('img');
       img.src = PIN_IMG[s] || '';

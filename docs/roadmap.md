@@ -22,13 +22,15 @@ Work top to bottom. Each phase ships on its own. Tick boxes as you go and add no
 **Done when:** a side-by-side check of every page at 1200px and 360px shows no differences, checkout still works in sandbox, and `site/` is removed.
 
 ## Phase 2. Square catalog, stock and webhook ("level 3")
-- [ ] Script `scripts/sync-square-catalog.ts`: upserts every product into Square Catalog (SKU = slug, price, name, category = series), prints IDs. Safe to run twice
-- [ ] `/api/catalog`: returns slug, name, price, in-stock from Square (catalog + inventory counts), cached briefly. The site reads this instead of `products.json` for price and stock
-- [ ] Checkout line items use `catalog_object_id` (the variation ID) so Square tracks stock
-- [ ] Booth and web share stock because both sell the same Square items. Owner enables stock tracking in Square
+- [x] ~~Script `scripts/sync-square-catalog.ts`~~ Replaced (2026-10-31): the owner adds items in Square and links each website product and size to one on `/admin` (see decisions)
+- [x] `/api/catalog`: price and stock from Square (catalog + inventory counts), cached a minute. The site reads this; `products.json` keeps only what the site shows and the sizes
+- [x] Checkout line items use `catalog_object_id` (the variation ID) so Square tracks stock, and checkout checks the shelf fresh
+- [x] Standard / large size choice on each pin, shown when both are linked
+- [ ] Booth and web share stock because both sell the same Square items. Owner: turn on stock tracking in Square and link items on `/admin` (`setup/square.md`)
+- [ ] Owner: Square access token with `ITEMS_READ` and `INVENTORY_READ` in Cloudflare (`setup/square.md`, step A)
 - [ ] `/api/square-webhook`: verifies `x-square-hmacsha256-signature` (HMAC-SHA256 of notification URL + raw body with the signature key), handles `order.updated` / `payment.updated`, idempotent on event ID. In this phase it only logs; phase 4 uses it for charges
-- [ ] Sold-out pins show "sold out" automatically
-- [ ] Owner steps in `setup/square.md`
+- [x] Sold-out pins show "sold out" automatically; in-stock ones show "N in stock."
+- [x] Owner steps in `setup/square.md`
 
 **Done when:** selling a pin on the Square Reader lowers the count the website shows, and a sold-out item can't be checked out.
 
@@ -78,5 +80,6 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [x] Owner: send the reel video (MP4, ideally under 10 MB, no sound needed) and a still frame for the poster. Hero loop v4 is live, with tall phone copies
 - [x] Floating shop + bag pill once the header scrolls away
 - [x] Pup pin reviews: 1 to 5 stars and a note from signed-in accounts, approved by the owner first, "kind words." on the home page (`setup/reviews.md`)
-- [ ] Owner: approve the first reviews in the Firebase console
-- [ ] Later: a small admin page for approving reviews, once the phase 4 `admin` claim exists
+- [x] Owner's page `/admin` (2026-10-31): shop open switch (Firestore `settings/shop`), Square links, review approval. Owner is a confirmed email in `ADMIN_EMAILS`, not a custom claim (see decisions)
+- [ ] Owner: add `ADMIN_EMAILS` in Cloudflare and publish the updated `firestore.rules` (`setup/firebase.md`, steps 14 to 17)
+- [ ] Owner: approve the first reviews on `/admin`

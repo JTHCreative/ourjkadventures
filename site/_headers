@@ -6,3 +6,9 @@
   Cache-Control: public, max-age=604800
 /products.json
   Cache-Control: no-cache
+/admin
+  X-Robots-Tag: noindex
+  Cache-Control: no-store
+/admin.html
+  X-Robots-Tag: noindex
+  Cache-Control: no-store

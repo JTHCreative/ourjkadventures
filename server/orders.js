@@ -1,11 +1,7 @@
 // j+k adventures: order history. Square is the register; we only keep a note of which orders a
 // signed-in buyer started. Here we ask Square about those orders and keep the ones that were paid.
 
-const SQUARE_VERSION = '2026-09-16'; // keep in step with site/_worker.js
-
-function squareHost(env) {
-  return env.SQUARE_ENV === 'sandbox' ? 'https://connect.squareupsandbox.com' : 'https://connect.squareup.com';
-}
+import { SQUARE_VERSION, squareHost } from './square.js';
 
 function money(m) { return m && typeof m.amount === 'number' ? { cents: m.amount, currency: m.currency || 'USD' } : null; }
 

@@ -4,10 +4,10 @@
 //   POST   /api/reviews              { slug, rating, text }: leave or replace your review. Needs a confirmed email.
 //   DELETE /api/reviews?slug=corgi   remove your review
 // One review per person per pin, stored as reviews/{slug}_{uid}. Every new or changed review is "pending"
-// until the owner sets its status to "approved" in the Firebase console (docs/setup/reviews.md).
+// until the owner approves it on /admin (or hides it: kept, never shown). See docs/setup/reviews.md.
 // The ratings shown are never filtered by stars: only the home page picks out the 4 and 5 star ones.
 
-import { configured, userFromRequest, firestoreGet, firestoreSet, firestoreQuery, firestoreDelete } from './firebase.js';
+import { configured, userFromRequest, firestoreGet, firestoreSet, firestoreUpdate, firestoreQuery, firestoreDelete } from './firebase.js';
 
 const MAX_TEXT = 600;
 const FEATURED = 6;
@@ -139,6 +139,27 @@ export async function deleteReviewsBy(env, uid, fetchFn = fetch) {
   const mine = await firestoreQuery(env, 'reviews', { uid }, 100, fetchFn);
   for (const r of mine) await firestoreDelete(env, 'reviews/' + encodeURIComponent(r.id), fetchFn);
   if (mine.length) approvedCache = { list: null, until: 0 };
+}
+
+/* ---------- the owner's side (called from server/admin.js, which has already checked who is asking) ---------- */
+export const REVIEW_STATUSES = ['approved', 'hidden'];
+
+// reviews waiting for a look, oldest first, with the id the owner needs to approve or hide one
+export async function pendingReviews(env, fetchFn = fetch) {
+  const list = await firestoreQuery(env, 'reviews', { status: 'pending' }, 500, fetchFn);
+  return list.sort((a, b) => String(a.updatedAt || a.createdAt).localeCompare(String(b.updatedAt || b.createdAt)))
+    .map((r) => ({ id: r.id, ...publicView(r) }));
+}
+
+// returns false if there is no such review
+export async function setReviewStatus(env, id, status, who, fetchFn = fetch) {
+  if (typeof id !== 'string' || !/^[a-z0-9-]{1,40}_[A-Za-z0-9]{1,128}$/.test(id)) return false;
+  if (!REVIEW_STATUSES.includes(status)) return false;
+  const path = 'reviews/' + encodeURIComponent(id);
+  if (!(await firestoreGet(env, path, fetchFn))) return false;
+  await firestoreUpdate(env, path, { status, reviewedAt: new Date(), reviewedBy: who || '' }, fetchFn);
+  approvedCache = { list: null, until: 0 };
+  return true;
 }
 
 // for tests

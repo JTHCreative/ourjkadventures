@@ -1,4 +1,5 @@
-// j+k adventures: serves the static site, creates Square checkout links, and runs accounts and reviews.
+// j+k adventures: serves the static site, the catalog (Square prices and stock), Square checkout links,
+// accounts, reviews and the owner's /admin.
 // Secrets live in Cloudflare (Settings > Variables and secrets), never in the page:
 //   SQUARE_ACCESS_TOKEN  (secret)  your Square access token
 //   SQUARE_LOCATION_ID             the Square location that takes the sale
@@ -6,14 +7,17 @@
 //   TAX_PERCENT  (optional)        e.g. "9.25". leave empty for no tax line
 //   SUPPORT_EMAIL (optional)       shown to buyers on the Square checkout page
 //   FIREBASE_PROJECT_ID, FIREBASE_SERVICE_ACCOUNT  accounts, see server/firebase.js
+//   ADMIN_EMAILS                   who may use /admin, see server/admin.js
 //
 // The account code lives in ../server so it is bundled into this worker but never published as a file.
 
 import { account, noteOrder } from '../server/account.js';
 import { reviews } from '../server/reviews.js';
 import { configured as firebaseConfigured, userFromRequest } from '../server/firebase.js';
+import { admin } from '../server/admin.js';
+import { getCatalog, catalogRoute } from '../server/catalog.js';
+import { stockCounts, squareHost, SQUARE_VERSION } from '../server/square.js';
 
-const SQUARE_VERSION = '2026-09-16';
 const MAX_LINES = 30;
 const MAX_QTY = 20;
 
@@ -21,8 +25,10 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === '/api/checkout') return checkout(request, env, url);
+    if (url.pathname === '/api/catalog') return catalogRoute(request, env);
     if (url.pathname === '/api/account' || url.pathname === '/api/account/orders') return account(request, env);
     if (url.pathname === '/api/reviews') return reviews(request, env);
+    if (url.pathname === '/api/admin' || url.pathname.startsWith('/api/admin/')) return admin(request, env);
     return env.ASSETS.fetch(request);
   }
 };
@@ -43,28 +49,37 @@ async function checkout(request, env, url) {
   const wanted = Array.isArray(body && body.items) ? body.items : [];
   if (!wanted.length || wanted.length > MAX_LINES) return json({ error: 'bad items' }, 400);
 
-  // prices come from products.json on the server, never from the browser
-  const catRes = await env.ASSETS.fetch(new Request(new URL('/products.json', url)));
-  if (!catRes.ok) return json({ error: 'catalog' }, 500);
-  const catalog = await catRes.json();
-  const bySlug = {};
-  (catalog.items || []).forEach((p) => { bySlug[p.slug] = p; });
-  const currency = catalog.currency || 'USD';
-  // master switch: until products.json says "shop_open": true, nobody can check out
-  if (catalog.shop_open !== true) return json({ error: 'shop closed' }, 403);
+  // the browser sends only keys ("aussie", "aussie:large") and how many. which Square item that is,
+  // and its price, come from our own catalog (server/catalog.js), never from the browser
+  let catalog;
+  try { catalog = await getCatalog(env, url); } catch (e) { return json({ error: 'catalog' }, 500); }
+  // the open sign (settings/shop in Firestore, flipped on /admin). closed, or unreadable, means nobody checks out
+  if (!catalog.open) return json({ error: 'shop closed' }, 403);
 
-  const lines = [];
+  const qtyByKey = {};
   for (const w of wanted) {
-    const p = bySlug[w && w.slug];
+    const key = w && w.key;
     const qty = Math.floor(Number(w && w.qty));
-    if (!p || p.sold_out || !(qty >= 1) || qty > MAX_QTY) return json({ error: 'bad item' }, 400);
-    const label = (p.slug === 'golden' ? 'goldie' : p.name) + (p.kind === 'board' ? '' : ' pin');
-    lines.push({
-      name: label,
-      quantity: String(qty),
-      base_price_money: { amount: p.price_cents, currency: currency }
-    });
+    if (typeof key !== 'string' || !catalog.byKey[key] || !(qty >= 1) || qty > MAX_QTY) return json({ error: 'bad item' }, 400);
+    qtyByKey[key] = (qtyByKey[key] || 0) + qty;
+    if (qtyByKey[key] > MAX_QTY) return json({ error: 'bad item' }, 400);
   }
+
+  // a fresh look at the shelf, not the one-minute-old list, so we never sell what the booth just sold
+  const keys = Object.keys(qtyByKey);
+  let onShelf;
+  try { onShelf = await stockCounts(env, keys.map((k) => catalog.byKey[k].variation_id)); } catch (e) {
+    console.log('stock check failed', e.message);
+    return json({ error: 'square unreachable' }, 502);
+  }
+  // the "sold out" tick in the Square dashboard counts as none on the shelf
+  const left = (k) => (catalog.byKey[k].marked_sold_out ? 0 : onShelf[catalog.byKey[k].variation_id] || 0);
+  const short = keys.filter((k) => qtyByKey[k] > left(k));
+  if (short.length) return json({ error: 'stock', items: short.map((k) => ({ key: k, stock: left(k) })) }, 409);
+
+  // pointing at the Square item (not typing a name and price) is what lets Square lower the stock count
+  const lines = keys.map((k) => ({ catalog_object_id: catalog.byKey[k].variation_id, quantity: String(qtyByKey[k]) }));
+  const currency = catalog.currency;
 
   const order = { location_id: env.SQUARE_LOCATION_ID, line_items: lines };
 
@@ -91,10 +106,9 @@ async function checkout(request, env, url) {
   if (env.SUPPORT_EMAIL) options.merchant_support_email = env.SUPPORT_EMAIL;
   const prefill = buyer && buyer.email ? { buyer_email: buyer.email } : null;
 
-  const host = env.SQUARE_ENV === 'sandbox' ? 'https://connect.squareupsandbox.com' : 'https://connect.squareup.com';
   let res;
   try {
-    res = await fetch(host + '/v2/online-checkout/payment-links', {
+    res = await fetch(squareHost(env) + '/v2/online-checkout/payment-links', {
       method: 'POST',
       headers: {
         'Authorization': 'Bearer ' + env.SQUARE_ACCESS_TOKEN,
