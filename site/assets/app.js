@@ -396,12 +396,19 @@
     return fs;
   }
 
+  // boards with a page of their own, for a closer look
+  var BOARD_PAGE = { 'bay-area-pin-board': 'bay-area-pin-board.html' };
+
   function boardCard(p) {
     var card = el('article', 'card clean product product--board');
-    var art = el('div', 'art');
+    var art = el(BOARD_PAGE[p.slug] ? 'a' : 'div', 'art');
+    if (BOARD_PAGE[p.slug]) {
+      art.href = BOARD_PAGE[p.slug];
+      art.setAttribute('aria-label', 'see the ' + p.name + ' up close');
+    }
     var img = el('img');
     img.src = 'assets/img/bay-area-board.webp';
-    img.alt = 'the ' + p.name + ' design';
+    img.alt = BOARD_PAGE[p.slug] ? '' : 'the ' + p.name + ' design';
     img.loading = 'lazy';
     art.appendChild(img);
     card.appendChild(art);
@@ -827,8 +834,19 @@
   function loadShop() {
     var pupGrid = document.getElementById('pup-grid');
     var boardSlot = document.getElementById('board-slot');
-    if (!pupGrid && !boardSlot) return;
+    var boardBuy = document.getElementById('board-buy');
+    if (!pupGrid && !boardSlot && !boardBuy) return;
     loadCatalog().then(function () {
+      if (boardBuy) {
+        boardBuy.textContent = '';
+        var bb = catalog.items['bay-area-pin-board'];
+        if (!bb) { boardBuy.appendChild(el('p', 'notice', 'the board is out for a walk. check back soon.')); }
+        else {
+          var area = buyArea(bb, 'jka-btn');
+          area.insertBefore(el('p', 'body-lg muted', bb.description || ''), area.querySelector('.stock-line'));
+          boardBuy.appendChild(area);
+        }
+      }
       if (pupGrid) buildPupBoard(pupGrid, catalog.items);
       if (boardSlot) {
         boardSlot.textContent = '';
@@ -840,6 +858,81 @@
       var msg = 'we could not reach the shop just now. try again in a moment, or write to us at ' + CONTACT_EMAIL + '.';
       if (pupGrid) { pupGrid.textContent = ''; pupGrid.appendChild(el('p', 'notice', msg)); }
       if (boardSlot) { boardSlot.textContent = ''; boardSlot.appendChild(el('p', 'notice', msg)); }
+      if (boardBuy) { boardBuy.textContent = ''; boardBuy.appendChild(el('p', 'notice', msg)); }
+    });
+  }
+
+  /* ---------- pin boards: the board on the living room wall ---------- */
+  // it wiggles like a pup pin on hover, or on a long press on phones. a quick tap or click opens its page.
+  function initRoom() {
+    var board = document.querySelector('.room-board');
+    if (!board) return;
+    addHoldShake(board);
+    board.addEventListener('click', function (e) {
+      // letting go after a long press only wiggles; it doesn't leave the page
+      if (board.getAttribute('data-held')) { e.preventDefault(); board.removeAttribute('data-held'); }
+    });
+  }
+
+  /* ---------- a board's own page: tap or click to look closer ---------- */
+  // like a magnifying glass: zoomed in, the picture follows your mouse, or your finger as you drag
+  function initZoom() {
+    var view = document.querySelector('[data-zoom]');
+    if (!view) return;
+    var img = view.querySelector('img');
+    var hint = document.querySelector('[data-zoom-hint]');
+    var zoomed = false, x = 50, y = 50, drag = null, moved = false;
+    function place() { img.style.transformOrigin = x + '% ' + y + '%'; }
+    function at(e) {
+      var r = view.getBoundingClientRect();
+      x = Math.max(0, Math.min(100, (e.clientX - r.left) / r.width * 100));
+      y = Math.max(0, Math.min(100, (e.clientY - r.top) / r.height * 100));
+    }
+    function set(on) {
+      zoomed = on;
+      view.classList.toggle('is-zoomed', on);
+      view.setAttribute('aria-pressed', on ? 'true' : 'false');
+      view.setAttribute('aria-label', on ? 'step back from the bay area pin board' : 'look closer at the bay area pin board');
+      // phones and tablets have no mouse to hover with, so they get the words for fingers
+      var fingers = window.matchMedia && window.matchMedia('(hover: none)').matches;
+      if (hint) hint.textContent = on ? (fingers ? 'drag to look around. tap to step back.' : 'move around to look closer. click to step back.')
+        : 'tap or click the board to look closer, and again to step back.';
+      if (!on) { x = 50; y = 50; }
+      place();
+    }
+    view.addEventListener('pointerdown', function (e) {
+      drag = { touch: e.pointerType !== 'mouse', sx: e.clientX, sy: e.clientY, ox: x, oy: y };
+      moved = false;
+      if (zoomed && drag.touch) view.setPointerCapture(e.pointerId);
+    });
+    view.addEventListener('pointermove', function (e) {
+      if (!zoomed) return;
+      if (e.pointerType === 'mouse') { at(e); place(); return; }
+      if (!drag) return;
+      // a finger pushes the picture the way it moves, like sliding a photo on a table
+      var r = view.getBoundingClientRect();
+      var dx = (e.clientX - drag.sx) / r.width * 100, dy = (e.clientY - drag.sy) / r.height * 100;
+      if (Math.abs(dx) + Math.abs(dy) > 2) moved = true;
+      x = Math.max(0, Math.min(100, drag.ox - dx * 1.5));
+      y = Math.max(0, Math.min(100, drag.oy - dy * 1.5));
+      place();
+    });
+    view.addEventListener('pointerup', function () { setTimeout(function () { drag = null; }, 0); });
+    view.addEventListener('pointercancel', function () { drag = null; });
+    view.addEventListener('click', function (e) {
+      if (moved) { moved = false; return; }
+      if (!zoomed && e.detail) at(e);
+      set(!zoomed);
+    });
+    // keyboard: enter or space zooms (the button does that), arrows look around, escape steps back
+    view.addEventListener('keydown', function (e) {
+      var step = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] }[e.key];
+      if (zoomed && step) {
+        e.preventDefault();
+        x = Math.max(0, Math.min(100, x + step[0]));
+        y = Math.max(0, Math.min(100, y + step[1]));
+        place();
+      } else if (zoomed && e.key === 'Escape') { set(false); }
     });
   }
 
@@ -962,6 +1055,8 @@
     initReel();
     initKindWords();
     loadShop();
+    initRoom();
+    initZoom();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();

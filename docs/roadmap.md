@@ -73,6 +73,7 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 
 ## Phase 5. Polish
 - [x] Contact email wrapping fix at narrow widths (breaks after the @)
+- [x] Bay Area board shown on a living room wall on `pin-boards.html` (wiggles like the pups), with its own zoomable page `bay-area-pin-board.html` (2026-10-31)
 - [ ] Real product photos for the Bay Area board
 - [ ] Chinese Zodiac and Hometown Series pages when those pins exist
 - [ ] Remaining 3D models as they arrive (`/add-3d-model`)
