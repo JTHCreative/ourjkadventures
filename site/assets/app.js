@@ -599,7 +599,11 @@
       f.appendChild(field);
       var note = el('p', 'review-note');
       note.setAttribute('role', 'status');
-      if (mine) note.textContent = mine.status === 'approved' ? 'your review is up. you can change it here.' : 'your review is waiting for us to read it.';
+      if (mine) {
+        note.textContent = mine.status === 'approved' ? 'your review is up. you can change it here.'
+          : mine.status === 'hidden' ? 'we did not post this review. write to us at ' + CONTACT_EMAIL + ' if you would like to know why.'
+          : 'your review is waiting for us to read it.';
+      }
       var row = el('div', 'review-actions');
       var send = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', mine ? 'update your review.' : 'share your review.');
       send.type = 'submit';

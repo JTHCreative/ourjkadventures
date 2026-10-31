@@ -86,3 +86,40 @@ test('the account page learns whether to show the owner link', async () => {
   assert.equal((await hello(await sign({ email: OWNER, sub: 'owner1' }))).admin, true);
   assert.equal((await hello(await sign({}))).admin, false);
 });
+
+function review(slug, uid, status, rating = 4) {
+  return {
+    slug: { stringValue: slug }, uid: { stringValue: uid }, rating: { integerValue: String(rating) },
+    text: { stringValue: 'lovely.' }, name: { stringValue: 'juniper h.' }, status: { stringValue: status },
+    createdAt: { timestampValue: '2026-10-30T10:00:00Z' }
+  };
+}
+
+test('the owner sees waiting reviews and can approve or hide them', async () => {
+  const g = fresh();
+  g.docs['reviews/corgi_uid9'] = review('corgi', 'uid9', 'pending', 2);
+  g.docs['reviews/pug_uid8'] = review('pug', 'uid8', 'approved');
+  const token = await sign({ email: OWNER });
+
+  const list = (await (await call(g, 'GET', '/api/admin/reviews', token)).json()).reviews;
+  assert.deepEqual(list.map((r) => r.id), ['corgi_uid9']);
+  assert.equal(list[0].rating, 2);
+  assert.equal(list[0].uid, undefined);
+
+  assert.equal((await call(g, 'POST', '/api/admin/reviews', token, { id: 'corgi_uid9', status: 'approved' })).status, 200);
+  assert.equal(g.docs['reviews/corgi_uid9'].status.stringValue, 'approved');
+  assert.equal((await call(g, 'POST', '/api/admin/reviews', token, { id: 'pug_uid8', status: 'hidden' })).status, 200);
+  assert.equal(g.docs['reviews/pug_uid8'].status.stringValue, 'hidden');
+});
+
+test('review changes need a known status, a real review, and the owner', async () => {
+  const g = fresh();
+  g.docs['reviews/corgi_uid9'] = review('corgi', 'uid9', 'pending');
+  const token = await sign({ email: OWNER });
+  assert.equal((await call(g, 'POST', '/api/admin/reviews', token, { id: 'corgi_uid9', status: 'deleted' })).status, 400);
+  assert.equal((await call(g, 'POST', '/api/admin/reviews', token, { id: 'corgi_nobody', status: 'approved' })).status, 404);
+  assert.equal((await call(g, 'POST', '/api/admin/reviews', token, { id: '../users/x', status: 'approved' })).status, 404);
+  assert.equal((await call(g, 'POST', '/api/admin/reviews', await sign({}), { id: 'corgi_uid9', status: 'approved' })).status, 403);
+  assert.equal((await call(g, 'GET', '/api/admin/reviews', await sign({}))).status, 403);
+  assert.equal(g.docs['reviews/corgi_uid9'].status.stringValue, 'pending');
+});

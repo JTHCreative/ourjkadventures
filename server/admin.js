@@ -5,12 +5,15 @@
 //   GET  /api/admin          are you the owner? { admin: true, email }
 //   GET  /api/admin/shop     the open sign, read fresh
 //   POST /api/admin/shop     { open: true|false }
+//   GET  /api/admin/reviews  reviews waiting for a look
+//   POST /api/admin/reviews  { id, status: "approved" | "hidden" }
 //
 // Cloudflare setting (Settings > Variables and secrets):
 //   ADMIN_EMAILS   plain text, comma separated, e.g. ourjkadventures@gmail.com
 
 import { configured, userFromRequest } from './firebase.js';
 import { readShopSwitch, setShopOpen } from './shop.js';
+import { pendingReviews, setReviewStatus, REVIEW_STATUSES } from './reviews.js';
 
 function json(body, status) {
   return new Response(JSON.stringify(body), {
@@ -59,6 +62,15 @@ export async function admin(request, env, fetchFn = fetch) {
       if (typeof body.open !== 'boolean') return json({ error: 'open must be true or false' }, 400);
       await setShopOpen(env, body.open, user.email, fetchFn);
       return json(await readShopSwitch(env, fetchFn));
+    }
+
+    if (route === 'reviews') {
+      if (request.method === 'GET') return json({ reviews: await pendingReviews(env, fetchFn) });
+      if (request.method !== 'POST') return json({ error: 'method' }, 405);
+      const body = await readJson(request);
+      if (!REVIEW_STATUSES.includes(body.status)) return json({ error: 'status' }, 400);
+      if (!(await setReviewStatus(env, body.id, body.status, user.email, fetchFn))) return json({ error: 'no such review' }, 404);
+      return json({ id: body.id, status: body.status });
     }
 
     return json({ error: 'not found' }, 404);
