@@ -55,7 +55,7 @@ an everyday analogy when a concept is technical.
 - Each website product and size is linked to a Square item on `/admin`. Unlinked means sold out.
 - Stock shows as a plain "N in stock." while the shop is open, never as urgency.
 - 3D models exist for 10 pups. Still missing: cavalier, dachshund, french-bulldog, poodle, rottweiler, yorkie (their "See in 3D" button stays faded).
-- The Bay Area board hangs in a living room photo on `pin-boards.html`; tapping it opens `bay-area-pin-board.html` (zoomable full-size image, price and add to bag).
+- The Bay Area board hangs top left on a six-spot gallery wall in a living room photo on `pin-boards.html` (five spots empty for future boards); tapping it opens `bay-area-pin-board.html` (zoomable full-size image, price and add to bag).
 - Contact: support@ourjkadventures.com. Instagram: @ourjkadventures.
 
 ## Running and checking

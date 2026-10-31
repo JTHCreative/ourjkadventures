@@ -49,12 +49,23 @@
             srcset="assets/img/room-living-900.webp 900w, assets/img/room-living.webp 1672w"
             sizes="(max-width: 760px) 170vw, 1100px" width="1672" height="941"
             alt="a warm living room in afternoon light, with a linen sofa, an olive tree and a lamp.">
-          <a class="room-board" href="bay-area-pin-board.html" aria-label="the bay area pin board, hanging over the sofa. open it for a closer look.">
-            <img src="assets/img/bay-area-board-wall.webp" width="560" height="694" alt="">
-          </a>
+          <!-- a gallery wall with room for six boards: three across, two rows, left to right from the top.
+               to hang a new board, put its link (like the bay area one) inside the next empty spot. -->
+          <div class="room-wall">
+            <div class="room-slot">
+              <a class="room-board" href="bay-area-pin-board.html" aria-label="the bay area pin board, hanging over the sofa. open it for a closer look.">
+                <img src="assets/img/bay-area-board-wall.webp" width="280" height="347" alt="">
+              </a>
+            </div>
+            <div class="room-slot" aria-hidden="true"></div>
+            <div class="room-slot" aria-hidden="true"></div>
+            <div class="room-slot" aria-hidden="true"></div>
+            <div class="room-slot" aria-hidden="true"></div>
+            <div class="room-slot" aria-hidden="true"></div>
+          </div>
         </div>
       </div>
-      <figcaption class="caption center">the bay area pin board, at home over the sofa. tap it for a closer look.</figcaption>
+      <figcaption class="caption center">the bay area pin board, at home over the sofa. tap it for a closer look. more boards will join it.</figcaption>
     </figure>
   </div>
 </section>
