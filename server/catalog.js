@@ -28,12 +28,12 @@ export async function siteProducts(env, origin) {
   return res.json();
 }
 
-// every key the website could sell: [{ key, slug, size, name, kind }]
+// every key the website could sell: [{ key, slug, size, name, kind, series }]
 export function siteKeys(products) {
   const out = [];
   for (const p of products.items || []) {
     const sizes = (Array.isArray(p.sizes) && p.sizes.length ? p.sizes : ['standard']).filter((s) => SIZES.includes(s));
-    for (const size of sizes) out.push({ key: sizeKey(p.slug, size), slug: p.slug, size, name: p.name, kind: p.kind });
+    for (const size of sizes) out.push({ key: sizeKey(p.slug, size), slug: p.slug, size, name: p.name, kind: p.kind, series: p.series || '' });
   }
   return out;
 }

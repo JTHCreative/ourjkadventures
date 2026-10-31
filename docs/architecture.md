@@ -72,7 +72,8 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   `/api/checkout` refuses all orders.
 - **Products, prices and stock** (`server/catalog.js`, `server/square.js`): `products.json` lists what the
   site shows (slug, name, kind, description, `sizes`: `["standard", "large"]` for pins, `["standard"]` for
-  the board) plus shipping. Firestore `settings/square_production` (or `settings/square_sandbox`) maps each
+  the board), `series` for pins (`pup-club`, `hometown`, `zodiac`; `/admin` groups the Square links by it)
+  plus shipping. Firestore `settings/square_production` (or `settings/square_sandbox`) maps each
   key (`aussie`, `aussie:large`) to a Square item variation ID, chosen on `/admin`. `GET /api/catalog`
   joins them with Square (`BatchRetrieveCatalogObjects`, `BatchRetrieveInventoryCounts` at
   `SQUARE_LOCATION_ID`), keeps the result 60 seconds, and returns per size `{ key, price_cents, stock }`

@@ -14,7 +14,7 @@ an everyday analogy when a concept is technical.
 | `site/` | The live static site. Plain HTML, CSS and JS, no build step. A Cloudflare Worker with static assets serves this folder (`wrangler.jsonc`), deployed from `main` |
 | `site/assets/app.js` | Bag, pup board, size choice and stock line, speech bubbles, 3D viewer, checkout call |
 | `site/assets/styles.css` | All styles. Design tokens are the CSS variables on `:root` |
-| `site/products.json` | What the site shows: slug, name, kind, which sizes a product comes in, shipping. **No prices**: those come from Square |
+| `site/products.json` | What the site shows: slug, name, kind, `series` for pins (`pup-club`, `hometown`, `zodiac`), which sizes a product comes in, shipping. **No prices**: those come from Square |
 | `site/_worker.js` | Server side (the Worker). `/api/catalog` (products with Square price and stock), `/api/checkout` (Square payment link), `/api/account`, `/api/reviews`, `/api/admin`; everything else falls through to static files |
 | `server/` | Server code the worker imports: Firebase tickets and Firestore (`firebase.js`), accounts, reviews, the shop switch (`shop.js`), Square reads (`square.js`), the catalog (`catalog.js`), the owner's API (`admin.js`). Bundled by wrangler, never published |
 | `site/admin.html`, `site/assets/admin.js` | The owner's page at `/admin`: shop open switch, Square links, review approval. Not linked from any nav |

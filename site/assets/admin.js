@@ -59,6 +59,12 @@ function wireShop(state) {
 }
 
 /* ---------- products: which square item is which website product ---------- */
+// the pin sets, in the order the owner sees them. "series" in products.json says which set a pin is in
+const SERIES = [
+  { id: 'pup-club', title: 'pup club' },
+  { id: 'hometown', title: 'hometown series' },
+  { id: 'zodiac', title: 'chinese zodiac' }
+];
 function sizeLabel(p) {
   const name = p.slug === 'golden' ? 'goldie' : p.name;
   if (p.kind === 'board') return name;
@@ -89,7 +95,7 @@ function paintProducts(data) {
     : 'square has no items at this location yet. add them in your square item library, then come back.';
   const list = $('[data-link-list]');
   list.textContent = '';
-  data.products.forEach((p) => {
+  const linkRow = (p) => {
     const row = el('div', 'link-row');
     const id = 'link-' + p.key.replace(':', '-');
     const lab = el('label', 'link-name', sizeLabel(p));
@@ -103,8 +109,30 @@ function paintProducts(data) {
     // a link to an item that has since left square shows as not linked, and saving clears it
     if (sel.value !== (data.links[p.key] || '')) sel.value = '';
     row.append(lab, sel);
-    list.appendChild(row);
+    return row;
+  };
+  const group = (tag, cls, title, rows, empty) => {
+    const box = el('section', cls);
+    box.appendChild(el(tag, cls + '-title', title));
+    if (rows.length) rows.forEach((p) => box.appendChild(linkRow(p)));
+    else box.appendChild(el('p', 'caption', empty));
+    return box;
+  };
+  // pins, by series (any series not named here lands in "other pins"), then pin boards
+  const pins = data.products.filter((p) => p.kind === 'pin');
+  const pinBox = el('section', 'link-group');
+  pinBox.appendChild(el('h3', 'link-group-title', 'pins'));
+  const known = SERIES.map((s) => s.id);
+  SERIES.forEach((s) => {
+    pinBox.appendChild(group('h4', 'link-series', s.title, pins.filter((p) => p.series === s.id), 'no pins in this set yet.'));
   });
+  const other = pins.filter((p) => !known.includes(p.series));
+  if (other.length) pinBox.appendChild(group('h4', 'link-series', 'other pins', other, ''));
+  list.appendChild(pinBox);
+  list.appendChild(group('h3', 'link-group', 'pin boards', data.products.filter((p) => p.kind === 'board'), 'no pin boards yet.'));
+  // anything that is neither a pin nor a board still gets a row, so nothing goes missing
+  const rest = data.products.filter((p) => p.kind !== 'pin' && p.kind !== 'board');
+  if (rest.length) list.appendChild(group('h3', 'link-group', 'everything else', rest, ''));
   form.hidden = false;
 }
 
