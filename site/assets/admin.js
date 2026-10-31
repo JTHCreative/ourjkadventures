@@ -94,6 +94,8 @@ function paintProducts(data) {
     ? 'pick the square item for each one. anything left unlinked shows as sold out.'
     : 'square has no items at this location yet. add them in your square item library, then come back.';
   const list = $('[data-link-list]');
+  // keep whichever groups were open, so saving doesn't fold everything shut
+  const wasOpen = new Set([...list.querySelectorAll('details[open]')].map((d) => d.dataset.group));
   list.textContent = '';
   const linkRow = (p) => {
     const row = el('div', 'link-row');
@@ -111,28 +113,43 @@ function paintProducts(data) {
     row.append(lab, sel);
     return row;
   };
-  const group = (tag, cls, title, rows, empty) => {
-    const box = el('section', cls);
-    box.appendChild(el(tag, cls + '-title', title));
-    if (rows.length) rows.forEach((p) => box.appendChild(linkRow(p)));
-    else box.appendChild(el('p', 'caption', empty));
-    return box;
+  // a fold-out box: click its heading to open or close it. the heading says how many are linked
+  const group = (id, cls, title, rows, empty) => {
+    const box = el('details', cls);
+    box.dataset.group = id;
+    if (wasOpen.has(id)) box.open = true;
+    const sum = el('summary', cls + '-title');
+    const count = el('span', 'link-count');
+    sum.append(el('span', null, title), count);
+    box.appendChild(sum);
+    const body = el('div', 'link-body');
+    if (rows.length) rows.forEach((p) => body.appendChild(linkRow(p)));
+    else body.appendChild(el('p', 'caption', empty));
+    box.appendChild(body);
+    const recount = () => {
+      const sels = [...body.querySelectorAll('select')];
+      count.textContent = sels.length ? sels.filter((s) => s.value).length + ' of ' + sels.length + ' linked' : '';
+    };
+    body.addEventListener('change', recount);
+    recount();
+    return { box, body };
   };
   // pins, by series (any series not named here lands in "other pins"), then pin boards
   const pins = data.products.filter((p) => p.kind === 'pin');
-  const pinBox = el('section', 'link-group');
-  pinBox.appendChild(el('h3', 'link-group-title', 'pins'));
+  const pinGroup = group('pins', 'link-group', 'pins', pins, 'no pins yet.');
+  // inside "pins", one fold-out per set instead of one long list
+  pinGroup.body.textContent = '';
   const known = SERIES.map((s) => s.id);
   SERIES.forEach((s) => {
-    pinBox.appendChild(group('h4', 'link-series', s.title, pins.filter((p) => p.series === s.id), 'no pins in this set yet.'));
+    pinGroup.body.appendChild(group('series-' + s.id, 'link-series', s.title, pins.filter((p) => p.series === s.id), 'no pins in this set yet.').box);
   });
   const other = pins.filter((p) => !known.includes(p.series));
-  if (other.length) pinBox.appendChild(group('h4', 'link-series', 'other pins', other, ''));
-  list.appendChild(pinBox);
-  list.appendChild(group('h3', 'link-group', 'pin boards', data.products.filter((p) => p.kind === 'board'), 'no pin boards yet.'));
+  if (other.length) pinGroup.body.appendChild(group('series-other', 'link-series', 'other pins', other, '').box);
+  list.appendChild(pinGroup.box);
+  list.appendChild(group('boards', 'link-group', 'pin boards', data.products.filter((p) => p.kind === 'board'), 'no pin boards yet.').box);
   // anything that is neither a pin nor a board still gets a row, so nothing goes missing
   const rest = data.products.filter((p) => p.kind !== 'pin' && p.kind !== 'board');
-  if (rest.length) list.appendChild(group('h3', 'link-group', 'everything else', rest, ''));
+  if (rest.length) list.appendChild(group('rest', 'link-group', 'everything else', rest, '').box);
   form.hidden = false;
 }
 

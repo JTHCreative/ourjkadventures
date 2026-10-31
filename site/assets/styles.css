@@ -910,11 +910,20 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .link-row select { width: 100%; min-width: 0; min-height: 44px; padding: var(--space-2) var(--space-3); font: inherit; font-size: 16px; color: var(--ink); background: var(--surface); border: 1.5px solid var(--line-strong); border-radius: var(--radius-sm); }
 .link-row select:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .link-list + .admin-actions { margin-top: var(--space-4); }
-.link-group + .link-group { margin-top: var(--space-6); }
-.link-group-title { font-size: 22px; line-height: 28px; font-weight: 500; padding-bottom: var(--space-2); border-bottom: 1.5px solid var(--line-strong); }
-.link-series { margin-top: var(--space-4); }
-.link-series-title { font-size: 15px; line-height: 18px; font-weight: 600; letter-spacing: 0.12em; color: var(--honey-800); margin-bottom: var(--space-1); }
-.link-series > .caption { padding: var(--space-2) 0; }
+.link-group + .link-group { margin-top: var(--space-4); }
+/* fold-out headings: the whole line is the button, with an arrow that turns when open */
+.link-group > summary, .link-series > summary { display: flex; align-items: baseline; gap: var(--space-3); cursor: pointer; list-style: none; padding: var(--space-2) 0; }
+.link-group > summary::-webkit-details-marker, .link-series > summary::-webkit-details-marker { display: none; }
+.link-group > summary::before, .link-series > summary::before { content: ""; flex: none; width: 8px; height: 8px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(-45deg); transition: transform 0.2s ease; }
+.link-group[open] > summary::before, .link-series[open] > summary::before { transform: translateY(-4px) rotate(45deg); }
+.link-group > summary:focus-visible, .link-series > summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-sm); }
+.link-count { margin-left: auto; font-size: 14px; line-height: 20px; font-weight: 500; letter-spacing: 0.02em; color: var(--ink-muted); white-space: nowrap; }
+.link-group-title { font-size: 22px; line-height: 28px; font-weight: 500; border-bottom: 1.5px solid var(--line-strong); }
+.link-group > .link-body { padding-left: var(--space-3); }
+.link-series { margin-top: var(--space-2); }
+.link-series-title { font-size: 15px; line-height: 18px; font-weight: 600; letter-spacing: 0.12em; color: var(--honey-800); }
+.link-body > .caption { padding: var(--space-2) 0; }
+@media (prefers-reduced-motion: reduce) { .link-group > summary::before, .link-series > summary::before { transition: none; } }
 /* reviews waiting for a look */
 .admin-reviews { display: flex; flex-direction: column; }
 .admin-review { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-4) 0; border-top: 1.5px solid var(--line); }
