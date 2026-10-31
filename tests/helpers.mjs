@@ -77,4 +77,66 @@ export function fakeGoogle() {
   return { docs, calls, fetchFn, squareOrders };
 }
 
-export const env = { SQUARE_ACCESS_TOKEN: 'sq', SQUARE_LOCATION_ID: 'loc', FIREBASE_PROJECT_ID: PROJECT, FIREBASE_SERVICE_ACCOUNT: JSON.stringify({ client_email: 'sa@jk-test.iam.gserviceaccount.com', private_key: saPem }) };
+export const env = { SQUARE_ACCESS_TOKEN: 'sq', SQUARE_LOCATION_ID: 'loc', SQUARE_ENV: 'sandbox', FIREBASE_PROJECT_ID: PROJECT, FIREBASE_SERVICE_ACCOUNT: JSON.stringify({ client_email: 'sa@jk-test.iam.gserviceaccount.com', private_key: saPem }) };
+
+// a pretend Square catalog and stock list, shaped like the real one (items with "Regular" variations)
+export const LOC = 'loc';
+function sqItem(id, name, varId, cents, opts = {}) {
+  return {
+    type: 'ITEM', id, is_deleted: false, present_at_all_locations: false, present_at_location_ids: [opts.loc || LOC],
+    item_data: {
+      name, is_archived: !!opts.archived,
+      variations: [{
+        type: 'ITEM_VARIATION', id: varId, is_deleted: false, present_at_all_locations: false, present_at_location_ids: [opts.loc || LOC],
+        item_variation_data: {
+          item_id: id, name: 'Regular', sku: 'SKU-' + varId, pricing_type: 'FIXED_PRICING',
+          price_money: { amount: cents, currency: 'USD' }, track_inventory: true,
+          location_overrides: opts.soldOutTick ? [{ location_id: LOC, track_inventory: true, sold_out: true }] : []
+        }
+      }]
+    }
+  };
+}
+export function fakeSquare() {
+  const items = [
+    sqItem('I_AUS', 'Aussie Standard Pin', 'V_AUS', 1200),
+    sqItem('I_AUS_L', 'Large Aussie Pin (Exclusive)', 'V_AUS_L', 1500),
+    sqItem('I_POM', 'Pomeranian Standard Pin', 'V_POM', 1200, { soldOutTick: true }),
+    sqItem('I_OLD', 'Old Pin', 'V_OLD', 1000, { archived: true }),
+    sqItem('I_ELSE', 'Elsewhere Pin', 'V_ELSE', 1000, { loc: 'other-loc' })
+  ];
+  const stock = { V_AUS: 3, V_AUS_L: 48, V_POM: 5, V_OLD: 9, V_ELSE: 9 };
+  const links = [];
+  const calls = [];
+  const variations = () => items.flatMap((i) => i.item_data.variations);
+  const fetchFn = async (url, opts = {}) => {
+    calls.push((opts.method || 'GET') + ' ' + url);
+    if (url.includes('/v2/catalog/list')) return Response.json({ objects: items });
+    if (url.endsWith('/v2/catalog/batch-retrieve')) {
+      const ids = JSON.parse(opts.body).object_ids;
+      const objects = variations().filter((v) => ids.includes(v.id));
+      const related = items.filter((i) => objects.some((v) => v.item_variation_data.item_id === i.id));
+      return Response.json({ objects, related_objects: related });
+    }
+    if (url.endsWith('/v2/inventory/counts/batch-retrieve')) {
+      const b = JSON.parse(opts.body);
+      return Response.json({ counts: b.catalog_object_ids.filter((id) => id in stock).map((id) => ({
+        catalog_object_id: id, catalog_object_type: 'ITEM_VARIATION', state: 'IN_STOCK', location_id: b.location_ids[0], quantity: String(stock[id])
+      })) });
+    }
+    if (url.endsWith('/v2/online-checkout/payment-links')) {
+      links.push(JSON.parse(opts.body));
+      return Response.json({ payment_link: { url: 'https://square.link/u/abc', order_id: 'ORDER_' + links.length } });
+    }
+    return null;
+  };
+  return { items, stock, links, calls, fetchFn };
+}
+
+// Google and Square together, for code that talks to both
+export function fakeWorld() {
+  const g = fakeGoogle();
+  const sq = fakeSquare();
+  const fetchFn = async (url, opts = {}) => (await sq.fetchFn(String(url), opts)) || g.fetchFn(String(url), opts);
+  return { g, sq, fetchFn };
+}

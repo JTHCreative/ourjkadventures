@@ -123,3 +123,48 @@ test('review changes need a known status, a real review, and the owner', async (
   assert.equal((await call(g, 'GET', '/api/admin/reviews', await sign({}))).status, 403);
   assert.equal(g.docs['reviews/corgi_uid9'].status.stringValue, 'pending');
 });
+
+/* ---------- products: linking website products to Square items ---------- */
+import { fakeWorld } from './helpers.mjs';
+import { _resetCatalogCache } from '../server/catalog.js';
+import fs from 'node:fs';
+const products = JSON.parse(fs.readFileSync(new URL('../site/products.json', import.meta.url)));
+
+function world() {
+  _resetCaches(); _resetShopCache(); _resetCatalogCache();
+  const w = fakeWorld();
+  const e = { ...env, ASSETS: { fetch: async () => Response.json(products) } };
+  const go = (method, path, token, body) => {
+    const headers = { Authorization: 'Bearer ' + token };
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    return admin(new Request('https://x.test' + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) }), e, w.fetchFn);
+  };
+  return { ...w, go };
+}
+
+test('the owner sees every website product, its sizes, and the Square items to choose from', async () => {
+  const w = world();
+  const body = await (await w.go('GET', '/api/admin/products', await sign({ email: OWNER }))).json();
+  assert.equal(body.mode, 'sandbox');
+  assert.ok(body.products.some((p) => p.key === 'aussie:large' && p.size === 'large'));
+  assert.ok(body.products.some((p) => p.key === 'bay-area-pin-board'));
+  assert.ok(!body.products.some((p) => p.key === 'bay-area-pin-board:large'));
+  // archived items and items at another location are not offered
+  assert.deepEqual(body.square.map((s) => s.id).sort(), ['V_AUS', 'V_AUS_L', 'V_POM']);
+  assert.equal(body.square.find((s) => s.id === 'V_AUS_L').stock, 48);
+  assert.deepEqual(body.links, {});
+});
+
+test('the owner links products; bad keys, unknown items and doubles are refused', async () => {
+  const w = world();
+  const t = await sign({ email: OWNER });
+  assert.equal((await w.go('POST', '/api/admin/products', t, { links: { 'not-a-pin': 'V_AUS' } })).status, 400);
+  assert.equal((await w.go('POST', '/api/admin/products', t, { links: { aussie: 'V_OLD' } })).status, 400);
+  assert.equal((await w.go('POST', '/api/admin/products', t, { links: { aussie: 'V_AUS', corgi: 'V_AUS' } })).status, 400);
+  assert.equal(w.g.docs['settings/square_sandbox'], undefined);
+
+  const r = await w.go('POST', '/api/admin/products', t, { links: { aussie: 'V_AUS', 'aussie:large': 'V_AUS_L', corgi: '' } });
+  assert.equal(r.status, 200);
+  assert.deepEqual((await r.json()).links, { aussie: 'V_AUS', 'aussie:large': 'V_AUS_L' });
+  assert.equal((await w.go('POST', '/api/admin/products', await sign({}), { links: {} })).status, 403);
+});

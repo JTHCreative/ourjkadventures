@@ -7,121 +7,104 @@
       "slug": "aussie",
       "name": "aussie",
       "kind": "pin",
-      "price_cents": 1200,
-      "sold_out": true
+      "sizes": ["standard", "large"]
     },
     {
       "slug": "beagle",
       "name": "beagle",
       "kind": "pin",
-      "price_cents": 1200,
-      "sold_out": true
+      "sizes": ["standard", "large"]
     },
     {
       "slug": "cavalier",
       "name": "cavalier",
       "kind": "pin",
-      "price_cents": 1200,
-      "sold_out": true
+      "sizes": ["standard", "large"]
     },
     {
       "slug": "corgi",
       "name": "corgi",
       "kind": "pin",
-      "price_cents": 1200,
-      "sold_out": true
+      "sizes": ["standard", "large"]
     },
     {
       "slug": "dachshund",
       "name": "dachshund",
       "kind": "pin",
-      "price_cents": 1200,
-      "sold_out": true
+      "sizes": ["standard", "large"]
     },
     {
       "slug": "french-bulldog",
       "name": "french bulldog",
       "kind": "pin",
-      "price_cents": 1200,
-      "sold_out": true
+      "sizes": ["standard", "large"]
     },
     {
       "slug": "german-shepherd",
       "name": "german shepherd",
       "kind": "pin",
-      "price_cents": 1200,
-      "sold_out": true
+      "sizes": ["standard", "large"]
     },
     {
       "slug": "golden",
       "name": "golden",
       "kind": "pin",
-      "price_cents": 1200,
-      "sold_out": true
+      "sizes": ["standard", "large"]
     },
     {
       "slug": "husky",
       "name": "husky",
       "kind": "pin",
-      "price_cents": 1200,
-      "sold_out": true
+      "sizes": ["standard", "large"]
     },
     {
       "slug": "pit-bull",
       "name": "pit bull",
       "kind": "pin",
-      "price_cents": 1200,
-      "sold_out": true
+      "sizes": ["standard", "large"]
     },
     {
       "slug": "pomeranian",
       "name": "pomeranian",
       "kind": "pin",
-      "price_cents": 1200,
-      "sold_out": true
+      "sizes": ["standard", "large"]
     },
     {
       "slug": "poodle",
       "name": "poodle",
       "kind": "pin",
-      "price_cents": 1200,
-      "sold_out": true
+      "sizes": ["standard", "large"]
     },
     {
       "slug": "pug",
       "name": "pug",
       "kind": "pin",
-      "price_cents": 1200,
-      "sold_out": true
+      "sizes": ["standard", "large"]
     },
     {
       "slug": "rottweiler",
       "name": "rottweiler",
       "kind": "pin",
-      "price_cents": 1200,
-      "sold_out": true
+      "sizes": ["standard", "large"]
     },
     {
       "slug": "shiba",
       "name": "shiba",
       "kind": "pin",
-      "price_cents": 1200,
-      "sold_out": true
+      "sizes": ["standard", "large"]
     },
     {
       "slug": "yorkie",
       "name": "yorkie",
       "kind": "pin",
-      "price_cents": 1200,
-      "sold_out": true
+      "sizes": ["standard", "large"]
     },
     {
       "slug": "bay-area-pin-board",
       "name": "bay area pin board",
       "kind": "board",
-      "price_cents": 8000,
-      "sold_out": true,
-      "description": "the bay area pin board. a home for the pins you love."
+      "description": "the bay area pin board. a home for the pins you love.",
+      "sizes": ["standard"]
     }
   ]
 }

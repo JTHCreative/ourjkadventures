@@ -623,6 +623,16 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .link-btn { align-self: flex-start; background: none; border: 0; padding: 0; font-family: var(--font-serif); font-size: 16px; line-height: 22px; color: var(--cobalt); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .link-btn:disabled { color: var(--ink-muted); cursor: default; }
 .review-form form { display: flex; flex-direction: column; gap: var(--space-3); }
+/* size choice and stock line (standard or large), on the pup panel and product cards */
+.buy { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
+.product .buy { align-items: flex-start; }
+.size-pick { border: 0; padding: 0; margin: var(--space-1) 0; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); }
+.size-pick input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.size-pick label { display: inline-flex; align-items: center; min-height: 40px; padding: 0 var(--space-4); border: 1.5px solid var(--line-strong); border-radius: var(--radius-pill); font-size: 17px; color: var(--ink-soft); cursor: pointer; background: var(--surface); }
+.size-pick input:checked + label { border-color: var(--ink); color: var(--ink); background: var(--honey-100); }
+.size-pick input:focus-visible + label { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.stock-line { margin: 0; }
+.line .lnote { grid-column: 1 / -1; margin: 0; }
 .star-input { border: 0; padding: 0; margin: 0; }
 .star-input legend { padding: 0; font-size: 16px; line-height: 22px; font-weight: 500; margin-bottom: var(--space-1); }
 .star-input label { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; font-size: 30px; line-height: 1; color: var(--line-strong); cursor: pointer; border-radius: var(--radius-sm); }
@@ -781,7 +791,7 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
   .grid-2, .contact-list { grid-template-columns: 1fr; }
   .product .name { font-size: 24px; line-height: 30px; }
   .product--board { flex-direction: column; text-align: center; }
-  .product--board .info { align-items: center; }
+  .product--board .info, .product--board .buy { align-items: center; }
   .product--board .art { flex: none; width: 100%; max-width: 280px; }
   .reel { min-height: min(78svh, 640px); padding: var(--space-7) var(--space-4); }
   .site-header .wrap { flex-direction: column; gap: var(--space-3); }

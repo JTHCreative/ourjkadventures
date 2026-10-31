@@ -7,6 +7,8 @@
 //   POST /api/admin/shop     { open: true|false }
 //   GET  /api/admin/reviews  reviews waiting for a look
 //   POST /api/admin/reviews  { id, status: "approved" | "hidden" }
+//   GET  /api/admin/products  website products, the Square items they could be, and the links chosen
+//   POST /api/admin/products  { links: { "aussie": "<square variation id>", "aussie:large": "", ... } }
 //
 // Cloudflare setting (Settings > Variables and secrets):
 //   ADMIN_EMAILS   plain text, comma separated, e.g. ourjkadventures@gmail.com
@@ -14,6 +16,8 @@
 import { configured, userFromRequest } from './firebase.js';
 import { readShopSwitch, setShopOpen } from './shop.js';
 import { pendingReviews, setReviewStatus, REVIEW_STATUSES } from './reviews.js';
+import { siteProducts, siteKeys, readLinks, saveLinks } from './catalog.js';
+import { squareConfigured, squareMode, listVariations, stockCounts } from './square.js';
 
 function json(body, status) {
   return new Response(JSON.stringify(body), {
@@ -73,9 +77,60 @@ export async function admin(request, env, fetchFn = fetch) {
       return json({ id: body.id, status: body.status });
     }
 
+    if (route === 'products') {
+      if (request.method === 'GET') return json(await productLinks(request, env, fetchFn));
+      if (request.method !== 'POST') return json({ error: 'method' }, 405);
+      const body = await readJson(request);
+      const result = await changeLinks(request, env, body.links, fetchFn);
+      if (result.error) return json(result, result.status || 400);
+      return json(await productLinks(request, env, fetchFn));
+    }
+
     return json({ error: 'not found' }, 404);
   } catch (e) {
     console.log('admin error', e.message);
     return json({ error: 'unavailable' }, 503);
   }
+}
+
+/* ---------- products: which Square item is which website product ---------- */
+async function productLinks(request, env, fetchFn) {
+  const keys = siteKeys(await siteProducts(env, request.url));
+  const links = await readLinks(env, fetchFn);
+  let square = null;
+  let squareError = null;
+  if (!squareConfigured(env)) squareError = 'not configured';
+  else {
+    try {
+      const vars = await listVariations(env, fetchFn);
+      const counts = await stockCounts(env, vars.map((v) => v.id), fetchFn);
+      square = vars.map((v) => ({
+        id: v.id, label: v.label, sku: v.sku, price_cents: v.price_cents, tracked: v.tracked,
+        stock: v.marked_sold_out ? 0 : counts[v.id] || 0
+      }));
+    } catch (e) {
+      console.log('admin square list', e.message);
+      squareError = /401|403|UNAUTHORIZED|FORBIDDEN|SCOPE/i.test(e.message) ? 'permission' : 'unreachable';
+    }
+  }
+  return { mode: squareMode(env), products: keys, links, square, squareError };
+}
+
+async function changeLinks(request, env, wanted, fetchFn) {
+  if (!wanted || typeof wanted !== 'object' || Array.isArray(wanted)) return { error: 'links' };
+  const allowedKeys = new Set(siteKeys(await siteProducts(env, request.url)).map((k) => k.key));
+  const known = new Set((await listVariations(env, fetchFn)).map((v) => v.id));
+  const links = {};
+  const used = new Set();
+  for (const [key, id] of Object.entries(wanted)) {
+    if (!allowedKeys.has(key)) return { error: 'unknown product ' + key };
+    if (id === '' || id === null) continue;
+    if (typeof id !== 'string' || !known.has(id)) return { error: 'unknown square item for ' + key };
+    // one Square item can stand behind only one website product, or its stock would be counted twice
+    if (used.has(id)) return { error: 'used twice', key };
+    used.add(id);
+    links[key] = id;
+  }
+  await saveLinks(env, links, fetchFn);
+  return { saved: true };
 }
