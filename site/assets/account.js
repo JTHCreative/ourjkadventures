@@ -44,6 +44,19 @@ export async function currentToken() {
   return user ? user.getIdToken() : null;
 }
 
+// for the owner's page (admin.js): who is signed in, a google sign-in, and signing out
+export function signedInUser() { return ready; }
+export async function signInWithGoogle() {
+  const cred = await signInWithPopup(auth, new GoogleAuthProvider());
+  await hello(cred.user).catch(function () {});
+  return cred.user;
+}
+export async function signOutHere() {
+  await signOut(auth);
+  setHint(null);
+}
+export { friendly as friendlyError };
+
 function friendly(err) {
   const code = (err && err.code) || '';
   switch (code) {
@@ -266,6 +279,9 @@ async function accountPage() {
   try {
     const me = await hello(user);
     $('[data-greeting]').textContent = me.firstName ? 'hello, ' + me.firstName.toLowerCase() + '.' : 'hello.';
+    // only the owner sees the way in. the admin page checks again on the server, every time
+    const adminLink = $('[data-admin-link]');
+    if (adminLink && me.admin === true) adminLink.hidden = false;
   } catch (e) {
     couldNotOpen(notice);
   }

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>shop settings. j+k adventures</title>
+<meta name="description" content="for the shop owner.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css">
+<meta name="robots" content="noindex">
+</head>
+<body data-account-page="admin">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <filter id="jka-rough" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="4"/></filter>
+  <filter id="jka-rough-fine" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="2" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.5"/></filter>
+</svg>
+<header class="site-header">
+  <div class="wrap">
+    <a class="logo-link" href="index.html" aria-label="j+k adventures, home"><img class="logo" src="assets/img/logo.svg" width="400" height="220" alt="j+k adventures"></a>
+    <nav class="nav" aria-label="main">
+      <a href="index.html">home</a>
+      <a href="about.html">about us</a>
+      <a href="shop.html">shop</a>
+      <a href="contact.html">contact</a>
+      <a href="account.html" data-account-link>sign in</a>
+      <button class="cart-btn" type="button" data-cart aria-label="open your bag">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
+        <span class="cart-count" data-cart-count hidden>0</span>
+      </button>
+    </nav>
+  </div>
+</header>
+<main>
+
+<section class="section">
+  <div class="wrap admin">
+    <p class="notice" id="admin-gate" role="status">one moment.</p>
+    <div class="center" id="admin-signin" hidden>
+      <button class="jka-btn jka-btn--quiet" type="button" data-admin-google>sign in with google</button>
+      <p class="caption" data-admin-signin-note role="status"></p>
+    </div>
+
+    <div id="admin-view" hidden>
+      <p class="eyebrow center">for the shop owner</p>
+      <h1 class="display center" style="margin-top:var(--space-2)">shop settings.</h1>
+      <p class="caption center" style="margin-top:var(--space-2)" data-admin-who></p>
+
+      <section class="card clean admin-card" aria-labelledby="admin-shop-title">
+        <h2 class="admin-title" id="admin-shop-title">the shop</h2>
+        <div class="switch-row">
+          <button class="switch" type="button" role="switch" aria-checked="false" aria-labelledby="shop-switch-label" data-shop-switch disabled>
+            <span class="switch-knob" aria-hidden="true"></span>
+          </button>
+          <span id="shop-switch-label" class="switch-label">shop open</span>
+        </div>
+        <p class="body-sm" data-shop-state role="status"></p>
+        <p class="caption">while the shop is closed, every pin reads "coming soon" and nobody can check out. a change reaches every visitor within a minute.</p>
+      </section>
+
+      <section class="card clean admin-card" aria-labelledby="admin-products-title">
+        <h2 class="admin-title" id="admin-products-title">products and square</h2>
+        <p class="caption" data-products-mode></p>
+        <p class="body-sm" data-products-note role="status"></p>
+        <form data-products-form hidden>
+          <div class="link-list" data-link-list></div>
+          <div class="admin-actions">
+            <button class="jka-btn jka-btn--sm" type="submit">save links</button>
+            <span class="caption" data-products-saved role="status"></span>
+          </div>
+        </form>
+      </section>
+
+      <section class="card clean admin-card" aria-labelledby="admin-reviews-title">
+        <h2 class="admin-title" id="admin-reviews-title">new reviews</h2>
+        <p class="caption">approve or hide each one. hide only spam, rudeness or private details, never a low rating.</p>
+        <div class="admin-reviews" data-review-list></div>
+      </section>
+
+      <div class="account-actions">
+        <button class="jka-btn jka-btn--quiet" type="button" data-admin-sign-out>sign out</button>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="links">
+      <a href="shop.html">shop</a>
+      <a href="about.html">about us</a>
+      <a href="contact.html">contact</a>
+      <a href="https://www.instagram.com/ourjkadventures/" target="_blank" rel="noopener">instagram</a>
+      <a href="mailto:support@ourjkadventures.com">email</a>
+      <a href="privacy.html">privacy</a>
+    </div>
+    <p class="caption">&copy; 2026 j+k adventures.</p>
+  </div>
+</footer>
+<script src="assets/app.js"></script>
+<script type="module" src="assets/admin.js"></script>
+</body>
+</html>
