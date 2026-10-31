@@ -8,5 +8,7 @@ SUPPORT_EMAIL=support@ourjkadventures.com
 SQUARE_WEBHOOK_SIGNATURE_KEY=
 SQUARE_WEBHOOK_URL=
 # phase 3
-FIREBASE_PROJECT_ID=
+FIREBASE_PROJECT_ID=jk-adventures-website
 FIREBASE_SERVICE_ACCOUNT=
+# who may use /admin, comma separated
+ADMIN_EMAILS=ourjkadventures@gmail.com

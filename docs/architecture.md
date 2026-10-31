@@ -9,10 +9,12 @@ customer's folder in Firestore (the filing cabinet).
 ```
 browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, JS, images, GLBs)
    │           │
+   │           ├─► /api/catalog  ──► products.json + Square links (Firestore) + Square prices and stock
    │           ├─► /api/checkout ──► Square Checkout API ──► Square-hosted payment page
    │           │                                                  │
    │           │                    thank-you.html ◄── redirect after paying
-   │           └─► /api/account  ──► checks the Firebase ticket ──► Firestore (service account)
+   │           ├─► /api/account  ──► checks the Firebase ticket ──► Firestore (service account)
+   │           └─► /api/admin    ──► checks the ticket + ADMIN_EMAILS ──► shop switch, Square links, reviews
    │
    └─► Firebase Authentication (sign in, sign up, reset, verify email) ──► ticket (ID token)
 ```
@@ -23,18 +25,26 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   being published as a file. Code it imports from `server/` is bundled in by wrangler. Runtime settings
   live in the Worker's **Variables and Secrets**; `keep_vars` stops deploys wiping them.
   (The docs used to say Cloudflare Pages and `functions/`; that is not what runs.)
-- **Pages:** 14 hand-written HTML files in `site/`. Each repeats the same `<head>`, header, nav and footer. Change one, change all.
+- **Pages:** 17 hand-written HTML files in `site/`. Each repeats the same `<head>`, header, nav and footer. Change one, change all.
 - **`site/assets/app.js`** (vanilla JS, one IIFE):
-  - loads `products.json`, builds the pup board and the board card
-  - the bag lives in `localStorage` (`jka_cart`, `{slug: qty}`), max 20 per line
-  - "check out" POSTs `{items:[{slug, qty}]}` to `/api/checkout` and redirects to the returned Square URL
+  - loads `/api/catalog`, builds the pup board and the board card. A pin with two linked sizes gets a
+    standard / large choice; each size shows its price and, while the shop is open, "N in stock."
+  - the bag lives in `localStorage` (`jka_cart`, `{key: qty}`), where a key is `aussie` (standard) or
+    `aussie:large`. Max 20 per line, and never more than is on the shelf
+  - "check out" POSTs `{items:[{key, qty}]}` to `/api/checkout` and redirects to the returned Square URL.
+    A 409 (not enough on the shelf) trims the bag to the counts the server sends back
   - `thank-you.html` clears the bag on load
   - "See in 3D" lazy-loads `@google/model-viewer@3.5.0` from jsDelivr on first click
 - **`site/_worker.js`** (Pages advanced mode, so `functions/` is ignored while this file exists):
-  - looks up prices in `products.json` server-side, rejects unknown slugs, bad quantities, sold-out items
-  - creates a Square payment link: `POST /v2/online-checkout/payment-links` with order line items, optional `order.taxes` from `TAX_PERCENT`, a flat `shipping_fee`, `ask_for_shipping_address`, `redirect_url` = `/thank-you.html`
+  - refuses everything while the shop is closed (403); rejects unknown keys and bad quantities (400)
+  - checks the shelf fresh (`BatchRetrieveInventoryCounts`, not the one-minute catalog) and refuses more
+    than is there (409, with the real counts). Square's "sold out" tick counts as none
+  - creates a Square payment link: `POST /v2/online-checkout/payment-links` with line items that point at
+    the Square variation (`catalog_object_id` + quantity, no name or price, so Square charges its own
+    price and lowers its own stock), optional `order.taxes` from `TAX_PERCENT`, a flat `shipping_fee`,
+    `ask_for_shipping_address`, `redirect_url` = `/thank-you.html`
   - uses `connect.squareupsandbox.com` when `SQUARE_ENV=sandbox`
-  - Square API version is pinned in `SQUARE_VERSION`
+  - Square API version is pinned in `SQUARE_VERSION` in `server/square.js`
 - **Header:** every page uses the same slim header (logo left, links right; stacked and centered on phones). Inner pages use the full-color logo `logo.svg`.
 - **Home page:** the same header, made see-through (`.site-header--over`, light logo `logo-white.svg`), sits on top of a full-width video "reel" with the headline on top (`.reel` in `index.html`), then a
   two-column story section, the three sets and the pin board. The video is set with `data-mp4`,
@@ -55,9 +65,29 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   `_headers` lets browsers keep `/assets/video/*` for a week, so a new video needs new file names
   (for example `reel-v5.*`) or returning visitors may see the old one for up to a week. Keep
   full-size originals out of the repo (they stay in Drive or git history).
-- **Shop switch:** `shop_open` in `products.json`. Anything but `true` means every button reads
-  "coming soon" and `/api/checkout` refuses all orders.
-- **Inventory:** not tracked. `sold_out` in `products.json` is set by hand.
+- **Shop switch** (`server/shop.js`): Firestore `settings/shop` `{ open, updatedAt, updatedBy }`, flipped
+  on `/admin`. Read through the REST API with the service account and remembered for 60 seconds per
+  worker copy (10 seconds after a failed read). A missing document, anything but `open: true`, or an
+  unreachable Firestore means closed: every button reads "coming soon", no stock counts are shown, and
+  `/api/checkout` refuses all orders.
+- **Products, prices and stock** (`server/catalog.js`, `server/square.js`): `products.json` lists what the
+  site shows (slug, name, kind, description, `sizes`: `["standard", "large"]` for pins, `["standard"]` for
+  the board) plus shipping. Firestore `settings/square_production` (or `settings/square_sandbox`) maps each
+  key (`aussie`, `aussie:large`) to a Square item variation ID, chosen on `/admin`. `GET /api/catalog`
+  joins them with Square (`BatchRetrieveCatalogObjects`, `BatchRetrieveInventoryCounts` at
+  `SQUARE_LOCATION_ID`), keeps the result 60 seconds, and returns per size `{ key, price_cents, stock }`
+  with no Square IDs. Unlinked sizes, items deleted or archived in Square, items not at our location and
+  items without a fixed price are left out, so the product shows as sold out. If Square or Firestore is
+  unreachable, everything shows as sold out and the catalog retries after 10 seconds.
+- **Owner's page** (`site/admin.html` + `site/assets/admin.js`, served at `/admin`; `server/admin.js`):
+  every `/api/admin/*` call verifies the Firebase ticket (RS256, Google's securetoken keys cached by
+  their `max-age`, `aud`/`iss` for `jk-adventures-website`, not expired) and then requires
+  `email_verified === true` and an email in `ADMIN_EMAILS`. 401 without a valid ticket, 403 for anyone
+  else. Endpoints: `GET /api/admin`, `GET|POST /api/admin/shop`, `GET|POST /api/admin/products` (links;
+  each Square item may back only one website key), `GET|POST /api/admin/reviews` (`approved` or
+  `hidden`). Not linked from any nav; `POST /api/account` returns `admin: true` so the account page can
+  show a "shop settings" card. The page loads Firebase through `account.js`, like the other account
+  pages. `noindex`, `no-store`.
 - **Accounts** (phase 3):
   - `site/assets/account.js` (ES module) loads Firebase Auth 12.19.0 from gstatic.com and runs
     `sign-in.html`, `create-account.html`, `reset-password.html`, `account.html`, `account-details.html`
@@ -81,7 +111,7 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
 - **Reviews** (`server/reviews.js`, `/api/reviews`): signed-in people with a confirmed email rate a pin
   1 to 5 stars with an optional note (600 characters). One review per person per pin, stored as
   `reviews/{slug}_{uid}` with `status` `pending`, `approved` or `hidden`. New and edited reviews are
-  `pending` until the owner approves them in the Firebase console (`setup/reviews.md`). The public
+  `pending` until the owner approves or hides them on `/admin` (`setup/reviews.md`). The public
   reads approved reviews only through the worker, which keeps them in memory for 10 minutes so busy
   pages don't run up Firestore reads; responses also tell browsers they may reuse them for 5 minutes.
   `GET ?slug=` gives one pin's approved reviews and average (all ratings count), plus the reader's own
@@ -95,8 +125,7 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
 
 ### Known gaps
 - Shipping is a $5 flat placeholder in `products.json`. The owner must confirm.
-- No order history, no stock counts.
-- Booth sales (Square Reader) and web sales don't share stock.
+- No Square webhook yet, so order history reads Square on demand.
 - The contact email can wrap mid-word at narrow widths.
 
 ## Target
@@ -109,16 +138,17 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   - `functions/api/catalog.ts` (phase 2)
   - `functions/api/square-webhook.ts` (phase 2)
   - `functions/api/account/*.ts` (phases 3 and 4)
-- **Square as the source of truth for products and stock** (phase 2). Square Catalog items keyed by
-  SKU = slug. Site-only content (story text, breed, image, 3D model) stays in the repo, keyed by slug.
-  Checkout uses catalog object IDs so a sale lowers stock. A Square webhook tells us when an order is paid.
+- **Square as the source of truth for prices and stock** (phase 2, built except the webhook). Square
+  items are linked to site keys on `/admin` rather than by SKU, so the owner keeps the Square names and
+  SKUs already in Square. Site-only content (story text, breed, image, 3D model) stays in the repo, keyed
+  by slug. A Square webhook will tell us when an order is paid.
 - **Firebase Authentication** (email/password and Google) plus **Firestore** for accounts and the
   Collector's Path (phases 3 and 4). See `collectors-path-spec.md`.
 
 ## Secrets and settings (Cloudflare → Workers & Pages → ourjkadventures → Settings → Variables and Secrets)
 | Name | Kind | Phase |
 |---|---|---|
-| `SQUARE_ACCESS_TOKEN` | secret | 0 |
+| `SQUARE_ACCESS_TOKEN` | secret; needs `ITEMS_READ` and `INVENTORY_READ` from phase 2 | 0 |
 | `SQUARE_LOCATION_ID` | plain | 0 |
 | `SQUARE_ENV` | plain, `sandbox` or `production` | 0 |
 | `TAX_PERCENT` | plain, optional | 0 |
@@ -127,5 +157,6 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
 | `SQUARE_WEBHOOK_URL` | plain, the exact URL registered in Square (used in signature check) | 2 |
 | `FIREBASE_PROJECT_ID` | plain, `jk-adventures-website` | 3 |
 | `FIREBASE_SERVICE_ACCOUNT` | secret, JSON of the service account key | 3 |
+| `ADMIN_EMAILS` | plain, comma separated; who may use `/admin` (`ourjkadventures@gmail.com`) | 3 |
 
 Browser-side Firebase config (apiKey, authDomain, projectId, appId) is **not** secret and can live in code.

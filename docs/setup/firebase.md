@@ -46,3 +46,28 @@ the accounts work is merged to `main`.
 
 If the account page says "we could not open your account just now", the Cloudflare values in step 8
 are missing or mistyped. If sign-in itself fails with "something went wrong", recheck steps 1 and 2.
+
+## The owner's page (/admin)
+`/admin` is where you open and close the shop, link website products to Square items, and approve
+reviews. It isn't in any menu. When you're signed in as the owner, your account page shows a
+**shop settings** link. Anyone else who finds `/admin` sees only "this page is for the shop owner."
+
+Like a staff door with a guest list: Firebase proves who you are, and Cloudflare holds the list.
+14. In **Cloudflare > Workers & Pages > ourjkadventures > Settings > Variables and Secrets**, add
+    **`ADMIN_EMAILS`**, type **Text**, value `ourjkadventures@gmail.com`. To add a second person later,
+    separate addresses with commas. Press **Deploy**.
+15. Your email must be **confirmed** in Firebase. Signing in with Google confirms it automatically.
+    If you use email and password instead, click the link in the confirmation email first.
+16. **Publish the updated rules.** In the Firebase console, open **Build > Firestore Database > Rules**.
+    Select everything in the editor and delete it, paste in the whole of `firestore.rules` from this
+    repo, and press **Publish**. Nothing visible changes. The rules already blocked every browser, and
+    they now also name the `settings` documents (the shop switch and the Square links) explicitly.
+17. **Check it.** Open `ourjkadventures.com/admin` and choose **sign in with google** with
+    ourjkadventures@gmail.com. You should see **shop settings.** with the shop switch, products and
+    reviews. Then open `/admin` in a private window and sign in with a different Google account: it
+    should say only "this page is for the shop owner."
+
+The shop starts **closed**. It stays closed until you flip the switch on `/admin`, and it also counts
+as closed whenever the website can't reach Firestore, so a hiccup never opens it by accident.
+The switch lives in Firestore at `settings/shop` (`open: true` or `false`). Please change it on
+`/admin` rather than in the console, so the change is recorded with your email and time.

@@ -8,15 +8,15 @@ words." section on the home page. That section stays hidden until there is at le
 There is nothing to set up: reviews use the same Firebase project and Cloudflare settings as accounts.
 
 ## Approving a review
-1. Open console.firebase.google.com and choose **jk-adventures-website**.
-2. Go to **Build > Firestore Database > Data**.
-3. Click the **reviews** collection. Each review is named `<pin>_<account id>`, for example `corgi_Xy12...`.
-4. Click a review to see its `rating`, `text`, `name` and `status`. New and edited reviews say `pending`.
-5. Hover over the `status` field, click the pencil, change `pending` to `approved`, and press **Update**.
-6. It shows on the site within about 10 minutes. The server re-reads approved reviews at most every 10 minutes.
+1. Sign in on the website as the owner and open **your account > shop settings** (or go to `/admin`).
+2. Under **new reviews**, each waiting review shows its pin, stars, words, name and date.
+3. Press **approve** to put it up, or **hide** to keep it off the site. A hidden review stays stored;
+   its writer sees "we did not post this review" on the pin panel, with our email.
+4. An approved review shows on the site within about 10 minutes. The server re-reads approved reviews at most every 10 minutes.
 
-To take a review down, change `status` to `hidden`. To remove it completely, click the three dots
-next to the review and choose **Delete document**.
+The Firebase console still works as a backup: **Firestore Database > Data > reviews**, then change a
+review's `status` from `pending` to `approved` or `hidden`. To remove a review completely, delete its
+document there.
 
 ## What to approve
 - Screen for spam, rudeness, private details (someone's address or phone), or things that aren't about the pin.
@@ -33,5 +33,3 @@ next to the review and choose **Delete document**.
   person's reviews.
 - The name shown is the account's first name and last initial ("juniper h."), or "a collector" if
   they haven't given a name.
-- To find waiting reviews quickly: on the **reviews** collection, click the filter icon and filter
-  `status` == `pending`.

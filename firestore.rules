@@ -3,9 +3,16 @@ rules_version = '2';
 // j+k adventures. Nobody reads or writes Firestore from a browser.
 // The website's server (site/_worker.js) uses the service account, which these rules do not apply to,
 // and hands each signed-in person only their own details through /api/account.
-// Paste this into Firebase console > Firestore Database > Rules, then Publish.
+// Paste this into Firebase console > Firestore Database > Rules, then Publish (docs/setup/firebase.md).
 service cloud.firestore {
   match /databases/{database}/documents {
+    // the shop's open sign (settings/shop) and the Square links (settings/square_production,
+    // settings/square_sandbox). Only the server reads them; only the owner, through /admin, changes them.
+    match /settings/{doc} {
+      allow read, write: if false;
+    }
+
+    // customers, their order notes, reviews and everything else: server only
     match /{document=**} {
       allow read, write: if false;
     }
