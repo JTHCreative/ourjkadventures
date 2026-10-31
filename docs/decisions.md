@@ -128,3 +128,10 @@ which is what makes Square lower the count on a web sale (before this, web sales
 stock), and it checks the shelf fresh rather than trusting the one-minute catalog. Square's "sold out"
 tick wins over any count. Tax still comes from `TAX_PERCENT`, not Square's per-item tax, to avoid
 charging it twice. If Square can't be reached, everything shows as sold out.
+
+## 2026-10-31 Large pins only for the aussie and the pomeranian
+Owner: only the aussie and pomeranian come in a large size, a limited edition. Every other pup is standard
+only, so `products.json` lists `["standard", "large"]` for those two and `["standard"]` for the rest, and
+`/admin` no longer offers large rows nobody will fill. The site doesn't call the large pins "limited" to
+customers: that reads as urgency, which the brand voice avoids. On `/admin`, the product groups fold open
+and shut, each heading showing how many of its products are linked.

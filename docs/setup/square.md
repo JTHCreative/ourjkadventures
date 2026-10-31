@@ -55,7 +55,9 @@ Replace it with the personal access token from step 4.
 1. Sign in on the website with ourjkadventures@gmail.com, open **your account**, then **shop settings**
    (or go straight to `/admin`).
 2. Under **products and square**, products are grouped: **pins** (split into pup club, hometown series and
-   chinese zodiac) and **pin boards**. Each pin is listed twice, standard and large. Each board is listed once. Pick the matching Square item from each dropdown. The dropdown shows Square's name,
+   chinese zodiac) and **pin boards**. Click a heading to open or close it; each heading shows how many of
+   its products are linked. Each pin has a standard row, and the aussie and pomeranian also have a large
+   (limited edition) row. Each board is listed once. Pick the matching Square item from each dropdown. The dropdown shows Square's name,
    price and stock, for example "Large Aussie Pin (Exclusive) · $15.00 · 48 in stock".
 3. Leave a size "not linked" if you don't make it. A pin with only a standard size simply shows no size choice.
 4. Press **save links**. The shop shows the change within a minute.

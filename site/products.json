@@ -15,63 +15,63 @@
       "name": "beagle",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard", "large"]
+      "sizes": ["standard"]
     },
     {
       "slug": "cavalier",
       "name": "cavalier",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard", "large"]
+      "sizes": ["standard"]
     },
     {
       "slug": "corgi",
       "name": "corgi",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard", "large"]
+      "sizes": ["standard"]
     },
     {
       "slug": "dachshund",
       "name": "dachshund",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard", "large"]
+      "sizes": ["standard"]
     },
     {
       "slug": "french-bulldog",
       "name": "french bulldog",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard", "large"]
+      "sizes": ["standard"]
     },
     {
       "slug": "german-shepherd",
       "name": "german shepherd",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard", "large"]
+      "sizes": ["standard"]
     },
     {
       "slug": "golden",
       "name": "golden",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard", "large"]
+      "sizes": ["standard"]
     },
     {
       "slug": "husky",
       "name": "husky",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard", "large"]
+      "sizes": ["standard"]
     },
     {
       "slug": "pit-bull",
       "name": "pit bull",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard", "large"]
+      "sizes": ["standard"]
     },
     {
       "slug": "pomeranian",
@@ -85,35 +85,35 @@
       "name": "poodle",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard", "large"]
+      "sizes": ["standard"]
     },
     {
       "slug": "pug",
       "name": "pug",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard", "large"]
+      "sizes": ["standard"]
     },
     {
       "slug": "rottweiler",
       "name": "rottweiler",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard", "large"]
+      "sizes": ["standard"]
     },
     {
       "slug": "shiba",
       "name": "shiba",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard", "large"]
+      "sizes": ["standard"]
     },
     {
       "slug": "yorkie",
       "name": "yorkie",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard", "large"]
+      "sizes": ["standard"]
     },
     {
       "slug": "bay-area-pin-board",

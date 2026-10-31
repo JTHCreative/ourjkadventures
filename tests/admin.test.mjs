@@ -148,6 +148,8 @@ test('the owner sees every website product, its sizes, and the Square items to c
   assert.equal(body.mode, 'sandbox');
   assert.ok(body.products.some((p) => p.key === 'aussie:large' && p.size === 'large'));
   assert.ok(body.products.filter((p) => p.kind === 'pin').every((p) => p.series === 'pup-club'));
+  // only the aussie and the pomeranian come in large
+  assert.deepEqual(body.products.filter((p) => p.size === 'large').map((p) => p.slug).sort(), ['aussie', 'pomeranian']);
   assert.ok(body.products.some((p) => p.key === 'bay-area-pin-board'));
   assert.ok(!body.products.some((p) => p.key === 'bay-area-pin-board:large'));
   // archived items and items at another location are not offered
