@@ -133,8 +133,13 @@
       o[k] = k === 'autoAdvance' ? options[k] === true : clampProp(k, options[k] === undefined ? DEFAULTS[k] : options[k]);
     });
     var reels = (options.reels || []).filter(function (r) { return r && assetUrl(r.thumbnailUrl); }).slice(0, Math.round(o.count));
+    var real = reels.length;            // how many different reels there are
+    if (!real) { rootEl.hidden = true; return null; }
+    // two reels make a poor ring (one hides right behind the other), so each goes on twice: a, b, a, b.
+    // the dots and the count still say two. one reel just sits there on its own, no ring to turn
+    if (real === 2) reels = reels.concat(reels);
+    var single = real === 1;
     var N = reels.length;
-    if (!N) { rootEl.hidden = true; return null; }
     var s = 360 / N;
 
     var motion = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -149,13 +154,14 @@
     var muted = true, held = false;   // held: the viewer pressed pause, so nothing plays until they press play
 
     rootEl.classList.add('reel-door');
+    rootEl.classList.toggle('reel-door--single', single);
     rootEl.textContent = '';
 
     var stage = el('div', 'reel-door__stage');
     stage.setAttribute('role', 'group');
-    stage.setAttribute('aria-roledescription', 'carousel');
-    stage.setAttribute('aria-label', options.label || 'reels from our instagram');
-    stage.tabIndex = 0;
+    if (!single) stage.setAttribute('aria-roledescription', 'carousel');
+    stage.setAttribute('aria-label', options.label || (single ? 'a reel from our instagram' : 'reels from our instagram'));
+    if (!single) stage.tabIndex = 0;
 
     var items = reels.map(function (r, i) { return buildReel(r, i); });
     items.forEach(function (it) { stage.appendChild(it.node); });
@@ -164,11 +170,11 @@
     var prevBtn = arrowButton('previous reel', ICON.prev, function () { step(-1); });
     var nextBtn = arrowButton('next reel', ICON.next, function () { step(1); });
     var dotsBox = el('div', 'reel-door__dots');
-    var dots = reels.map(function (r, i) {
+    var dots = reels.slice(0, real).map(function (r, i) {
       var b = el('button', 'reel-door__dot');
       b.type = 'button';
       b.setAttribute('aria-label', 'reel ' + (i + 1));
-      b.addEventListener('click', function () { goTo(i); });
+      b.addEventListener('click', function () { goToReel(i); });
       dotsBox.appendChild(b);
       return b;
     });
@@ -182,8 +188,10 @@
     counter.setAttribute('aria-atomic', 'true');
 
     rootEl.appendChild(stage);
-    rootEl.appendChild(controls);
-    rootEl.appendChild(counter);
+    if (!single) {
+      rootEl.appendChild(controls);
+      rootEl.appendChild(counter);
+    }
 
     function arrowButton(label, paths, onClick) {
       var b = el('button', 'reel-door__arrow');
@@ -198,13 +206,13 @@
       var node = el('div', 'reel-door__reel');
       node.setAttribute('role', 'group');
       node.setAttribute('aria-roledescription', 'slide');
-      node.setAttribute('aria-label', (i + 1) + ' of ' + N);
+      node.setAttribute('aria-label', (i % real + 1) + ' of ' + real);
       node.setAttribute('data-index', String(i));
       var card = el('div', 'reel-door__card' + (r.placeholder ? ' reel-door__card--placeholder' : ''));
       // the whole picture is one button: on the front reel it opens the reel full screen
       var media = el('button', 'reel-door__media');
       media.type = 'button';
-      media.setAttribute('aria-label', 'watch reel ' + (i + 1) + ' full screen');
+      media.setAttribute('aria-label', single ? 'watch this reel full screen' : 'watch reel ' + (i % real + 1) + ' full screen');
       media.addEventListener('click', function () { openFull(i); });
       var permalink = safeUrl(r.permalink, PROFILE);
       var thumb = assetUrl(r.thumbnailUrl);
@@ -372,7 +380,7 @@
         }
       });
       dots.forEach(function (b, i) {
-        if (i === f) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+        if (i === f % real) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
       });
       if (old >= 0) leaveFront(items[old]);
     }
@@ -444,7 +452,7 @@
       var f = mod(Math.round(target / s), N);
       if (f !== announced) {
         announced = f;
-        counter.textContent = 'reel ' + (f + 1) + ' of ' + N;
+        counter.textContent = 'reel ' + (f % real + 1) + ' of ' + real;
       }
       if (calm) {
         // reduced motion: jump straight there
@@ -460,12 +468,21 @@
     }
 
     // arrows and keys move the target, not the current angle, so quick presses queue up
-    function step(dir) { setTarget(Math.round(target / s) * s + dir * s); }
+    function step(dir) { if (!single) setTarget(Math.round(target / s) * s + dir * s); }
 
     // bring reel i to the front the short way round
     function goTo(i) {
       var base = Math.round(target / s) * s;
       setTarget(base + (mod(i * s - base + 180, 360) - 180));
+    }
+    // a dot means a reel, which may be on the ring twice: go to the nearer one
+    function goToReel(k) {
+      var base = Math.round(target / s) * s, best = k, far = Infinity;
+      for (var i = k; i < N; i += real) {
+        var d = Math.abs(mod(i * s - base + 180, 360) - 180);
+        if (d < far) { far = d; best = i; }
+      }
+      goTo(best);
     }
 
     /* ---------- full screen: the front reel on its own, with a close button at the top ---------- */
@@ -552,7 +569,7 @@
       full.index = i;
       full.media.textContent = '';
       full.video = null;
-      full.dialog.setAttribute('aria-label', 'reel ' + (i + 1) + ' of ' + N);
+      full.dialog.setAttribute('aria-label', single ? 'a reel from our instagram' : 'reel ' + (i % real + 1) + ' of ' + real);
       full.card.classList.toggle('reel-door__card--placeholder', it.placeholder);
       full.handle.href = it.permalink;
       full.handle.textContent = '@' + it.username;
@@ -614,7 +631,7 @@
     /* ---------- dragging ---------- */
 
     stage.addEventListener('pointerdown', function (e) {
-      if (e.button !== 0 || (drag && drag.moving)) return;
+      if (single || e.button !== 0 || (drag && drag.moving)) return;
       drag = { id: e.pointerId, x: e.clientX, y: e.clientY, startAngle: angle, moving: false, samples: [] };
     });
 
@@ -680,6 +697,7 @@
 
     // keys: bound on the stage only, never on the window
     stage.addEventListener('keydown', function (e) {
+      if (single) return;
       if (e.key === 'ArrowLeft') { e.preventDefault(); step(-1); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); step(1); }
     });
@@ -766,7 +784,8 @@
         if (!r.ok) throw new Error('reels ' + r.status);
         return r.json();
       }).then(function (j) {
-        opts.reels = Array.isArray(j) ? j : (j && j.reels) || [];
+        // instagram isn't connected yet: show the stand-ins rather than nothing
+        opts.reels = j && j.connected === false ? PLACEHOLDER_REELS : Array.isArray(j) ? j : (j && j.reels) || [];
         if (!mount(node, opts)) section.hidden = true;
       }).catch(function () { section.hidden = true; });
     });
