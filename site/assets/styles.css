@@ -1026,3 +1026,139 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
   .board-info .buy { align-items: center; }
 }
 @media (prefers-reduced-motion: reduce) { .zoom-view img { transition: none; } }
+
+/* ---------- the reel door: a ring of reels from our instagram (assets/reel-door.js, docs/reel-door-spec.md) ---------- */
+.reel-door-section .wrap { text-align: center; }
+.reel-door-section .lede { max-width: 560px; margin: var(--space-3) auto 0; color: var(--ink-muted); }
+.reel-door {
+  --reel-door-w: 208px;
+  position: relative;
+  overflow: hidden;                      /* the rear reels may reach past a phone's edge: no sideways scroll */
+  padding: var(--space-5) 6px var(--space-2);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.reel-door[hidden] { display: none; }
+.reel-door__stage {
+  position: relative;
+  height: calc(var(--reel-door-w) * 16 / 9 * 1.16);
+  touch-action: pan-y;
+  user-select: none; -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  isolation: isolate;                    /* stacking comes from z-index, never real 3d depth */
+  border-radius: var(--radius-lg);
+  cursor: grab;
+}
+.reel-door__stage.is-dragging { cursor: grabbing; }
+.reel-door__stage:focus { outline: none; }
+.reel-door__stage:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.reel-door__reel {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: var(--reel-door-w);
+  aspect-ratio: 9 / 16;
+  margin-left: calc(var(--reel-door-w) / -2);
+  margin-top: calc(var(--reel-door-w) * 8 / -9);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  will-change: transform;
+}
+.reel-door__card {
+  position: relative;
+  width: 100%; height: 100%;
+  overflow: hidden;
+  border: 1.5px solid var(--ink);
+  border-radius: var(--radius-lg);
+  clip-path: inset(0 round var(--radius-lg));   /* a playing video ignores rounded corners without this */
+  background: var(--surface-paper);
+}
+.reel-door__media, .reel-door__open { position: absolute; inset: 0; display: block; }
+.reel-door__media img, .reel-door__media video { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.reel-door__reel--placeholder .reel-door__media img { object-fit: contain; padding: 14% 14% 42%; }
+.reel-door__open:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -4px; border-radius: var(--radius-lg); }
+.reel-door__open-badge {
+  position: absolute; top: 38%; left: 50%;
+  width: 56px; height: 56px; margin: -28px 0 0 -28px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--surface-raised); border: 1.5px solid var(--ink); color: var(--ink);
+}
+.reel-door__open-badge svg { width: 24px; height: 24px; fill: currentColor; }
+.reel-door__num {
+  position: absolute; top: var(--space-3); left: var(--space-3);
+  min-width: 28px; padding: 2px var(--space-2);
+  font-size: 14px; line-height: 20px; font-weight: 500; text-align: center; color: var(--ink);
+  background: var(--surface-raised); border: 1.5px solid var(--ink); border-radius: var(--radius-pill);
+}
+.reel-door__tools { position: absolute; top: var(--space-2); right: var(--space-2); display: none; gap: var(--space-1); }
+.reel-door__reel.is-front .reel-door__tools { display: flex; }
+.reel-door__tools[hidden] { display: none !important; }
+.reel-door__tool {
+  width: 40px; height: 40px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--surface-raised); border: 1.5px solid var(--line-strong); color: var(--ink);
+  cursor: pointer;
+}
+.reel-door__tool svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.reel-door__panel {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  background: var(--surface-raised);
+  border-top: 1.5px solid var(--ink);
+  text-align: left;
+}
+.reel-door__who { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.reel-door__avatar {
+  flex: none; width: 24px; height: 24px; padding: 2px;
+  border-radius: 50%; border: 1.5px solid var(--ink); background: var(--surface); object-fit: contain;
+}
+.reel-door__handle {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 14px; line-height: 20px; font-weight: 500; color: var(--ink); text-decoration: none;
+}
+.reel-door__handle:hover { text-decoration: underline; }
+.reel-door__handle:focus-visible, .reel-door__tool:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.reel-door__caption {
+  margin-top: var(--space-1);
+  font-size: 14px; line-height: 20px; font-weight: 500; color: var(--ink-muted);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.reel-door__progress { display: none; height: 3px; margin-top: var(--space-2); border-radius: var(--radius-pill); background: var(--cream-400); overflow: hidden; }
+.reel-door__reel.is-front .reel-door__progress { display: block; }
+.reel-door__bar { height: 100%; background: var(--accent); transform: scaleX(0); transform-origin: left center; transition: transform 0.25s linear; }
+.reel-door__reel.is-running .reel-door__bar { animation: reel-door-fill 6s linear forwards; }   /* a still's turn at the front */
+.reel-door.is-away .reel-door__bar { animation-play-state: paused; }
+@keyframes reel-door-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+.reel-door__haze { position: absolute; inset: 0; background: var(--surface); pointer-events: none; opacity: 0; }
+
+.reel-door__controls { display: flex; align-items: center; justify-content: center; gap: var(--space-4); margin-top: var(--space-4); }
+.reel-door__arrow {
+  flex: none; width: 56px; height: 56px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--surface-raised); border: 1.5px solid var(--line-strong); color: var(--ink);
+  cursor: pointer;
+}
+.reel-door__arrow svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.reel-door__arrow:hover { background: var(--surface-sunken); }
+.reel-door__dots { display: flex; align-items: center; justify-content: center; min-width: 0; }
+.reel-door__dot {
+  flex: 0 1 44px; min-width: 32px; height: 44px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 0; border-radius: var(--radius-sm); cursor: pointer;
+}
+.reel-door__dot::before {
+  content: ""; display: block; width: 8px; height: 8px;
+  border-radius: var(--radius-pill); background: var(--line-strong);
+  transition: width 0.2s ease, background-color 0.2s ease;
+}
+.reel-door__dot[aria-current="true"]::before { width: 24px; background: var(--ink); }
+.reel-door__dot:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.reel-door__count { margin-top: var(--space-1); text-align: center; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--ink-muted); }
+
+@media (max-width: 479px) {
+  .reel-door__arrow { display: none; }       /* swipe, dots and keys are enough on a phone */
+}
+@media (prefers-reduced-motion: reduce) {
+  .reel-door__bar { transition: none; }
+  .reel-door__reel.is-running .reel-door__bar { animation: none; }
+  .reel-door__dot::before { transition: none; }
+}
