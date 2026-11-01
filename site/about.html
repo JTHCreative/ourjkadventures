@@ -51,15 +51,15 @@
   </div>
 </section>
 
-<!-- the reel door: a ring of reels, built by assets/reel-door.js. placeholder reels until /api/reels exists;
-     then add data-reels-src="/api/reels" to the div (see docs/reel-door-spec.md) -->
+<!-- the reel door: a ring of reels, built by assets/reel-door.js from /api/reels (our instagram). stand-in reels until
+     instagram is connected on /admin (docs/setup/instagram.md); the section hides if the reels can't be had -->
 <section class="section reel-door-section" aria-labelledby="reel-door-title">
   <div class="wrap">
     <p class="eyebrow">from our instagram</p>
     <h2 class="headline" id="reel-door-title" style="margin-top:var(--space-2)">out and about.</h2>
-    <p class="lede">the pins on real jackets, bags and walks. drag to turn the ring, and tap the front reel to watch it full screen.</p>
+    <p class="lede">the pins on real jackets, bags and walks. tap a reel to watch it full screen.</p>
   </div>
-  <div data-reel-door></div>
+  <div data-reel-door data-reels-src="/api/reels"></div>
 </section>
 </main>
 <footer class="site-footer">
