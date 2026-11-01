@@ -24,8 +24,10 @@ Meta changes its labels now and then, so the names below may be slightly differe
 3. Name it `j+k adventures website` and use `support@ourjkadventures.com` as the contact email.
 4. For the use case, pick the one about **Instagram** (for example "Manage messaging and content on
    Instagram"). If asked for an app type, pick **Business**.
-5. Open the app. In the menu, go to **Instagram** > **API setup with Instagram login**
-   (also called "Business login for Instagram").
+5. Open the app. On the **Dashboard**, click **Customize the Manage messaging & content on Instagram use
+   case** (or **Use cases** in the left menu > **Customize** next to it). Inside, choose
+   **API setup with Instagram login** (not "with Facebook login"). There's no Instagram item in the left
+   menu itself, and the **Facebook Login for Business** item there can be ignored.
 6. Write down the **Instagram app ID** and the **Instagram app secret** shown there (press **Show** for
    the secret). Note: these are the *Instagram* ones on that page, not the "App ID" at the top of the
    dashboard. You'll paste them into Cloudflare in step 3.
@@ -33,8 +35,9 @@ Meta changes its labels now and then, so the names below may be slightly differe
    **OAuth redirect URIs** and save (the second covers opening `/admin` on the www address):
    `https://ourjkadventures.com/api/admin/instagram/callback`
    `https://www.ourjkadventures.com/api/admin/instagram/callback`
-8. Make sure the permission **instagram_business_basic** is listed (it usually is by default). Don't add
-   any others: the website only needs to read.
+8. Under **Permissions and features** in the same use case, make sure **instagram_business_basic** is
+   listed. Messaging permissions may be listed too; leave them, the website only ever asks for
+   `instagram_business_basic`. You don't need "Become a Tech Provider" or **Publish**.
 
 ## 2. Let the app see your account
 While the app is in development mode, only accounts with a role on it can sign in. That's all we need:
