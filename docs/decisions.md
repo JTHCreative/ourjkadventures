@@ -145,3 +145,10 @@ z-index (closest to the front on top), not real 3D depth, because two cards in s
 through each other as they pass. When the Astro port happens, this file can be an island as-is.
 Instagram's own embed was kept only as a fallback: it can't be styled, and its iframe swallows drags.
 
+## 2026-11 Reel door on the About page, full screen in the page, not the browser's
+The owner moved the reel door from the home page to the About page and asked for smaller reels, full
+screen on tap, and no arrows on phones. Full screen is a cover over the page (a modal `<dialog>`, with a
+close button at the top and Escape to close), not the browser's own fullscreen mode, because iPhones don't
+allow that for anything but a bare video, and the cover keeps our caption and buttons. The spec's minimum
+reel width (160px) gave way to "front reel and both neighbours always fit": reels are now 120 to 200px wide.
+
