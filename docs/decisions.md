@@ -152,3 +152,14 @@ close button at the top and Escape to close), not the browser's own fullscreen m
 allow that for anything but a bare video, and the cover keeps our caption and buttons. The spec's minimum
 reel width (160px) gave way to "front reel and both neighbours always fit": reels are now 120 to 200px wide.
 
+## 2026-11 Instagram reels: key in Workers KV, sign-in finished on /admin
+The Instagram key lives in Workers KV, not a Cloudflare secret, because the worker has to replace it every
+week and a worker can't change its own secrets. KV is free at this size (see `setup/instagram.md`). The
+sign-in comes back to `/api/admin/instagram/callback`, which can't carry the owner's ticket (it's a plain
+redirect from Instagram), so it does nothing but forward the one-time code to `/admin`. The signed-in owner's
+page then sends it to `/api/admin/instagram/finish`, which checks the ticket and `ADMIN_EMAILS` like every
+other owner request, plus a one-time "state" tied to the owner who pressed connect. The KV binding stays a
+comment in `wrangler.jsonc` until the owner creates the namespace, because a made-up ID breaks deploys.
+With only two reels the ring shows each twice: a two-reel ring puts one directly behind the other and the
+turn swings them off the screen. One reel shows on its own with no controls.
+

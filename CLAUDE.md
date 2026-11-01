@@ -13,12 +13,12 @@ an everyday analogy when a concept is technical.
 |---|---|
 | `site/` | The live static site. Plain HTML, CSS and JS, no build step. A Cloudflare Worker with static assets serves this folder (`wrangler.jsonc`), deployed from `main` |
 | `site/assets/app.js` | Bag, pup board, size choice and stock line, speech bubbles, 3D viewer, checkout call |
-| `site/assets/reel-door.js` | The reel door on the About page: a ring of reels to drag, tap or step through; tapping the front reel opens it full screen. Placeholder reels until `/api/reels` exists. Spec: `docs/reel-door-spec.md` |
+| `site/assets/reel-door.js` | The reel door on the About page: a ring of reels to drag, tap or step through; tapping the front reel opens it full screen. Reels come from `/api/reels`; stand-ins until Instagram is connected. Spec: `docs/reel-door-spec.md` |
 | `site/assets/styles.css` | All styles. Design tokens are the CSS variables on `:root` |
 | `site/products.json` | What the site shows: slug, name, kind, `series` for pins (`pup-club`, `hometown`, `zodiac`), which sizes a product comes in, shipping. **No prices**: those come from Square |
-| `site/_worker.js` | Server side (the Worker). `/api/catalog` (products with Square price and stock), `/api/checkout` (Square payment link), `/api/account`, `/api/reviews`, `/api/admin`; everything else falls through to static files |
-| `server/` | Server code the worker imports: Firebase tickets and Firestore (`firebase.js`), accounts, reviews, the shop switch (`shop.js`), Square reads (`square.js`), the catalog (`catalog.js`), the owner's API (`admin.js`). Bundled by wrangler, never published |
-| `site/admin.html`, `site/assets/admin.js` | The owner's page at `/admin`: shop open switch, Square links, review approval. Not linked from any nav |
+| `site/_worker.js` | Server side (the Worker). `/api/catalog` (products with Square price and stock), `/api/checkout` (Square payment link), `/api/account`, `/api/reviews`, `/api/admin`, `/api/reels` (the About page's Instagram reels), plus a weekly job that renews the Instagram key; everything else falls through to static files |
+| `server/` | Server code the worker imports: Firebase tickets and Firestore (`firebase.js`), accounts, reviews, the shop switch (`shop.js`), Square reads (`square.js`), the catalog (`catalog.js`), the owner's API (`admin.js`), Instagram reels and the key in Workers KV (`instagram.js`). Bundled by wrangler, never published |
+| `site/admin.html`, `site/assets/admin.js` | The owner's page at `/admin`: shop open switch, Square links, review approval, connect Instagram. Not linked from any nav |
 | `site/assets/account.js` | Firebase sign-in in the browser; runs the account pages |
 | `firestore.rules` | Firestore rules: no browser access at all, including `settings/*`. The owner publishes them in the Firebase console |
 | `tests/` | `node --test tests/*.test.mjs` |

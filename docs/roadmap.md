@@ -77,7 +77,8 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [ ] Real product photos for the Bay Area board
 - [x] Reel door ("out and about."): a ring of reels you drag, tap or step through (`assets/reel-door.js`, spec `reel-door-spec.md`). Built with 8 placeholder reels (2026-11-01)
 - [x] Owner changes (2026-11-01): moved to the About page; reels sized so the front one and both neighbours always fit whole; tapping the front reel opens it full screen with a close button at the top; no arrows on phones (upright or sideways)
-- [ ] Reel door: real reels from our Instagram (spec, Path A). Needs the owner's go-ahead and a Meta app first: `/api/reels` in the worker, the token in Workers KV, a weekly cron to refresh it. Until then the About page shows the placeholders, so don't merge to `main` without deciding whether they should be live
+- [x] Reel door: real reels from our Instagram (spec, Path A). `/api/reels` (30 minute saved copy in Workers KV, last copy kept if Instagram is down), "connect instagram" on `/admin`, weekly key renewal (cron, mondays). 1 reel sits alone; 2 reels each show twice (2026-11-01)
+- [ ] Owner: Meta app, `REEL_STORE` KV namespace and the two secrets (`setup/instagram.md`, steps 1 to 3), then send the KV ID so it goes in `wrangler.jsonc`, then **connect instagram** on `/admin`. Until then the About page shows the stand-in reels
 - [ ] Chinese Zodiac and Hometown Series pages when those pins exist
 - [ ] Remaining 3D models as they arrive (`/add-3d-model`)
 - [x] Home page restructured: full-width video reel with the headline on top, then a two-column story section
