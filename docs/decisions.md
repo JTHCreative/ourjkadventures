@@ -135,3 +135,13 @@ only, so `products.json` lists `["standard", "large"]` for those two and `["stan
 `/admin` no longer offers large rows nobody will fill. The site doesn't call the large pins "limited" to
 customers: that reads as urgency, which the brand voice avoids. On `/admin`, the product groups fold open
 and shut, each heading showing how many of its products are linked.
+
+## 2026-11 The reel door is plain JavaScript, stacked by z-index
+The spec says to use whatever the site already uses, and the site is plain HTML/JS with no build step,
+so the reel door is one file (`assets/reel-door.js`) that any page can switch on with
+`<div data-reel-door>`. Its motion runs off one number (the ring angle) in plain variables and writes
+each reel's position straight to its style, so nothing is rebuilt per frame. Reels are layered by
+z-index (closest to the front on top), not real 3D depth, because two cards in shared 3D space slice
+through each other as they pass. When the Astro port happens, this file can be an island as-is.
+Instagram's own embed was kept only as a fallback: it can't be styled, and its iframe swallows drags.
+

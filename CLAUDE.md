@@ -13,6 +13,7 @@ an everyday analogy when a concept is technical.
 |---|---|
 | `site/` | The live static site. Plain HTML, CSS and JS, no build step. A Cloudflare Worker with static assets serves this folder (`wrangler.jsonc`), deployed from `main` |
 | `site/assets/app.js` | Bag, pup board, size choice and stock line, speech bubbles, 3D viewer, checkout call |
+| `site/assets/reel-door.js` | The reel door on the home page: a ring of reels to drag, tap or step through. Placeholder reels until `/api/reels` exists. Spec: `docs/reel-door-spec.md` |
 | `site/assets/styles.css` | All styles. Design tokens are the CSS variables on `:root` |
 | `site/products.json` | What the site shows: slug, name, kind, `series` for pins (`pup-club`, `hometown`, `zodiac`), which sizes a product comes in, shipping. **No prices**: those come from Square |
 | `site/_worker.js` | Server side (the Worker). `/api/catalog` (products with Square price and stock), `/api/checkout` (Square payment link), `/api/account`, `/api/reviews`, `/api/admin`; everything else falls through to static files |
