@@ -235,10 +235,6 @@
       }
       card.appendChild(media);
 
-      var num = el('span', 'reel-door__num', String(i + 1));
-      num.setAttribute('aria-hidden', 'true');
-      card.appendChild(num);
-
       var tools = null, playBtn = null, soundBtn = null;
       if (video) {
         tools = el('div', 'reel-door__tools');
