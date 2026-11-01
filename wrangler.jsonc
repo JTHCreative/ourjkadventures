@@ -8,6 +8,12 @@
     "directory": "./site",
     "binding": "ASSETS"
   },
-     "observability": { "enabled": true },
-     "keep_vars": true
-   }
+  // once a week (mondays 09:17 UTC) the worker renews the instagram key for the About page's reels
+  "triggers": { "crons": ["17 9 * * 1"] },
+  // the KV drawer for the instagram key and the saved reels (docs/setup/instagram.md, step 3).
+  // when the owner has created REEL_STORE, replace this comment with:
+  //   "kv_namespaces": [{ "binding": "REEL_STORE", "id": "<the namespace id>" }],
+  // until then /api/reels answers "not connected" and the About page shows its stand-in reels.
+  "observability": { "enabled": true },
+  "keep_vars": true
+}

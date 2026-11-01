@@ -9,6 +9,10 @@
 //   POST /api/admin/reviews  { id, status: "approved" | "hidden" }
 //   GET  /api/admin/products  website products, the Square items they could be, and the links chosen
 //   POST /api/admin/products  { links: { "aussie": "<square variation id>", "aussie:large": "", ... } }
+//   GET  /api/admin/instagram             is instagram connected, as whom, when the key renews (never the key)
+//   POST /api/admin/instagram/start       { url } the instagram sign-in page to send the owner to
+//   POST /api/admin/instagram/finish      { code, state } what instagram sent back; saves the key
+//   POST /api/admin/instagram/disconnect  forget the key and the saved reels
 //
 // Cloudflare setting (Settings > Variables and secrets):
 //   ADMIN_EMAILS   plain text, comma separated, e.g. ourjkadventures@gmail.com
@@ -18,6 +22,7 @@ import { readShopSwitch, setShopOpen } from './shop.js';
 import { pendingReviews, setReviewStatus, REVIEW_STATUSES } from './reviews.js';
 import { siteProducts, siteKeys, readLinks, saveLinks } from './catalog.js';
 import { squareConfigured, squareMode, listVariations, stockCounts } from './square.js';
+import { instagramConfigured, instagramStatus, startLogin, finishLogin, disconnect } from './instagram.js';
 
 function json(body, status) {
   return new Response(JSON.stringify(body), {
@@ -86,6 +91,8 @@ export async function admin(request, env, fetchFn = fetch) {
       return json(await productLinks(request, env, fetchFn));
     }
 
+    if (route === 'instagram' || route.startsWith('instagram/')) return instagramAdmin(route, request, env, user, fetchFn);
+
     return json({ error: 'not found' }, 404);
   } catch (e) {
     console.log('admin error', e.message);
@@ -133,4 +140,30 @@ async function changeLinks(request, env, wanted, fetchFn) {
   }
   await saveLinks(env, links, fetchFn);
   return { saved: true };
+}
+
+/* ---------- instagram: connect the account whose reels show on the About page ---------- */
+async function instagramAdmin(route, request, env, user, fetchFn) {
+  if (route === 'instagram') {
+    if (request.method !== 'GET') return json({ error: 'method' }, 405);
+    return json(await instagramStatus(env));
+  }
+  if (request.method !== 'POST') return json({ error: 'method' }, 405);
+  if (!instagramConfigured(env)) return json({ error: 'not configured' }, 503);
+  if (route === 'instagram/start') return json({ url: await startLogin(env, user.email, request.url) });
+  if (route === 'instagram/disconnect') {
+    await disconnect(env);
+    return json(await instagramStatus(env));
+  }
+  if (route === 'instagram/finish') {
+    const body = await readJson(request);
+    let result;
+    try { result = await finishLogin(env, user.email, body.code, body.state, request.url, fetchFn); } catch (e) {
+      console.log('instagram connect failed', e.message);
+      return json({ error: 'instagram said no' }, 502);
+    }
+    if (result.error) return json(result, 400);
+    return json(await instagramStatus(env));
+  }
+  return json({ error: 'not found' }, 404);
 }

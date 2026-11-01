@@ -12,3 +12,6 @@ FIREBASE_PROJECT_ID=jk-adventures-website
 FIREBASE_SERVICE_ACCOUNT=
 # who may use /admin, comma separated
 ADMIN_EMAILS=ourjkadventures@gmail.com
+# the About page's reels (docs/setup/instagram.md). REEL_STORE is a KV binding in wrangler.jsonc, not a variable
+INSTAGRAM_APP_ID=
+INSTAGRAM_APP_SECRET=
