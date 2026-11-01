@@ -24,8 +24,9 @@
     count: [4, 12], spread: [0.6, 1.6], depth: [100, 600], lift: [0, 220], arc: [0, 120],
     perspective: [600, 3000], pop: [0, 160], clearance: [0, 140], swing: [0, 35]
   };
-  var PHONE_WIDTH = 480;      // below this the stage spreads reels closer and the arrows hide
+  var PHONE_WIDTH = 480;      // below this the stage spreads reels closer
   var PHONE_SPREAD = 0.72;
+  var MIN_W = 120, MAX_W = 200, EDGE_ROOM = 12;   // reel width in px, and the room kept beside the neighbours
 
   // eight stand-ins until the real reels come from instagram. one is our own hero video, so playback can be tested
   var PLACEHOLDER_REELS = [
@@ -121,7 +122,8 @@
     play: ['M8 5.5v13l10.5-6.5z'],
     pause: ['M9 5.5v13', 'M15 5.5v13'],
     soundOff: ['M4 9.5h3.5L12 5.5v13l-4.5-4H4z', 'M16 9.5l5 5', 'M21 9.5l-5 5'],
-    soundOn: ['M4 9.5h3.5L12 5.5v13l-4.5-4H4z', 'M16 9a4 4 0 0 1 0 6', 'M18.5 6.5a7.5 7.5 0 0 1 0 11']
+    soundOn: ['M4 9.5h3.5L12 5.5v13l-4.5-4H4z', 'M16 9a4 4 0 0 1 0 6', 'M18.5 6.5a7.5 7.5 0 0 1 0 11'],
+    close: ['M6 6l12 12', 'M18 6L6 18']
   };
 
   function mount(rootEl, options) {
@@ -193,16 +195,22 @@
     }
 
     function buildReel(r, i) {
-      var node = el('div', 'reel-door__reel' + (r.placeholder ? ' reel-door__reel--placeholder' : ''));
+      var node = el('div', 'reel-door__reel');
       node.setAttribute('role', 'group');
       node.setAttribute('aria-roledescription', 'slide');
       node.setAttribute('aria-label', (i + 1) + ' of ' + N);
       node.setAttribute('data-index', String(i));
-      var card = el('div', 'reel-door__card');
-      var media = el('div', 'reel-door__media');
+      var card = el('div', 'reel-door__card' + (r.placeholder ? ' reel-door__card--placeholder' : ''));
+      // the whole picture is one button: on the front reel it opens the reel full screen
+      var media = el('button', 'reel-door__media');
+      media.type = 'button';
+      media.setAttribute('aria-label', 'watch reel ' + (i + 1) + ' full screen');
+      media.addEventListener('click', function () { openFull(i); });
       var permalink = safeUrl(r.permalink, PROFILE);
       var thumb = assetUrl(r.thumbnailUrl);
-      var video = null, link = null;
+      var username = typeof r.username === 'string' && r.username ? r.username : HANDLE;
+      var caption = typeof r.caption === 'string' ? r.caption.trim() : '';
+      var video = null;
       var videoUrl = assetUrl(r.videoUrl);
       if (videoUrl) {
         video = document.createElement('video');
@@ -222,21 +230,8 @@
         img.alt = '';
         img.draggable = false;
         img.loading = i < 3 || i > N - 3 ? 'eager' : 'lazy';
-        if (r.placeholder) {
-          media.appendChild(img);
-        } else {
-          // instagram left out the video file (licensed music, usually): the front reel opens the post instead
-          link = el('a', 'reel-door__open');
-          link.href = permalink;
-          link.target = '_blank';
-          link.rel = 'noopener';
-          link.setAttribute('aria-label', 'watch this reel on instagram');
-          link.appendChild(img);
-          var badge = el('span', 'reel-door__open-badge');
-          badge.appendChild(icon(ICON.play));
-          link.appendChild(badge);
-          media.appendChild(link);
-        }
+        // no video file (instagram leaves it out for licensed music): full screen shows the still and a link to the post
+        media.appendChild(img);
       }
       card.appendChild(media);
 
@@ -271,7 +266,7 @@
       avatar.src = 'assets/img/logo.svg';
       avatar.alt = '';
       avatar.draggable = false;
-      var handle = el('a', 'reel-door__handle', '@' + (typeof r.username === 'string' && r.username ? r.username : HANDLE));
+      var handle = el('a', 'reel-door__handle', '@' + username);
       handle.href = permalink;
       handle.target = '_blank';
       handle.rel = 'noopener';
@@ -280,9 +275,7 @@
       who.appendChild(avatar);
       who.appendChild(handle);
       panel.appendChild(who);
-      if (typeof r.caption === 'string' && r.caption.trim()) {
-        panel.appendChild(el('p', 'reel-door__caption', r.caption.trim()));
-      }
+      if (caption) panel.appendChild(el('p', 'reel-door__caption', caption));
       var track = el('div', 'reel-door__progress');
       track.setAttribute('aria-hidden', 'true');
       var bar = el('div', 'reel-door__bar');
@@ -295,7 +288,9 @@
       node.appendChild(card);
 
       var it = { node: node, haze: haze, bar: bar, video: video, playBtn: playBtn, soundBtn: soundBtn,
-        focusables: [handle, link, playBtn, soundBtn].filter(Boolean) };
+        focusables: [media, handle, playBtn, soundBtn].filter(Boolean),
+        thumb: thumb, videoUrl: videoUrl, permalink: permalink, username: username, caption: caption,
+        placeholder: !!r.placeholder };
 
       if (video) {
         video.addEventListener('timeupdate', function () {
@@ -331,10 +326,13 @@
 
     /* ---------- sizing ---------- */
 
+    // the reels are sized so the front one and both neighbours always fit whole, with a little room spare
     function measure() {
       var sw = stage.clientWidth || rootEl.clientWidth || 360;
-      W = Math.round(Math.max(160, Math.min(260, sw * 0.25)));
       spread = o.spread * (sw < PHONE_WIDTH ? PHONE_SPREAD : 1);
+      var n = place(1, N, 0, reach(N, 1, spread), shapeNow());     // a neighbour's spot for a 1px-wide reel
+      var halfSpan = n.x + n.scale / 2;                             // centre to its outer edge, per px of width
+      W = Math.round(Math.max(MIN_W, Math.min(MAX_W, (sw / 2 - EDGE_ROOM) / halfSpan)));
       Rx = reach(N, W, spread);
       rootEl.style.setProperty('--reel-door-w', W + 'px');
       render();
@@ -343,10 +341,14 @@
     /* ---------- drawing one frame ---------- */
 
     var shape = {};
-    function render() {
+    function shapeNow() {
       shape.depth = o.depth; shape.lift = o.lift; shape.arc = o.arc; shape.perspective = o.perspective;
       // reduced motion: no swing, pop or outward slide while passing
       shape.pop = calm ? 0 : o.pop; shape.clearance = calm ? 0 : o.clearance; shape.swing = calm ? 0 : o.swing;
+      return shape;
+    }
+    function render() {
+      shapeNow();
       for (var i = 0; i < N; i++) {
         var p = place(i, N, angle, Rx, shape);
         var st = items[i].node.style;
@@ -391,7 +393,7 @@
     // the ring came to rest: the front reel starts its video, or its bar for a still
     function onSettle() {
       var it = items[front];
-      if (!it || !inView) return;
+      if (!it || !inView || fullOpen()) return;
       if (it.video) { playFront(false); return; }
       if (calm) return;
       if (!it.node.classList.contains('is-running')) {
@@ -405,6 +407,7 @@
       var it = items[front];
       if (!it || !it.video) return;
       if (!byHand && (calm || held)) return;     // reduced motion: nothing starts on its own
+      if (fullOpen()) return;
       it.video.muted = muted;
       var p = it.video.play();
       if (p && p.catch) p.catch(function () { paintTools(it); });
@@ -469,6 +472,149 @@
       setTarget(base + (mod(i * s - base + 180, 360) - 180));
     }
 
+    /* ---------- full screen: the front reel on its own, with a close button at the top ---------- */
+
+    var full = null;   // built the first time someone opens a reel
+    function fullOpen() { return !!(full && full.dialog.open); }
+
+    function buildFull() {
+      var f = {};
+      f.dialog = el('dialog', 'reel-door__full');
+      var top = el('div', 'reel-door__full-top');
+      var close = el('button', 'reel-door__close');
+      close.type = 'button';
+      close.appendChild(icon(ICON.close));
+      close.appendChild(el('span', null, 'close'));
+      close.addEventListener('click', function () { f.dialog.close(); });
+      top.appendChild(close);
+      var frame = el('div', 'reel-door__full-frame');
+      f.card = el('div', 'reel-door__card');
+      f.media = el('div', 'reel-door__media');
+      f.tools = el('div', 'reel-door__full-tools');
+      f.playBtn = el('button', 'reel-door__tool');
+      f.playBtn.type = 'button';
+      f.playBtn.addEventListener('click', function () {
+        if (!f.video) return;
+        if (f.video.paused) { held = false; f.video.play().catch(function () {}); } else { held = true; f.video.pause(); }
+      });
+      f.soundBtn = el('button', 'reel-door__tool');
+      f.soundBtn.type = 'button';
+      f.soundBtn.addEventListener('click', function () {
+        if (!f.video) return;
+        muted = !muted;
+        f.video.muted = muted;
+        if (!muted && f.video.paused) { held = false; f.video.play().catch(function () {}); }
+        paintFull();
+      });
+      f.tools.appendChild(f.playBtn);
+      f.tools.appendChild(f.soundBtn);
+      var panel = el('div', 'reel-door__panel');
+      var who = el('div', 'reel-door__who');
+      var avatar = el('img', 'reel-door__avatar');
+      avatar.src = 'assets/img/logo.svg';
+      avatar.alt = '';
+      f.handle = el('a', 'reel-door__handle');
+      f.handle.target = '_blank';
+      f.handle.rel = 'noopener';
+      f.handle.setAttribute('aria-label', 'see this reel on instagram');
+      who.appendChild(avatar);
+      who.appendChild(f.handle);
+      f.caption = el('p', 'reel-door__caption');
+      var track = el('div', 'reel-door__progress');
+      track.setAttribute('aria-hidden', 'true');
+      f.bar = el('div', 'reel-door__bar');
+      track.appendChild(f.bar);
+      panel.appendChild(who);
+      panel.appendChild(f.caption);
+      panel.appendChild(track);
+      f.card.appendChild(f.media);
+      f.card.appendChild(f.tools);
+      f.card.appendChild(panel);
+      frame.appendChild(f.card);
+      f.dialog.appendChild(top);
+      f.dialog.appendChild(frame);
+      f.dialog.addEventListener('close', closeFull);
+      document.body.appendChild(f.dialog);
+      return f;
+    }
+
+    function paintFull() {
+      if (!full || !full.video) return;
+      var playing = !full.video.paused;
+      full.playBtn.setAttribute('aria-label', playing ? 'pause this reel' : 'play this reel');
+      full.playBtn.textContent = '';
+      full.playBtn.appendChild(icon(playing ? ICON.pause : ICON.play));
+      full.soundBtn.setAttribute('aria-label', muted ? 'turn the sound on' : 'turn the sound off');
+      full.soundBtn.textContent = '';
+      full.soundBtn.appendChild(icon(muted ? ICON.soundOff : ICON.soundOn));
+    }
+
+    function openFull(i) {
+      if (i !== front || fullOpen()) return;
+      if (!full) full = buildFull();
+      var it = items[i];
+      full.index = i;
+      full.media.textContent = '';
+      full.video = null;
+      full.dialog.setAttribute('aria-label', 'reel ' + (i + 1) + ' of ' + N);
+      full.card.classList.toggle('reel-door__card--placeholder', it.placeholder);
+      full.handle.href = it.permalink;
+      full.handle.textContent = '@' + it.username;
+      full.caption.textContent = it.caption;
+      full.caption.hidden = !it.caption;
+      full.bar.style.transform = 'scaleX(0)';
+      if (it.videoUrl) {
+        // a fresh player that picks up where the card's video was
+        var at = it.video ? it.video.currentTime : 0;
+        if (it.video) it.video.pause();
+        var v = document.createElement('video');
+        v.muted = muted;
+        v.playsInline = true;
+        v.setAttribute('playsinline', '');
+        v.loop = true;
+        v.preload = 'auto';
+        v.poster = it.thumb;
+        v.src = it.videoUrl;
+        v.setAttribute('aria-hidden', 'true');
+        v.addEventListener('loadedmetadata', function () { try { v.currentTime = at; } catch (e) {} }, { once: true });
+        v.addEventListener('timeupdate', function () {
+          if (v.duration) full.bar.style.transform = 'scaleX(' + Math.min(1, v.currentTime / v.duration) + ')';
+        });
+        v.addEventListener('play', paintFull);
+        v.addEventListener('pause', paintFull);
+        full.media.appendChild(v);
+        full.video = v;
+        full.tools.hidden = false;
+        paintFull();
+        if (!calm && !held) v.play().catch(paintFull);
+      } else {
+        var img = el('img');
+        img.src = it.thumb;
+        img.alt = '';
+        full.media.appendChild(img);
+        full.tools.hidden = true;
+      }
+      document.documentElement.classList.add('reel-door-locked');
+      if (full.dialog.showModal) full.dialog.showModal(); else full.dialog.setAttribute('open', '');
+    }
+
+    // closing hands the moment back to the card, so the reel carries on where it was
+    function closeFull() {
+      document.documentElement.classList.remove('reel-door-locked');
+      var it = items[full.index];
+      if (full.video) {
+        var t = full.video.currentTime;
+        full.video.pause();
+        full.video.removeAttribute('src');
+        full.video.load();
+        if (it && it.video) { try { it.video.currentTime = t; } catch (e) {} }
+        if (it) paintTools(it);
+      }
+      full.media.textContent = '';
+      full.video = null;
+      if (settled) onSettle();
+    }
+
     /* ---------- dragging ---------- */
 
     stage.addEventListener('pointerdown', function (e) {
@@ -522,7 +668,8 @@
     stage.addEventListener('lostpointercapture', function (e) { if (drag && drag.moving) release(e, true); });
 
     // a drag that ends over a link or button must not also click it. a tap on a reel that isn't at the front
-    // (even on its link) brings it forward; on the front reel, its own links and buttons work as usual
+    // (even on its link) brings it forward; on the front reel, its links and buttons work as usual, and a tap
+    // on the picture opens it full screen
     stage.addEventListener('click', function (e) {
       if (swallowClick) { e.preventDefault(); e.stopPropagation(); swallowClick = false; return; }
       var reel = e.target && e.target.closest ? e.target.closest('.reel-door__reel') : null;
@@ -593,6 +740,7 @@
           else if (motion.removeListener) motion.removeListener(onMotionChange);
         }
         items.forEach(function (it) { if (it.video) { it.video.pause(); it.video.removeAttribute('src'); it.video.load(); } });
+        if (full) { if (full.dialog.open) full.dialog.close(); full.dialog.remove(); full = null; }
         rootEl.textContent = '';
       }
     };
