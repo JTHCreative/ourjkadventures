@@ -126,7 +126,9 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   `room-living.webp` and `room-living-900.webp`). `.room-wall` holds six `.room-slot` spots, three across and two
   rows over the sofa, placed in percentages so they line up at any width; phones see the middle of the room,
   closer. The Bay Area board (`bay-area-board-wall.webp`, 280 wide) hangs in the first spot; the other five are
-  empty. To hang a new board, put its `<a class="room-board">` in the next empty spot. Hover, focus or a long
+  empty. To hang a new board, put its `<a class="room-board">` in the next empty spot. Each board's `data-name` shows in a
+  bubble under it on hover, focus or a long press, like the pups' "woof!" (below, not above, so it isn't cut
+  off at the top of the photo). The page has no separate buy card: buying happens on the board's own page. Hover, focus or a long
   press wiggles it like a pup pin (`initRoom()` reuses `addHoldShake` and `pup-wiggle`); a tap or click opens
   `bay-area-pin-board.html`. That page shows `bay-area-board-full.webp` (1118×1386) with a magnifier
   (`initZoom()`: click or tap to zoom 2.4× where you pointed; the mouse or a dragging finger moves around;
