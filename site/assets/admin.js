@@ -232,6 +232,87 @@ async function loadReviews() {
   }
 }
 
+/* ---------- instagram: the account whose reels show on the about page ---------- */
+function dayText(ms) {
+  const d = new Date(ms);
+  return MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+}
+function paintInstagram(s, extra) {
+  const state = $('[data-instagram-state]');
+  const connect = $('[data-instagram-connect]');
+  const off = $('[data-instagram-disconnect]');
+  connect.disabled = false;
+  off.disabled = false;
+  if (!s.configured) {
+    connect.hidden = true;
+    off.hidden = true;
+    state.textContent = 'instagram is not set up yet. the about page shows stand-in reels until it is. see docs/setup/instagram.md' +
+      (s.missing && s.missing.length ? ' (still needed in cloudflare: ' + s.missing.join(', ') + ').' : '.');
+    return;
+  }
+  if (!s.connected) {
+    connect.hidden = false;
+    connect.textContent = 'connect instagram';
+    off.hidden = true;
+    state.textContent = (extra ? extra + ' ' : '') + 'not connected. the about page shows stand-in reels until you connect.';
+    return;
+  }
+  connect.hidden = false;
+  connect.textContent = 'connect again';
+  off.hidden = false;
+  const bits = [(extra ? extra + ' ' : '') + 'connected' + (s.username ? ' as @' + s.username : '') + '.'];
+  if (s.reels_count !== null && s.reels_count !== undefined) {
+    bits.push(s.reels_count === 1 ? 'one reel on the about page.' : s.reels_count + ' reels on the about page.');
+  }
+  bits.push('the key renews itself every week' + (s.expires_at ? ', and lasts until ' + dayText(s.expires_at) : '') + '.');
+  if (s.last_renew_error) bits.push('the last renewal did not work. press connect again to sign in once more.');
+  state.textContent = bits.join(' ');
+}
+
+async function loadInstagram() {
+  const state = $('[data-instagram-state]');
+  const connect = $('[data-instagram-connect]');
+  const off = $('[data-instagram-disconnect]');
+  connect.addEventListener('click', async () => {
+    connect.disabled = true;
+    state.textContent = 'opening instagram.';
+    try {
+      location.href = (await api('POST', '/api/admin/instagram/start')).url;
+    } catch (e) {
+      connect.disabled = false;
+      state.textContent = RESTING;
+    }
+  });
+  off.addEventListener('click', async () => {
+    off.disabled = true;
+    try { paintInstagram(await api('POST', '/api/admin/instagram/disconnect'), 'disconnected.'); } catch (e) {
+      off.disabled = false;
+      state.textContent = RESTING;
+    }
+  });
+
+  // back from instagram's sign-in: finish here, where the owner check applies, then tidy the address bar
+  const q = new URLSearchParams(location.search);
+  const code = q.get('instagram_code'), igState = q.get('instagram_state'), igError = q.get('instagram_error');
+  if (code || igError) history.replaceState(null, '', location.pathname);
+  if (code && igState) {
+    state.textContent = 'connecting.';
+    try {
+      paintInstagram(await api('POST', '/api/admin/instagram/finish', { code, state: igState }), 'done.');
+      return;
+    } catch (e) {
+      const why = e.data && e.data.error === 'state'
+        ? 'that sign-in took too long or was started elsewhere. press connect instagram to try again.'
+        : 'instagram did not let us in. press connect instagram to try again.';
+      try { paintInstagram(await api('GET', '/api/admin/instagram'), why); } catch (e2) { state.textContent = why; }
+      return;
+    }
+  }
+  try {
+    paintInstagram(await api('GET', '/api/admin/instagram'), igError ? 'the sign-in was cancelled.' : '');
+  } catch (e) { state.textContent = RESTING; }
+}
+
 /* ---------- start ---------- */
 function showSignIn() {
   gate(NOT_OWNER);
@@ -268,6 +349,7 @@ async function open() {
   wireProducts();
   loadProducts();
   loadReviews();
+  loadInstagram();
 }
 
 (async function start() {
