@@ -213,3 +213,12 @@ lists, `INSTAGRAM_ACCOUNT_ID`) were removed. The website finds @ourjkadventures 
 `INSTAGRAM_PAGE_ID`, with the key's own Page list as a fallback. KV now holds only the saved reels. Earlier
 entries describe the attempts that led here.
 
+## 2026-11 Reels with licensed music open in Instagram's own player
+Meta leaves `media_url` (the video file) out for any reel with licensed or library music, so there's nothing for
+us to mute or play. The owner chose: those reels show their cover with a play mark in the ring, and full screen
+loads Instagram's embed (`https://www.instagram.com/reel/<code>/embed/`, built only from a real instagram.com
+reel or post link) in an iframe. It loads only when opened, and is removed on close, so the ring stays draggable
+and Instagram's content (and cookies) stay off the page until asked for. No embed script, just the iframe. The
+privacy page says so. Reels with original sound keep playing in our own player. Going forward, original sound
+is the way to have a reel play in the site's own design.
+
