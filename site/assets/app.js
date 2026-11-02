@@ -425,7 +425,8 @@
   /* ---------- see in 3D ---------- */
   var MODEL_3D = {};
   ['aussie', 'beagle', 'corgi', 'german-shepherd', 'golden', 'husky', 'pit-bull', 'pomeranian', 'pug', 'shiba'].forEach(function (s) {
-    MODEL_3D[s] = 'assets/3d/' + s + '.glb';
+    // ?v= changes whenever the model files are redone: /assets/3d/ is cached as never-changing (see _headers)
+    MODEL_3D[s] = 'assets/3d/' + s + '.glb?v=2';
   });
   var MV_SRC = 'https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js';
   var mvPromise = null;
@@ -814,6 +815,8 @@
       b.setAttribute('aria-pressed', 'false');
       var img = el('img');
       img.src = PIN_IMG[s] || '';
+      img.width = 900;
+      img.height = 900;
       img.alt = '';
       img.draggable = false;
       b.appendChild(img);
@@ -938,8 +941,9 @@
 
   /* ---------- home: the reel ---------- */
   // The video is set on the <video> as data-mp4 / data-webm / data-poster. Until then (or if it can't play)
-  // the pins on felt behind it stay in view. Someone who asks for less motion, or to save data, gets a
-  // still frame and a play button instead of autoplay.
+  // the felt behind it shows. Someone who asks for less motion, or to save data, gets a still frame and a
+  // play button instead of autoplay. It loops while any of it is on screen and rests once it's scrolled
+  // fully out of view, picking up again when it comes back (unless someone paused it themselves).
   function initReel() {
     var reel = document.querySelector('.reel');
     var video = reel && reel.querySelector('.reel-video');
@@ -989,9 +993,18 @@
     video.addEventListener('pause', function () { paint(true); });
     // a missing or broken file: quietly keep the pins on felt
     video.addEventListener('error', function () { reel.classList.remove('reel--playing', 'reel--ready'); toggle.hidden = true; }, true);
+    // wanted: should it play when it's on screen? off for less motion until someone presses play
+    var wanted = !calm;
     toggle.addEventListener('click', function () {
-      if (video.paused) { video.play().catch(function () {}); } else { video.pause(); }
+      wanted = video.paused;
+      if (wanted) { video.play().catch(function () {}); } else { video.pause(); }
     });
+    if (window.IntersectionObserver) {
+      new IntersectionObserver(function (entries) {
+        if (!entries[entries.length - 1].isIntersecting) { if (!video.paused) video.pause(); }
+        else if (wanted && video.paused) video.play().catch(function () {});
+      }).observe(reel);
+    }
     toggle.hidden = false;
     video.preload = calm ? 'metadata' : 'auto';
     video.load();

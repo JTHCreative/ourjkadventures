@@ -230,3 +230,20 @@ front one (never a swipe) asks "watch on instagram?" with "watch on instagram" (
 link. Nothing loads from Instagram on our pages, so the privacy page's sentence about Instagram's player was taken
 out again.
 
+
+## 2026-11 3D pin models are slimmed before they go on the site
+The models are plain shapes (no pictures wrapped on them), and each was 2.7 to 5.4 MB, sent to the browser at
+full size. Each one now goes through two steps with gltf-transform (a free command-line tool, used only on our
+side, nothing new loads in the browser):
+
+```
+npx @gltf-transform/cli@4.1.1 quantize --pattern "NORMAL" in.glb tmp.glb
+npx @gltf-transform/cli@4.1.1 weld tmp.glb out.glb
+```
+
+`quantize --pattern "NORMAL"` stores the lighting directions with less precision; `weld` merges duplicate points.
+Together they took the ten models from 38.9 MB to 17.1 MB, and side-by-side renders differ in under 1% of pixels.
+Rounding the positions too (plain `quantize`) was tried and rejected: the enamel layers sit so close together
+that the pins came out shifted or scrambled. Stronger compression (meshopt or Draco) was skipped because the
+browser would need a decoder from Google's servers. When models are redone, bump `?v=` in `MODEL_3D` in
+`app.js`, since `/assets/3d/` is cached as never changing.
