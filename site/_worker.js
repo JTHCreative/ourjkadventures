@@ -8,7 +8,7 @@
 //   SUPPORT_EMAIL (optional)       shown to buyers on the Square checkout page
 //   FIREBASE_PROJECT_ID, FIREBASE_SERVICE_ACCOUNT  accounts, see server/firebase.js
 //   ADMIN_EMAILS                   who may use /admin, see server/admin.js
-//   REEL_STORE, INSTAGRAM_APP_ID, INSTAGRAM_APP_SECRET  the About page's reels, see server/instagram.js
+//   REEL_STORE, META_APP_ID, META_APP_SECRET, INSTAGRAM_CONFIG_ID  the About page's reels, see server/instagram.js
 //
 // The account code lives in ../server so it is bundled into this worker but never published as a file.
 
@@ -18,7 +18,7 @@ import { configured as firebaseConfigured, userFromRequest } from '../server/fir
 import { admin } from '../server/admin.js';
 import { getCatalog, catalogRoute } from '../server/catalog.js';
 import { stockCounts, squareHost, SQUARE_VERSION } from '../server/square.js';
-import { reelsRoute, renewToken, callbackBounce, CALLBACK_PATH } from '../server/instagram.js';
+import { reelsRoute, callbackBounce, CALLBACK_PATH } from '../server/instagram.js';
 
 const MAX_LINES = 30;
 const MAX_QTY = 20;
@@ -35,11 +35,6 @@ export default {
     if (url.pathname === CALLBACK_PATH) return callbackBounce(request);
     if (url.pathname === '/api/admin' || url.pathname.startsWith('/api/admin/')) return admin(request, env);
     return env.ASSETS.fetch(request);
-  },
-
-  // the weekly job (wrangler.jsonc "triggers"): swap the instagram key for a fresh one before it runs out
-  async scheduled(controller, env, ctx) {
-    ctx.waitUntil(renewToken(env).then((r) => console.log('instagram key renewal:', r)));
   }
 };
 

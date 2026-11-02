@@ -1,35 +1,40 @@
 // j+k adventures: reels from our own Instagram account, for the reel door on the About page
-// (docs/reel-door-spec.md, Path A; owner steps in docs/setup/instagram.md).
+// (docs/reel-door-spec.md; owner steps in docs/setup/instagram.md).
 //
-// Like a valet key: the owner signs in to Instagram once on /admin, and the website is handed a key that can only
-// read our posts. The key lives in a Cloudflare KV drawer (REEL_STORE) that only this worker can open, never in the
-// repo or the page. Every 30 minutes at most, /api/reels uses it to fetch the latest reels and keeps a copy in the
-// drawer, so visitors never reach Instagram directly. Once a week a scheduled job swaps the key for a fresh one,
-// so it never reaches its ~60 day expiry.
+// Uses Meta's "Instagram API with Unified Login" (the setup Meta now offers new apps). Like a staff key that belongs
+// to the shop rather than to whoever collected it: the owner signs in once on /admin, choosing our business portfolio
+// and @ourjkadventures, and the website is handed a key (a "system-user access token") that belongs to the business
+// portfolio and doesn't expire. The key lives in a Cloudflare KV drawer (REEL_STORE) that only this worker can open,
+// never in the repo or the page. Every 30 minutes at most, /api/reels uses it to fetch the latest reels and keeps a
+// copy in the drawer, so visitors never reach Meta directly.
 //
 // Cloudflare settings:
-//   REEL_STORE              KV namespace binding (wrangler.jsonc)
-//   INSTAGRAM_APP_ID        secret, the Instagram app ID from the Meta app (Instagram > API setup with Instagram login)
-//   INSTAGRAM_APP_SECRET    secret, the Instagram app secret from the same page
+//   REEL_STORE            KV namespace binding (wrangler.jsonc)
+//   META_APP_ID           the Meta app's App ID (App settings > Basic). not secret, but kept with the secret
+//   META_APP_SECRET       secret, the Meta app's App secret (App settings > Basic)
+//   INSTAGRAM_CONFIG_ID   the configuration ID from "API setup with Unified login" (not secret)
+//
+// Meta's docs: developers.facebook.com/documentation/instagram-platform/instagram-api-with-unified-login
 
-const IG_AUTHORIZE = 'https://www.instagram.com/oauth/authorize';
-const IG_TOKEN = 'https://api.instagram.com/oauth/access_token';
-const IG_GRAPH = 'https://graph.instagram.com';
+const GRAPH_VERSION = 'v26.0';
+const FB_DIALOG = 'https://www.facebook.com/' + GRAPH_VERSION + '/dialog/oauth';
+const GRAPH = 'https://graph.facebook.com/' + GRAPH_VERSION;
 const FIELDS = 'id,media_type,media_url,thumbnail_url,permalink,caption,username,timestamp';
+const OUR_HANDLE = 'ourjkadventures';
 
 export const CALLBACK_PATH = '/api/admin/instagram/callback';
 const KEY_TOKEN = 'instagram:token';
 const KEY_REELS = 'instagram:reels';
 const STATE_PREFIX = 'instagram:state:';
+const SETTINGS = ['REEL_STORE', 'META_APP_ID', 'META_APP_SECRET', 'INSTAGRAM_CONFIG_ID'];
 
-const FRESH_MS = 30 * 60 * 1000;             // serve the saved copy for this long before asking Instagram again
-const RENEW_AFTER_MS = 24 * 60 * 60 * 1000;  // Instagram only renews a key that is at least a day old
-const STATE_TTL_S = 600;                     // a sign-in has ten minutes to come back
+const FRESH_MS = 30 * 60 * 1000;   // serve the saved copy for this long before asking Meta again
+const STATE_TTL_S = 600;           // a sign-in has ten minutes to come back
 const MAX_REELS = 12;
 const MAX_CAPTION = 300;
 
 export function instagramConfigured(env) {
-  return !!(env.REEL_STORE && env.INSTAGRAM_APP_ID && env.INSTAGRAM_APP_SECRET);
+  return SETTINGS.every((k) => !!env[k]);
 }
 
 function json(body, status, cache) {
@@ -39,17 +44,28 @@ function json(body, status, cache) {
   });
 }
 
-async function igJson(res, what) {
+class MetaError extends Error {
+  constructor(message, keyDead) { super(message); this.keyDead = keyDead; }
+}
+
+async function metaJson(res, what) {
   let data = null;
   try { data = await res.json(); } catch (e) {}
-  if (!res.ok || !data || data.error || data.error_type) {
-    const msg = data && (data.error_message || (data.error && data.error.message) || data.error_type || data.error);
-    throw new Error(what + ' ' + res.status + (msg ? ' ' + String(msg).slice(0, 200) : ''));
+  if (!res.ok || !data || data.error) {
+    const err = (data && data.error) || {};
+    // 190: the key was revoked, the app was removed from the portfolio, or the account moved portfolios
+    throw new MetaError(what + ' ' + res.status + (err.message ? ' ' + String(err.message).slice(0, 200) : ''), err.code === 190);
   }
   return data;
 }
 
 function redirectUri(requestUrl) { return new URL(CALLBACK_PATH, requestUrl).href; }
+
+function graphUrl(path, params) {
+  const u = new URL(GRAPH + path);
+  Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
+  return u.href;
+}
 
 async function readToken(env) {
   return env.REEL_STORE ? env.REEL_STORE.get(KEY_TOKEN, 'json') : null;
@@ -62,16 +78,16 @@ export async function startLogin(env, ownerEmail, requestUrl) {
   const bytes = crypto.getRandomValues(new Uint8Array(24));
   const state = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
   await env.REEL_STORE.put(STATE_PREFIX + state, JSON.stringify({ email: ownerEmail.toLowerCase(), at: Date.now() }), { expirationTtl: STATE_TTL_S });
-  const u = new URL(IG_AUTHORIZE);
-  u.searchParams.set('client_id', env.INSTAGRAM_APP_ID);
+  const u = new URL(FB_DIALOG);
+  u.searchParams.set('client_id', env.META_APP_ID);
+  u.searchParams.set('config_id', env.INSTAGRAM_CONFIG_ID);
   u.searchParams.set('redirect_uri', redirectUri(requestUrl));
   u.searchParams.set('response_type', 'code');
-  u.searchParams.set('scope', 'instagram_business_basic');
   u.searchParams.set('state', state);
   return u.href;
 }
 
-// step 2: Instagram sent the owner back with a code. swap it for a short key, then that for a 60 day key
+// step 2: Meta sent the owner back with a code. swap it for the business's key, then find our Instagram account
 export async function finishLogin(env, ownerEmail, code, state, requestUrl, fetchFn = fetch, now = Date.now()) {
   if (typeof state !== 'string' || !/^[0-9a-f]{48}$/.test(state)) return { error: 'state' };
   if (typeof code !== 'string' || !code || code.length > 2000) return { error: 'code' };
@@ -79,46 +95,38 @@ export async function finishLogin(env, ownerEmail, code, state, requestUrl, fetc
   if (!saved || saved.email !== ownerEmail.toLowerCase()) return { error: 'state' };
   await env.REEL_STORE.delete(STATE_PREFIX + state);   // a ticket works once
 
-  const form = new URLSearchParams({
-    client_id: env.INSTAGRAM_APP_ID,
-    client_secret: env.INSTAGRAM_APP_SECRET,
-    grant_type: 'authorization_code',
+  const tok = await metaJson(await fetchFn(graphUrl('/oauth/access_token', {
+    client_id: env.META_APP_ID,
     redirect_uri: redirectUri(requestUrl),
+    client_secret: env.META_APP_SECRET,
     code: code.replace(/#_$/, '')
-  });
-  let short = await igJson(await fetchFn(IG_TOKEN, { method: 'POST', body: form }), 'code exchange');
-  if (Array.isArray(short.data)) short = short.data[0] || {};
-  if (!short.access_token) throw new Error('code exchange gave no key');
+  })), 'code exchange');
+  if (!tok.access_token) throw new MetaError('code exchange gave no key');
 
-  const longUrl = new URL(IG_GRAPH + '/access_token');
-  longUrl.searchParams.set('grant_type', 'ig_exchange_token');
-  longUrl.searchParams.set('client_secret', env.INSTAGRAM_APP_SECRET);
-  longUrl.searchParams.set('access_token', short.access_token);
-  const long = await igJson(await fetchFn(longUrl.href), 'long key');
-  if (!long.access_token) throw new Error('long key missing');
-
-  let username = '';
+  // with this key, /me is the business's system user, not the Instagram account
+  let businessId = '';
   try {
-    const me = new URL(IG_GRAPH + '/me');
-    me.searchParams.set('fields', 'user_id,username');
-    me.searchParams.set('access_token', long.access_token);
-    username = (await igJson(await fetchFn(me.href), 'profile')).username || '';
-  } catch (e) { console.log('instagram profile', e.message); }
+    businessId = (await metaJson(await fetchFn(graphUrl('/me', { fields: 'client_business_id', access_token: tok.access_token })), 'business')).client_business_id || '';
+  } catch (e) { console.log('instagram business id', e.message); }
 
-  await saveToken(env, {
-    access_token: long.access_token,
-    expires_at: now + (Number(long.expires_in) || 60 * 24 * 3600) * 1000,
-    renewed_at: now,
+  const shared = await metaJson(await fetchFn(graphUrl('/me/assigned_instagram_accounts', { fields: 'id,username', access_token: tok.access_token })), 'accounts');
+  const accounts = Array.isArray(shared.data) ? shared.data.filter((a) => a && a.id) : [];
+  if (!accounts.length) return { error: 'no account' };
+  const ours = accounts.find((a) => String(a.username).toLowerCase() === OUR_HANDLE) || accounts[0];
+
+  await env.REEL_STORE.put(KEY_TOKEN, JSON.stringify({
+    access_token: tok.access_token,
+    // system-user keys made this way don't expire; if the configuration was set to expire, remember when
+    expires_at: Number(tok.expires_in) > 0 ? now + Number(tok.expires_in) * 1000 : null,
+    instagram_id: String(ours.id),
+    username: ours.username || '',
+    business_id: businessId,
+    config_id: env.INSTAGRAM_CONFIG_ID,
     connected_at: now,
-    connected_by: ownerEmail.toLowerCase(),
-    username
-  });
+    connected_by: ownerEmail.toLowerCase()
+  }));
   await env.REEL_STORE.delete(KEY_REELS);   // show the newly connected account's reels straight away
   return { connected: true };
-}
-
-async function saveToken(env, tok) {
-  await env.REEL_STORE.put(KEY_TOKEN, JSON.stringify(tok));
 }
 
 export async function disconnect(env) {
@@ -128,9 +136,7 @@ export async function disconnect(env) {
 
 // what /admin shows. never includes the key itself
 export async function instagramStatus(env) {
-  if (!instagramConfigured(env)) {
-    return { configured: false, missing: ['REEL_STORE', 'INSTAGRAM_APP_ID', 'INSTAGRAM_APP_SECRET'].filter((k) => !env[k]) };
-  }
+  if (!instagramConfigured(env)) return { configured: false, missing: SETTINGS.filter((k) => !env[k]) };
   const tok = await readToken(env);
   if (!tok) return { configured: true, connected: false };
   const reels = await env.REEL_STORE.get(KEY_REELS, 'json');
@@ -138,41 +144,12 @@ export async function instagramStatus(env) {
     configured: true,
     connected: true,
     username: tok.username || '',
-    expires_at: tok.expires_at,
-    renewed_at: tok.renewed_at,
-    last_renew_error: tok.last_renew_error || '',
+    connected_at: tok.connected_at,
+    expires_at: tok.expires_at || null,
+    key_stopped: !!tok.key_stopped,
     reels_fetched_at: reels ? reels.fetched_at : null,
     reels_count: reels ? reels.reels.length : null
   };
-}
-
-/* ---------- the weekly key renewal (Cron Trigger, see wrangler.jsonc) ---------- */
-
-export async function renewToken(env, fetchFn = fetch, now = Date.now()) {
-  if (!instagramConfigured(env)) return 'not configured';
-  const tok = await readToken(env);
-  if (!tok) return 'not connected';
-  if (now - (tok.renewed_at || 0) < RENEW_AFTER_MS) return 'too soon';
-  try {
-    const u = new URL(IG_GRAPH + '/refresh_access_token');
-    u.searchParams.set('grant_type', 'ig_refresh_token');
-    u.searchParams.set('access_token', tok.access_token);
-    const fresh = await igJson(await fetchFn(u.href), 'renew');
-    if (!fresh.access_token) throw new Error('renew gave no key');
-    await saveToken(env, {
-      ...tok,
-      access_token: fresh.access_token,
-      expires_at: now + (Number(fresh.expires_in) || 60 * 24 * 3600) * 1000,
-      renewed_at: now,
-      last_renew_error: ''
-    });
-    return 'renewed';
-  } catch (e) {
-    // keep the old key (it may still have weeks left) and let /admin show what went wrong
-    console.log('instagram renew failed', e.message);
-    await saveToken(env, { ...tok, last_renew_error: e.message.slice(0, 200) });
-    return 'failed';
-  }
 }
 
 /* ---------- GET /api/reels ---------- */
@@ -189,17 +166,15 @@ export function toReel(m) {
     caption: typeof m.caption === 'string' ? m.caption.slice(0, MAX_CAPTION) : '',
     username: typeof m.username === 'string' ? m.username : ''
   };
-  // no media_url means Instagram held the video back (licensed music, usually): the still shows, and links to the post
+  // no media_url means Meta held the video back (licensed music, usually): the still shows, and links to the post
   if (typeof m.media_url === 'string' && /^https:\/\//.test(m.media_url)) reel.videoUrl = m.media_url;
   return reel;
 }
 
-async function fetchReels(env, tok, fetchFn) {
-  const u = new URL(IG_GRAPH + '/me/media');
-  u.searchParams.set('fields', FIELDS);
-  u.searchParams.set('limit', '50');
-  u.searchParams.set('access_token', tok.access_token);
-  const data = await igJson(await fetchFn(u.href), 'media');
+async function fetchReels(tok, fetchFn) {
+  const data = await metaJson(await fetchFn(graphUrl('/' + encodeURIComponent(tok.instagram_id) + '/media', {
+    fields: FIELDS, limit: '50', access_token: tok.access_token
+  })), 'media');
   return (Array.isArray(data.data) ? data.data : []).map(toReel).filter(Boolean).slice(0, MAX_REELS);
 }
 
@@ -212,19 +187,26 @@ export async function reelsRoute(request, env, fetchFn = fetch, now = Date.now()
 
   const saved = await env.REEL_STORE.get(KEY_REELS, 'json');
   if (saved && now - saved.fetched_at < FRESH_MS) return json({ connected: true, reels: saved.reels }, 200, 'public, max-age=300');
+  // the key stopped working earlier: don't keep knocking (Meta asks apps to stop retrying), serve what we have
+  if (tok.key_stopped) {
+    if (saved) return json({ connected: true, reels: saved.reels, stale: true }, 200, 'public, max-age=300');
+    return json({ error: 'unavailable' }, 502);
+  }
   try {
-    const reels = await fetchReels(env, tok, fetchFn);
+    const reels = await fetchReels(tok, fetchFn);
     await env.REEL_STORE.put(KEY_REELS, JSON.stringify({ fetched_at: now, reels }));
     return json({ connected: true, reels }, 200, 'public, max-age=300');
   } catch (e) {
     console.log('instagram reels failed', e.message);
-    // Instagram is down or the key stopped working: the last saved copy beats an empty page
+    // mark a dead key once, so /admin can say "connect again"
+    if (e.keyDead) await env.REEL_STORE.put(KEY_TOKEN, JSON.stringify({ ...tok, key_stopped: true }));
+    // Meta is down or the key stopped working: the last saved copy beats an empty page
     if (saved) return json({ connected: true, reels: saved.reels, stale: true }, 200, 'public, max-age=60');
     return json({ error: 'unavailable' }, 502);
   }
 }
 
-// Instagram sends the owner back here. it does nothing on its own: it only carries the one-time code over to /admin,
+// Meta sends the owner back here. it does nothing on its own: it only carries the one-time code over to /admin,
 // where the signed-in owner's page hands it to POST /api/admin/instagram/finish (which checks the owner as always)
 export function callbackBounce(request) {
   const url = new URL(request.url);
@@ -235,7 +217,7 @@ export function callbackBounce(request) {
     to.searchParams.set('instagram_code', code);
     to.searchParams.set('instagram_state', state);
   } else {
-    to.searchParams.set('instagram_error', url.searchParams.get('error_reason') || url.searchParams.get('error') || 'cancelled');
+    to.searchParams.set('instagram_error', (url.searchParams.get('error_reason') || url.searchParams.get('error') || 'cancelled').slice(0, 60));
   }
   return new Response(null, { status: 302, headers: { Location: to.pathname + to.search, 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
 }

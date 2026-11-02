@@ -260,12 +260,18 @@ function paintInstagram(s, extra) {
   connect.hidden = false;
   connect.textContent = 'connect again';
   off.hidden = false;
+  if (s.key_stopped) {
+    state.textContent = 'instagram stopped accepting our key (the app was removed, or the account moved to another business portfolio). ' +
+      'the about page keeps showing the last reels it saved. press connect again to sign in once more.';
+    return;
+  }
   const bits = [(extra ? extra + ' ' : '') + 'connected' + (s.username ? ' as @' + s.username : '') + '.'];
   if (s.reels_count !== null && s.reels_count !== undefined) {
     bits.push(s.reels_count === 1 ? 'one reel on the about page.' : s.reels_count + ' reels on the about page.');
   }
-  bits.push('the key renews itself every week' + (s.expires_at ? ', and lasts until ' + dayText(s.expires_at) : '') + '.');
-  if (s.last_renew_error) bits.push('the last renewal did not work. press connect again to sign in once more.');
+  bits.push(s.expires_at
+    ? 'the key lasts until ' + dayText(s.expires_at) + '. press connect again before then.'
+    : 'the key does not expire.');
   state.textContent = bits.join(' ');
 }
 
@@ -303,7 +309,9 @@ async function loadInstagram() {
     } catch (e) {
       const why = e.data && e.data.error === 'state'
         ? 'that sign-in took too long or was started elsewhere. press connect instagram to try again.'
-        : 'instagram did not let us in. press connect instagram to try again.';
+        : e.data && e.data.error === 'no account'
+          ? 'no instagram account was shared. press connect instagram and pick @ourjkadventures when asked.'
+          : 'meta did not let us in. press connect instagram to try again.';
       try { paintInstagram(await api('GET', '/api/admin/instagram'), why); } catch (e2) { state.textContent = why; }
       return;
     }

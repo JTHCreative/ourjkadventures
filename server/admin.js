@@ -9,9 +9,9 @@
 //   POST /api/admin/reviews  { id, status: "approved" | "hidden" }
 //   GET  /api/admin/products  website products, the Square items they could be, and the links chosen
 //   POST /api/admin/products  { links: { "aussie": "<square variation id>", "aussie:large": "", ... } }
-//   GET  /api/admin/instagram             is instagram connected, as whom, when the key renews (never the key)
+//   GET  /api/admin/instagram             is instagram connected, as whom, and how many reels (never the key)
 //   POST /api/admin/instagram/start       { url } the instagram sign-in page to send the owner to
-//   POST /api/admin/instagram/finish      { code, state } what instagram sent back; saves the key
+//   POST /api/admin/instagram/finish      { code, state } what meta sent back; saves the key
 //   POST /api/admin/instagram/disconnect  forget the key and the saved reels
 //
 // Cloudflare setting (Settings > Variables and secrets):
