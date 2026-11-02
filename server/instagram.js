@@ -130,6 +130,15 @@ async function findAccounts(env, token, businessId, fetchFn) {
   }
   if (found.length) return { accounts: found, notes };
 
+  // an Instagram account linked to a Facebook Page the key can see (the classic Facebook-login way)
+  try {
+    const pages = await metaJson(await fetchFn(await keyedUrl(env, '/me/accounts', token, { fields: 'instagram_business_account{id,username}' })), 'pages');
+    const linked = (Array.isArray(pages.data) ? pages.data : []).map((p) => p && p.instagram_business_account).filter((a) => a && a.id)
+      .map((a) => ({ id: String(a.id), username: a.username || '' }));
+    if (linked.length) return { accounts: linked, notes };
+    notes.push('no facebook page with instagram');
+  } catch (e) { notes.push(e.message); }
+
   // the business portfolio's own lists of Instagram accounts
   if (!businessId) { notes.push('no business id'); return { accounts: [], notes }; }
   for (const edge of ['owned_instagram_accounts', 'instagram_accounts']) {
@@ -212,6 +221,43 @@ export async function disconnect(env) {
   await env.REEL_STORE.delete(KEY_REELS);
 }
 
+// when the key doesn't open our account: a set of read-only questions to Meta, each answer in a line for /admin.
+// never includes the key. this is how we tell a wrong account ID from a missing Facebook Page from a missing permission
+async function diagnose(env, key, fetchFn) {
+  const out = [];
+  const ask = async (label, url, pick) => {
+    try {
+      const res = await fetchFn(url);
+      let data = null;
+      try { data = await res.json(); } catch (e) {}
+      if (!res.ok || !data || data.error) {
+        const err = (data && data.error) || {};
+        out.push(label + ': ' + res.status + ' ' + (err.code ? '(#' + err.code + ') ' : '') + String(err.message || '').slice(0, 140));
+      } else out.push(label + ': ' + String(pick(data)).slice(0, 200));
+    } catch (e) { out.push(label + ': ' + e.message.slice(0, 140)); }
+  };
+  const id = env.INSTAGRAM_ACCOUNT_ID ? encodeURIComponent(String(env.INSTAGRAM_ACCOUNT_ID).trim()) : '';
+  if (env.META_APP_ID && env.META_APP_SECRET) {
+    await ask('key', graphUrl('/debug_token', { input_token: key, access_token: env.META_APP_ID + '|' + env.META_APP_SECRET }), (d) => {
+      const x = d.data || {};
+      return 'type ' + x.type + ', valid ' + x.is_valid + ', for our app ' + (String(x.app_id) === String(env.META_APP_ID)) +
+        ', expires ' + (x.expires_at ? new Date(x.expires_at * 1000).toISOString().slice(0, 10) : 'never') +
+        ', permissions ' + (Array.isArray(x.scopes) ? x.scopes.join(' ') : '?');
+    });
+  }
+  await ask('who the key is', await keyedUrl(env, '/me', key, { fields: 'id,name' }), (d) => d.name + ' (' + d.id + ')');
+  await ask('facebook pages', await keyedUrl(env, '/me/accounts', key, { fields: 'name,instagram_business_account{id,username}' }),
+    (d) => (d.data || []).map((p) => p.name + ' -> ' + (p.instagram_business_account ? '@' + p.instagram_business_account.username + ' ' + p.instagram_business_account.id : 'no instagram')).join(', ') || 'none');
+  await ask('assigned instagram', await keyedUrl(env, '/me/assigned_instagram_accounts', key, { fields: 'id,username' }),
+    (d) => (d.data || []).map((a) => '@' + a.username + ' ' + a.id).join(', ') || 'none');
+  if (id) {
+    await ask('account ' + id, await keyedUrl(env, '/' + id, key, { fields: 'id' }), (d) => 'found ' + d.id);
+    await ask('account ' + id + ' posts', await keyedUrl(env, '/' + id + '/media', key, { fields: 'id', limit: '1' }), (d) => (d.data || []).length + ' found');
+  }
+  await ask('instagram host', 'https://graph.instagram.com/' + GRAPH_VERSION + '/me?fields=user_id,username&access_token=' + encodeURIComponent(key), (d) => '@' + d.username + ' ' + d.user_id);
+  return out;
+}
+
 // what /admin shows. never includes the key itself
 export async function instagramStatus(env, fetchFn = fetch) {
   const key = cloudflareKey(env);
@@ -226,6 +272,7 @@ export async function instagramStatus(env, fetchFn = fetch) {
       source: 'cloudflare',
       username: accounts.length ? accounts[0].username : '',
       check_error: accounts.length ? '' : notes.join('; ').slice(0, 400),
+      diagnostics: accounts.length ? [] : await diagnose(env, key, fetchFn),
       last_error: reels && reels.last_error ? reels.last_error : '',
       reels_fetched_at: reels ? reels.fetched_at : null,
       reels_count: reels ? reels.reels.length : null
