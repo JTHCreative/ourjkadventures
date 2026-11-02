@@ -10,6 +10,8 @@
   },
   // the KV drawer for the instagram key and the saved reels (docs/setup/instagram.md, step 3)
   "kv_namespaces": [{ "binding": "REEL_STORE", "id": "09a672c7570c4bea8b4584e92c287bbb" }],
+  // @ourjkadventures' Instagram account ID (not secret): Meta's key doesn't say which account was shared
+  "vars": { "INSTAGRAM_ACCOUNT_ID": "1323062497557751" },
   "observability": { "enabled": true },
   "keep_vars": true
 }

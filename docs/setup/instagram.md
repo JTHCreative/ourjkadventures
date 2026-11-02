@@ -85,8 +85,10 @@ This works once the reel door branch is merged to `main` and Claude Code has add
 ## When something looks wrong
 - **The About page still shows the stand-ins:** step 4 wasn't finished. Check the box on `/admin` says
   "connected".
-- **`/admin` says "no instagram account was shared":** during sign-in, @ourjkadventures wasn't ticked.
-  Press **connect instagram** again and pick it.
+- **`/admin` says "no instagram account was shared":** during sign-in, @ourjkadventures wasn't ticked,
+  or the website couldn't work out which account was shared. Meta's key covers "all" accounts without
+  naming ours, so the website uses `INSTAGRAM_ACCOUNT_ID` in `wrangler.jsonc` (@ourjkadventures' ID,
+  shown next to the account on Meta's sign-in screen). If the account ever changes, that ID changes too.
 - **`/admin` says "instagram stopped accepting our key":** the app was removed from the business
   portfolio, or @ourjkadventures moved to another portfolio. Press **connect again**. Meanwhile the About
   page keeps showing the last reels it saved.

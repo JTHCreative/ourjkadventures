@@ -175,3 +175,11 @@ job and its cron trigger were removed. The website finds the Instagram account t
 again. Meta requires `instagram_manage_messages` in every Unified Login configuration; the website never
 uses it, and the key never leaves the worker.
 
+## 2026-11 Instagram account ID kept in wrangler.jsonc
+With Unified Login, Meta's key for our app covered `instagram_basic` for "all" accounts, so neither
+`/me/assigned_instagram_accounts` (empty) nor `debug_token` (no target IDs) named @ourjkadventures, and the
+business portfolio's account lists need `business_management`. Rather than ask for that much broader
+permission, the account's ID (shown on Meta's sign-in screen, not secret) is a plain variable,
+`INSTAGRAM_ACCOUNT_ID`, in `wrangler.jsonc`. Connecting checks the key can read that account and stores the ID
+Meta returns. The other lookups stay as fallbacks.
+
