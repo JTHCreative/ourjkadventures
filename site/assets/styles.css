@@ -1028,8 +1028,7 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 @media (prefers-reduced-motion: reduce) { .zoom-view img { transition: none; } }
 
 /* ---------- the reel door: a ring of reels from our instagram (assets/reel-door.js, docs/reel-door-spec.md) ---------- */
-.reel-door-section .wrap { text-align: center; }
-.reel-door-section .lede { max-width: 560px; margin: var(--space-3) auto 0; color: var(--ink-muted); }
+.about-reels { margin-top: var(--space-4); }
 .reel-door {
   --reel-door-w: 208px;
   position: relative;
