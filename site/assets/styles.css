@@ -1080,6 +1080,14 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .reel-door__media img, .reel-door__media video { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .reel-door__card--placeholder .reel-door__media img { object-fit: contain; padding: 14% 14% 42%; }
 .reel-door__media:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -4px; border-radius: var(--radius-lg); }
+/* a reel with licensed music: plays in instagram's own player when opened */
+.reel-door__play-mark {
+  position: absolute; top: 34%; left: 50%;
+  width: 48px; height: 48px; margin: -24px 0 0 -24px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--surface-raised); border: 1.5px solid var(--ink); color: var(--ink);
+}
+.reel-door__play-mark svg { width: 20px; height: 20px; fill: currentColor; margin-left: 2px; }
 .reel-door__tools { position: absolute; top: var(--space-2); right: var(--space-2); display: none; gap: var(--space-1); }
 .reel-door__reel.is-front .reel-door__tools { display: flex; }
 .reel-door__tools[hidden] { display: none !important; }
@@ -1184,6 +1192,15 @@ html.reel-door-locked { overflow: hidden; }
 .reel-door__full .reel-door__panel { padding: var(--space-3) var(--space-4) var(--space-4); }
 .reel-door__full .reel-door__caption { -webkit-line-clamp: 4; font-size: 16px; line-height: 24px; }
 .reel-door__full .reel-door__progress { display: block; }
+/* instagram's player needs more height than 9:16 (its own header and caption), and brings its own buttons */
+.reel-door__full-frame--embed {
+  aspect-ratio: auto;
+  width: min(440px, calc(100vw - 32px));
+  height: calc(100vh - 100px);
+  height: calc(100dvh - 100px);
+}
+.reel-door__card--embed .reel-door__panel, .reel-door__card--embed .reel-door__full-tools { display: none; }
+.reel-door__embed { display: block; width: 100%; height: 100%; border: 0; background: var(--surface); }
 @media (prefers-reduced-motion: reduce) {
   .reel-door__bar { transition: none; }
   .reel-door__reel.is-running .reel-door__bar { animation: none; }
