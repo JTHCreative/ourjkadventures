@@ -92,11 +92,11 @@
   function safeUrl(u, fallback) {
     return typeof u === 'string' && /^https:\/\//i.test(u) ? u : fallback;
   }
-  // the address of instagram's own player for a post: only for a real instagram reel or post link
-  function embedUrl(permalink) {
+  // a tidy link to a post on instagram: only for a real instagram reel or post link
+  function instagramLink(permalink) {
     var m = typeof permalink === 'string' && /^https:\/\/(?:www\.)?instagram\.com\/(reels?|p|tv)\/([A-Za-z0-9_-]{5,40})\/?(?:[?#].*)?$/.exec(permalink);
     if (!m) return '';
-    return 'https://www.instagram.com/' + (m[1] === 'p' ? 'p' : 'reel') + '/' + m[2] + '/embed/';
+    return 'https://www.instagram.com/' + (m[1] === 'p' ? 'p' : 'reel') + '/' + m[2] + '/';
   }
   function assetUrl(u) {
     return typeof u === 'string' && (/^https:\/\//i.test(u) || /^assets\//.test(u)) ? u : '';
@@ -226,9 +226,9 @@
       var caption = typeof r.caption === 'string' ? r.caption.trim() : '';
       var video = null;
       var videoUrl = assetUrl(r.videoUrl);
-      // no video file (meta leaves it out for licensed music): full screen plays it in instagram's own player instead
-      var embed = !videoUrl && !r.placeholder ? embedUrl(r.permalink) : '';
-      if (embed) media.setAttribute('aria-label', (single ? 'watch this reel' : 'watch reel ' + (i % real + 1)) + ' full screen, in instagram\'s player');
+      // no video file (meta leaves it out for licensed music): tapping asks whether to watch it on instagram
+      var external = !videoUrl && !r.placeholder ? instagramLink(r.permalink) : '';
+      if (external) media.setAttribute('aria-label', (single ? 'watch this reel' : 'watch reel ' + (i % real + 1)) + ' on instagram');
       if (videoUrl) {
         video = document.createElement('video');
         video.muted = true;
@@ -248,7 +248,7 @@
         img.draggable = false;
         img.loading = i < 3 || i > N - 3 ? 'eager' : 'lazy';
         media.appendChild(img);
-        if (embed) {
+        if (external) {
           // a play mark, so it's clear this one plays when opened
           var mark = el('span', 'reel-door__play-mark');
           mark.setAttribute('aria-hidden', 'true');
@@ -309,7 +309,7 @@
       var it = { node: node, haze: haze, bar: bar, video: video, playBtn: playBtn, soundBtn: soundBtn,
         focusables: [media, handle, playBtn, soundBtn].filter(Boolean),
         thumb: thumb, videoUrl: videoUrl, permalink: permalink, username: username, caption: caption,
-        placeholder: !!r.placeholder, embed: embed };
+        placeholder: !!r.placeholder, external: external };
 
       if (video) {
         video.addEventListener('timeupdate', function () {
@@ -580,6 +580,7 @@
 
     function openFull(i) {
       if (i !== front || fullOpen()) return;
+      if (items[i].external) { askInstagram(items[i]); return; }
       if (!full) full = buildFull();
       var it = items[i];
       full.index = i;
@@ -587,8 +588,6 @@
       full.video = null;
       full.dialog.setAttribute('aria-label', single ? 'a reel from our instagram' : 'reel ' + (i % real + 1) + ' of ' + real);
       full.card.classList.toggle('reel-door__card--placeholder', it.placeholder);
-      full.card.classList.toggle('reel-door__card--embed', !!it.embed);
-      full.frame.classList.toggle('reel-door__full-frame--embed', !!it.embed);
       full.handle.href = it.permalink;
       full.handle.textContent = '@' + it.username;
       full.caption.textContent = it.caption;
@@ -618,17 +617,6 @@
         full.tools.hidden = false;
         paintFull();
         if (!calm && !held) v.play().catch(paintFull);
-      } else if (it.embed) {
-        // instagram's own player, loaded only now that someone asked for it, and removed again on close
-        var frameEl = document.createElement('iframe');
-        frameEl.className = 'reel-door__embed';
-        frameEl.src = it.embed;
-        frameEl.title = 'reel from @' + it.username + ', in instagram\'s player';
-        frameEl.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen');
-        frameEl.setAttribute('allowfullscreen', '');
-        frameEl.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
-        full.media.appendChild(frameEl);
-        full.tools.hidden = true;
       } else {
         var img = el('img');
         img.src = it.thumb;
@@ -655,6 +643,39 @@
       full.media.textContent = '';
       full.video = null;
       if (settled) onSettle();
+    }
+
+    /* ---------- reels that only play on instagram: ask before leaving ---------- */
+
+    var ask = null;
+    function askInstagram(it) {
+      if (!ask) {
+        ask = {};
+        ask.dialog = el('dialog', 'reel-door__ask');
+        ask.dialog.setAttribute('aria-labelledby', 'reel-door-ask-title');
+        var title = el('h2', 'reel-door__ask-title', 'watch on instagram?');
+        title.id = 'reel-door-ask-title';
+        var body = el('p', 'reel-door__ask-body', 'this reel has music we can\'t play here. it opens on instagram, in a new tab.');
+        var actions = el('div', 'reel-door__ask-actions');
+        ask.go = el('a', 'jka-btn', 'watch on instagram');
+        ask.go.target = '_blank';
+        ask.go.rel = 'noopener';
+        ask.go.addEventListener('click', function () { ask.dialog.close(); });
+        ask.stay = el('button', 'jka-btn jka-btn--quiet', 'stay here');
+        ask.stay.type = 'button';
+        ask.stay.addEventListener('click', function () { ask.dialog.close(); });
+        actions.appendChild(ask.go);
+        actions.appendChild(ask.stay);
+        ask.dialog.appendChild(title);
+        ask.dialog.appendChild(body);
+        ask.dialog.appendChild(actions);
+        // a tap on the dim area around the box means "stay here" too
+        ask.dialog.addEventListener('click', function (e) { if (e.target === ask.dialog) ask.dialog.close(); });
+        document.body.appendChild(ask.dialog);
+      }
+      ask.go.href = it.external;
+      if (ask.dialog.showModal) ask.dialog.showModal(); else ask.dialog.setAttribute('open', '');
+      ask.stay.focus();   // the safe choice is the one already picked
     }
 
     /* ---------- dragging ---------- */
@@ -786,6 +807,7 @@
         }
         items.forEach(function (it) { if (it.video) { it.video.pause(); it.video.removeAttribute('src'); it.video.load(); } });
         if (full) { if (full.dialog.open) full.dialog.close(); full.dialog.remove(); full = null; }
+        if (ask) { if (ask.dialog.open) ask.dialog.close(); ask.dialog.remove(); ask = null; }
         rootEl.textContent = '';
       }
     };
@@ -822,7 +844,7 @@
     });
   }
 
-  root.ReelDoor = { mount: mount, place: place, reach: reach, settleAngle: settleAngle, embedUrl: embedUrl, DEFAULTS: DEFAULTS, PLACEHOLDER_REELS: PLACEHOLDER_REELS };
+  root.ReelDoor = { mount: mount, place: place, reach: reach, settleAngle: settleAngle, instagramLink: instagramLink, DEFAULTS: DEFAULTS, PLACEHOLDER_REELS: PLACEHOLDER_REELS };
 
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
