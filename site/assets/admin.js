@@ -233,119 +233,36 @@ async function loadReviews() {
 }
 
 /* ---------- instagram: the account whose reels show on the about page ---------- */
-function dayText(ms) {
-  const d = new Date(ms);
-  return MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
-}
-function paintInstagram(s, extra) {
+function paintInstagram(s) {
   const state = $('[data-instagram-state]');
-  const connect = $('[data-instagram-connect]');
-  const off = $('[data-instagram-disconnect]');
-  connect.disabled = false;
-  off.disabled = false;
+  const old = document.querySelector('[data-instagram-diagnostics]');
+  if (old) old.remove();
   if (!s.configured) {
-    connect.hidden = true;
-    off.hidden = true;
     state.textContent = 'instagram is not set up yet. the about page shows stand-in reels until it is. see docs/setup/instagram.md' +
       (s.missing && s.missing.length ? ' (still needed in cloudflare: ' + s.missing.join(', ') + ').' : '.');
     return;
   }
-  // the website uses the system-user key kept in cloudflare: nothing to connect here, just show how it's going
-  if (s.source === 'cloudflare') {
-    connect.hidden = true;
-    off.hidden = true;
-    if (!s.connected) {
-      state.textContent = 'the key in cloudflare does not open @ourjkadventures yet (meta said: ' + (s.check_error || 'nothing') + '). see docs/setup/instagram.md.';
-      // the answers to a few test questions, for working out why
-      if (s.diagnostics && s.diagnostics.length) {
-        const list = el('ul', 'caption');
-        list.setAttribute('data-instagram-diagnostics', '');
-        s.diagnostics.forEach((d) => list.appendChild(el('li', null, d)));
-        const old = document.querySelector('[data-instagram-diagnostics]');
-        if (old) old.remove();
-        state.after(list);
-      }
-      return;
-    }
-    const lines = ['connected as @' + (s.username || 'ourjkadventures') + ', with the key in cloudflare.'];
-    if (s.reels_count !== null && s.reels_count !== undefined) {
-      lines.push(s.reels_count === 1 ? 'one reel on the about page.' : s.reels_count + ' reels on the about page.');
-    }
-    if (s.last_error) lines.push('the last fetch did not work (meta said: ' + s.last_error + '). the about page keeps the last reels it saved, and tries again within 30 minutes.');
-    state.textContent = lines.join(' ');
-    return;
-  }
   if (!s.connected) {
-    connect.hidden = false;
-    connect.textContent = 'connect instagram';
-    off.hidden = true;
-    state.textContent = (extra ? extra + ' ' : '') + 'not connected. the about page shows stand-in reels until you connect.';
+    state.textContent = 'the key in cloudflare does not open @ourjkadventures (meta said: ' + (s.check_error || 'nothing') + '). see docs/setup/instagram.md.';
+    // the answers to a few test questions, for working out why
+    if (s.diagnostics && s.diagnostics.length) {
+      const list = el('ul', 'caption');
+      list.setAttribute('data-instagram-diagnostics', '');
+      s.diagnostics.forEach((d) => list.appendChild(el('li', null, d)));
+      state.after(list);
+    }
     return;
   }
-  connect.hidden = false;
-  connect.textContent = 'connect again';
-  off.hidden = false;
-  if (s.key_stopped) {
-    state.textContent = 'instagram stopped accepting our key (the app was removed, or the account moved to another business portfolio). ' +
-      'the about page keeps showing the last reels it saved. press connect again to sign in once more.';
-    return;
-  }
-  const bits = [(extra ? extra + ' ' : '') + 'connected' + (s.username ? ' as @' + s.username : '') + '.'];
+  const lines = ['connected as @' + (s.username || 'ourjkadventures') + ', with the key in cloudflare.'];
   if (s.reels_count !== null && s.reels_count !== undefined) {
-    bits.push(s.reels_count === 1 ? 'one reel on the about page.' : s.reels_count + ' reels on the about page.');
+    lines.push(s.reels_count === 1 ? 'one reel on the about page.' : s.reels_count + ' reels on the about page.');
   }
-  bits.push(s.expires_at
-    ? 'the key lasts until ' + dayText(s.expires_at) + '. press connect again before then.'
-    : 'the key does not expire.');
-  state.textContent = bits.join(' ');
+  if (s.last_error) lines.push('the last fetch did not work (meta said: ' + s.last_error + '). the about page keeps the last reels it saved, and tries again within 30 minutes.');
+  state.textContent = lines.join(' ');
 }
 
 async function loadInstagram() {
-  const state = $('[data-instagram-state]');
-  const connect = $('[data-instagram-connect]');
-  const off = $('[data-instagram-disconnect]');
-  connect.addEventListener('click', async () => {
-    connect.disabled = true;
-    state.textContent = 'opening instagram.';
-    try {
-      location.href = (await api('POST', '/api/admin/instagram/start')).url;
-    } catch (e) {
-      connect.disabled = false;
-      state.textContent = RESTING;
-    }
-  });
-  off.addEventListener('click', async () => {
-    off.disabled = true;
-    try { paintInstagram(await api('POST', '/api/admin/instagram/disconnect'), 'disconnected.'); } catch (e) {
-      off.disabled = false;
-      state.textContent = RESTING;
-    }
-  });
-
-  // back from instagram's sign-in: finish here, where the owner check applies, then tidy the address bar
-  const q = new URLSearchParams(location.search);
-  const code = q.get('instagram_code'), igState = q.get('instagram_state'), igError = q.get('instagram_error');
-  if (code || igError) history.replaceState(null, '', location.pathname);
-  if (code && igState) {
-    state.textContent = 'connecting.';
-    try {
-      paintInstagram(await api('POST', '/api/admin/instagram/finish', { code, state: igState }), 'done.');
-      return;
-    } catch (e) {
-      const why = e.data && e.data.error === 'state'
-        ? 'that sign-in took too long or was started elsewhere. press connect instagram to try again.'
-        : e.data && e.data.error === 'no account'
-          ? 'no instagram account was shared. press connect instagram and pick @ourjkadventures when asked.'
-          : 'meta did not let us in. press connect instagram to try again.';
-      // meta's own words, for working out what went wrong
-      const detail = e.data && e.data.detail ? ' (meta said: ' + e.data.detail + ')' : '';
-      try { paintInstagram(await api('GET', '/api/admin/instagram'), why + detail); } catch (e2) { state.textContent = why + detail; }
-      return;
-    }
-  }
-  try {
-    paintInstagram(await api('GET', '/api/admin/instagram'), igError ? 'the sign-in was cancelled.' : '');
-  } catch (e) { state.textContent = RESTING; }
+  try { paintInstagram(await api('GET', '/api/admin/instagram')); } catch (e) { $('[data-instagram-state]').textContent = RESTING; }
 }
 
 /* ---------- start ---------- */

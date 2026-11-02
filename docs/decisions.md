@@ -205,3 +205,11 @@ Meta left the Page out of `/me/accounts`. So the Page's ID (not secret) is `INST
 `INSTAGRAM_ACCOUNT_ID` was removed: `1323062497557751` turned out to be the portfolio's label for the account
 (no `media` field), not the Instagram account.
 
+## 2026-11 Instagram clean-up: one way in
+With the system-user key working through the Facebook Page, the Unified Login sign-in (`/admin` connect
+button, start/finish/disconnect routes, `/api/admin/instagram/callback`, the key swap and the key in KV) and
+the lookups that never found our account (assigned accounts, `debug_token` targets, the portfolio's account
+lists, `INSTAGRAM_ACCOUNT_ID`) were removed. The website finds @ourjkadventures by asking for
+`INSTAGRAM_PAGE_ID`, with the key's own Page list as a fallback. KV now holds only the saved reels. Earlier
+entries describe the attempts that led here.
+
