@@ -84,7 +84,7 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [x] Instagram connected (2026-11-02): system user key in Business settings (`INSTAGRAM_ACCESS_TOKEN`), reaching @ourjkadventures through the J+K Adventures Facebook Page (`INSTAGRAM_PAGE_ID`). Real reels show on the About page
 - [x] Tidied up (2026-11-02): the Unified Login sign-in code and its tests removed; `/admin` shows a status check. Owner: optional Cloudflare and Meta app clean-up in `setup/instagram.md`
 - [ ] Chinese Zodiac and Hometown Series pages when those pins exist
-- [ ] Remaining 3D models as they arrive (`/add-3d-model`)
+- [ ] Remaining 3D models as they arrive (`/add-3d-model`). Slim each one first (two gltf-transform steps, see `docs/decisions.md`, "3D pin models are slimmed")
 - [x] Home page restructured: full-width video reel with the headline on top, then a two-column story section
 - [x] Owner: send the reel video (MP4, ideally under 10 MB, no sound needed) and a still frame for the poster. Hero loop v4 is live, with tall phone copies
 - [x] Floating shop + bag pill once the header scrolls away
