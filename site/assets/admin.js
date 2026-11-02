@@ -312,7 +312,9 @@ async function loadInstagram() {
         : e.data && e.data.error === 'no account'
           ? 'no instagram account was shared. press connect instagram and pick @ourjkadventures when asked.'
           : 'meta did not let us in. press connect instagram to try again.';
-      try { paintInstagram(await api('GET', '/api/admin/instagram'), why); } catch (e2) { state.textContent = why; }
+      // meta's own words, for working out what went wrong
+      const detail = e.data && e.data.detail ? ' (meta said: ' + e.data.detail + ')' : '';
+      try { paintInstagram(await api('GET', '/api/admin/instagram'), why + detail); } catch (e2) { state.textContent = why + detail; }
       return;
     }
   }
