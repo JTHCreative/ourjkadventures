@@ -42,6 +42,20 @@ Meta changes its labels now and then, so the names below may be slightly differe
      the list instead of guessing.
    - Press **Generate token**, then copy the key. It's shown only once.
 
+## 1b. Link the Instagram account to a Facebook Page (needed)
+This kind of key reaches an Instagram account through a linked Facebook Page. Without one, `/admin`'s test
+answers show "facebook pages: none", and reading the account fails with "(#10) Application does not have
+permission". (`1323062497557751`, the ID on Meta's screens, is the portfolio's label for the account, not
+the Instagram account itself: Meta says it has no posts.) A Page is free and doesn't need any posts.
+
+1. Business settings > **Accounts** > **Pages** > **Add** > **Create a new Page**, named "j+k adventures"
+   (or use an existing Page, as long as it's listed under J+K Adventures).
+2. **Accounts** > **Instagram accounts** > **ourjkadventures** > **Connect assets** > pick the Page.
+3. **Users** > **System users** > **website** > **Assign assets** > **Pages** > the Page, with the smallest
+   access that lets it see content.
+4. Make a new key for `website` (step 1.4) with three permissions: **instagram_basic**,
+   **pages_show_list** and **pages_read_engagement**. Put it in Cloudflare in place of the old one (step 2).
+
 ## 2. Put the key in Cloudflare
 1. **Workers & Pages** > **ourjkadventures** > **Settings** > **Variables and Secrets** > **Add**:
    `INSTAGRAM_ACCESS_TOKEN`, type **Secret**, and paste the key.
