@@ -67,6 +67,49 @@ function graphUrl(path, params) {
   return u.href;
 }
 
+// Meta's recommended signature on every call made with the key: a fingerprint of the key made with the app secret,
+// so a key copied out of here would be useless without the secret too
+async function appsecretProof(env, token) {
+  const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(env.META_APP_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(token));
+  return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+async function keyedUrl(env, path, token, params) {
+  return graphUrl(path, { ...params, access_token: token, appsecret_proof: await appsecretProof(env, token) });
+}
+
+// which Instagram account was shared. Meta's guide says /me/assigned_instagram_accounts; if that comes back empty,
+// the key's own description (debug_token) lists the account IDs each permission covers
+async function findAccounts(env, token, fetchFn) {
+  const notes = [];
+  try {
+    const shared = await metaJson(await fetchFn(await keyedUrl(env, '/me/assigned_instagram_accounts', token, { fields: 'id,username' })), 'assigned accounts');
+    const list = (Array.isArray(shared.data) ? shared.data : []).filter((a) => a && a.id);
+    if (list.length) return { accounts: list, notes };
+    notes.push('assigned accounts list was empty');
+  } catch (e) { notes.push(e.message); }
+
+  let scopes = [];
+  try {
+    const dbg = await metaJson(await fetchFn(graphUrl('/debug_token', {
+      input_token: token, access_token: env.META_APP_ID + '|' + env.META_APP_SECRET
+    })), 'key check');
+    scopes = (dbg.data && Array.isArray(dbg.data.granular_scopes)) ? dbg.data.granular_scopes : [];
+    notes.push('key covers: ' + (scopes.map((g) => g.scope + ' (' + (Array.isArray(g.target_ids) ? g.target_ids.length + ' account' + (g.target_ids.length === 1 ? '' : 's') : 'all') + ')').join(', ') || 'nothing'));
+  } catch (e) { notes.push(e.message); }
+
+  const basic = scopes.find((g) => g.scope === 'instagram_basic');
+  const ids = basic && Array.isArray(basic.target_ids) ? basic.target_ids.map(String) : [];
+  const found = [];
+  for (const id of ids.slice(0, 5)) {
+    try {
+      const a = await metaJson(await fetchFn(await keyedUrl(env, '/' + encodeURIComponent(id), token, { fields: 'id,username' })), 'account ' + id);
+      if (a && a.id) found.push({ id: String(a.id), username: a.username || '' });
+    } catch (e) { notes.push(e.message); }
+  }
+  return { accounts: found, notes };
+}
+
 async function readToken(env) {
   return env.REEL_STORE ? env.REEL_STORE.get(KEY_TOKEN, 'json') : null;
 }
@@ -106,12 +149,14 @@ export async function finishLogin(env, ownerEmail, code, state, requestUrl, fetc
   // with this key, /me is the business's system user, not the Instagram account
   let businessId = '';
   try {
-    businessId = (await metaJson(await fetchFn(graphUrl('/me', { fields: 'client_business_id', access_token: tok.access_token })), 'business')).client_business_id || '';
+    businessId = (await metaJson(await fetchFn(await keyedUrl(env, '/me', tok.access_token, { fields: 'client_business_id' })), 'business')).client_business_id || '';
   } catch (e) { console.log('instagram business id', e.message); }
 
-  const shared = await metaJson(await fetchFn(graphUrl('/me/assigned_instagram_accounts', { fields: 'id,username', access_token: tok.access_token })), 'accounts');
-  const accounts = Array.isArray(shared.data) ? shared.data.filter((a) => a && a.id) : [];
-  if (!accounts.length) return { error: 'no account' };
+  const { accounts, notes } = await findAccounts(env, tok.access_token, fetchFn);
+  if (!accounts.length) {
+    console.log('instagram: no account found', notes.join('; '));
+    return { error: 'no account', detail: notes.join('; ').slice(0, 400) };
+  }
   const ours = accounts.find((a) => String(a.username).toLowerCase() === OUR_HANDLE) || accounts[0];
 
   await env.REEL_STORE.put(KEY_TOKEN, JSON.stringify({
@@ -171,9 +216,9 @@ export function toReel(m) {
   return reel;
 }
 
-async function fetchReels(tok, fetchFn) {
-  const data = await metaJson(await fetchFn(graphUrl('/' + encodeURIComponent(tok.instagram_id) + '/media', {
-    fields: FIELDS, limit: '50', access_token: tok.access_token
+async function fetchReels(env, tok, fetchFn) {
+  const data = await metaJson(await fetchFn(await keyedUrl(env, '/' + encodeURIComponent(tok.instagram_id) + '/media', tok.access_token, {
+    fields: FIELDS, limit: '50'
   })), 'media');
   return (Array.isArray(data.data) ? data.data : []).map(toReel).filter(Boolean).slice(0, MAX_REELS);
 }
@@ -193,7 +238,7 @@ export async function reelsRoute(request, env, fetchFn = fetch, now = Date.now()
     return json({ error: 'unavailable' }, 502);
   }
   try {
-    const reels = await fetchReels(tok, fetchFn);
+    const reels = await fetchReels(env, tok, fetchFn);
     await env.REEL_STORE.put(KEY_REELS, JSON.stringify({ fetched_at: now, reels }));
     return json({ connected: true, reels }, 200, 'public, max-age=300');
   } catch (e) {

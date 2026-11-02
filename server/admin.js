@@ -160,7 +160,8 @@ async function instagramAdmin(route, request, env, user, fetchFn) {
     let result;
     try { result = await finishLogin(env, user.email, body.code, body.state, request.url, fetchFn); } catch (e) {
       console.log('instagram connect failed', e.message);
-      return json({ error: 'instagram said no' }, 502);
+      // meta's own reason (never the key or the secret) so the owner can see what went wrong
+      return json({ error: 'instagram said no', detail: String(e.message).slice(0, 400) }, 502);
     }
     if (result.error) return json(result, 400);
     return json(await instagramStatus(env));

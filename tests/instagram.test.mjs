@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { reelsRoute, callbackBounce, toReel, instagramStatus } from '../server/instagram.js';
 import { admin } from '../server/admin.js';
 import { _resetCaches } from '../server/firebase.js';
+import { createHmac } from 'node:crypto';
 import { fakeGoogle, sign, env as baseEnv } from './helpers.mjs';
 
 const OWNER = 'owner@example.com';
@@ -33,6 +34,9 @@ function fakeMeta(opts = {}) {
     { id: '4', media_type: 'CAROUSEL_ALBUM', permalink: 'https://www.instagram.com/p/4/' }
   ];
   const accounts = opts.accounts || [{ id: '1789', username: 'ourjkadventures' }];
+  // what the key's own description says each permission covers (debug_token)
+  const granted = opts.granted || [{ scope: 'instagram_basic', target_ids: ['1789'] }, { scope: 'instagram_manage_messages', target_ids: ['1789'] }];
+  const proof = createHmac('sha256', 'shh').update('suat-key').digest('hex');
   const fail = (status, code, message) => Response.json({ error: { message, type: 'OAuthException', code } }, { status });
   const fetchFn = async (url, init = {}) => {
     url = String(url);
@@ -46,10 +50,16 @@ function fakeMeta(opts = {}) {
         || p.get('redirect_uri') !== 'https://ourjkadventures.com/api/admin/instagram/callback') return fail(400, 100, 'bad code');
       return Response.json({ access_token: 'suat-key', token_type: 'bearer', ...(opts.expiresIn ? { expires_in: opts.expiresIn } : {}) });
     }
+    if (u.pathname === '/v26.0/debug_token') {
+      if (u.searchParams.get('access_token') !== 'meta-app|shh' || u.searchParams.get('input_token') !== 'suat-key') return fail(400, 100, 'bad app token');
+      return Response.json({ data: { app_id: 'meta-app', type: 'SYSTEM_USER', is_valid: true, scopes: granted.map((g) => g.scope), granular_scopes: granted } });
+    }
     const key = u.searchParams.get('access_token');
     if (key !== 'suat-key' || opts.revoked) return fail(400, 190, 'Error validating access token');
+    if (u.searchParams.get('appsecret_proof') !== proof) return fail(400, 100, 'API calls from the server require an appsecret_proof argument');
     if (u.pathname === '/v26.0/me') return Response.json({ client_business_id: 'biz-1', id: 'sys-9' });
     if (u.pathname === '/v26.0/me/assigned_instagram_accounts') return Response.json({ data: accounts });
+    if (u.pathname === '/v26.0/1789') return Response.json({ id: '1789', username: 'ourjkadventures' });
     if (u.pathname === '/v26.0/1789/media') return Response.json({ data: media });
     return fail(404, 803, 'unknown ' + u.pathname);
   };
@@ -228,11 +238,37 @@ test('with several accounts shared, @ourjkadventures is picked; with none, nothi
   assert.equal(JSON.parse(kv.data.get('instagram:token')).instagram_id, '1789');
 
   const other = setup();
-  meta = fakeMeta({ accounts: [] });
+  meta = fakeMeta({ accounts: [], granted: [] });
   const r = await call(other.env, g, meta, 'POST', '/api/admin/instagram/finish', token, { code: 'good-code', state: await startState(other.env, g, meta, token) });
   assert.equal(r.status, 400);
   assert.equal((await r.json()).error, 'no account');
   assert.equal(other.kv.data.has('instagram:token'), false);
+});
+
+test('if the assigned list comes back empty, the account is found from what the key covers', async () => {
+  const { env, kv } = setup();
+  const g = fakeGoogle(), meta = fakeMeta({ accounts: [] });
+  const token = await sign({ email: OWNER });
+  const r = await call(env, g, meta, 'POST', '/api/admin/instagram/finish', token, { code: 'good-code', state: await startState(env, g, meta, token) });
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).username, 'ourjkadventures');
+  assert.equal(JSON.parse(kv.data.get('instagram:token')).instagram_id, '1789');
+  // the app secret only ever goes to meta's code swap and key check, never on other calls
+  assert.ok(meta.calls.filter((c) => c.includes('shh')).every((c) => /\/(oauth\/access_token|debug_token)\?/.test(c)));
+});
+
+test('when no account can be found, /admin is told what the key covers', async () => {
+  const { env, kv } = setup();
+  const g = fakeGoogle(), meta = fakeMeta({ accounts: [], granted: [{ scope: 'instagram_manage_messages', target_ids: ['1789'] }] });
+  const token = await sign({ email: OWNER });
+  const r = await call(env, g, meta, 'POST', '/api/admin/instagram/finish', token, { code: 'good-code', state: await startState(env, g, meta, token) });
+  const body = await r.json();
+  assert.equal(r.status, 400);
+  assert.equal(body.error, 'no account');
+  assert.match(body.detail, /assigned accounts list was empty/);
+  assert.match(body.detail, /instagram_manage_messages \(1 account\)/);
+  assert.ok(!JSON.stringify(body).includes('suat-key') && !JSON.stringify(body).includes('shh'));
+  assert.equal(kv.data.has('instagram:token'), false);
 });
 
 test('a configuration set to expire: /admin shows when', async () => {
@@ -250,7 +286,9 @@ test('a state started by someone else, or a bad code from Meta, does not connect
   const partner = await sign({ email: 'partner@example.com' });
   const state = await startState(env, g, meta, owner);
   assert.equal((await call(env, g, meta, 'POST', '/api/admin/instagram/finish', partner, { code: 'good-code', state })).status, 400);
-  assert.equal((await call(env, g, meta, 'POST', '/api/admin/instagram/finish', owner, { code: 'bad-code', state: await startState(env, g, meta, owner) })).status, 502);
+  const bad = await call(env, g, meta, 'POST', '/api/admin/instagram/finish', owner, { code: 'bad-code', state: await startState(env, g, meta, owner) });
+  assert.equal(bad.status, 502);
+  assert.match((await bad.json()).detail, /bad code/);
   assert.equal(kv.data.has('instagram:token'), false);
 });
 
