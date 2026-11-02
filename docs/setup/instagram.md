@@ -59,9 +59,9 @@ Meta changes its labels now and then, so the names below may be slightly differe
 - **The "out and about." section has disappeared:** the website couldn't get any reels yet, or the account
   has no video posts. Check `/admin`.
 - **A reel shows its cover with a play mark instead of playing in the ring:** it uses licensed music
-  (including Instagram's audio library), and Meta leaves the video file out for those. Tapping it opens it
-  full screen in Instagram's own player, which only loads then. Reels with your own original sound play
-  right in the ring.
+  (including Instagram's audio library). Meta leaves the video file out for those, and Instagram's
+  embedded player won't play them on other sites either. Tapping it asks "watch on instagram?" and opens
+  the reel on Instagram in a new tab. Reels with your own original sound play right in the ring.
 - **Only one or two reels show:** expected while there are only one or two video posts. One reel sits on
   its own; two each appear twice so the ring still turns. Photos and carousels never show.
 - **To stop showing reels from Instagram:** delete `INSTAGRAM_ACCESS_TOKEN` in Cloudflare and press

@@ -222,3 +222,11 @@ and Instagram's content (and cookies) stay off the page until asked for. No embe
 privacy page says so. Reels with original sound keep playing in our own player. Going forward, original sound
 is the way to have a reel play in the site's own design.
 
+## 2026-11 Licensed-music reels: ask, then open on Instagram (replaces the embedded player)
+Instagram's embedded player showed only "Watch on Instagram" for reels with licensed music: it won't play them on
+other sites either. So the iframe was removed. Those reels keep their cover and play mark in the ring; a tap on the
+front one (never a swipe) asks "watch on instagram?" with "watch on instagram" (opens the reel in a new tab) and
+"stay here" (focused, so a stray Enter stays). The link is only ever built from a real instagram.com reel or post
+link. Nothing loads from Instagram on our pages, so the privacy page's sentence about Instagram's player was taken
+out again.
+
