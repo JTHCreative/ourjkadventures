@@ -146,14 +146,14 @@ async function changeLinks(request, env, wanted, fetchFn) {
 async function instagramAdmin(route, request, env, user, fetchFn) {
   if (route === 'instagram') {
     if (request.method !== 'GET') return json({ error: 'method' }, 405);
-    return json(await instagramStatus(env));
+    return json(await instagramStatus(env, fetchFn));
   }
   if (request.method !== 'POST') return json({ error: 'method' }, 405);
   if (!instagramConfigured(env)) return json({ error: 'not configured' }, 503);
   if (route === 'instagram/start') return json({ url: await startLogin(env, user.email, request.url) });
   if (route === 'instagram/disconnect') {
     await disconnect(env);
-    return json(await instagramStatus(env));
+    return json(await instagramStatus(env, fetchFn));
   }
   if (route === 'instagram/finish') {
     const body = await readJson(request);
@@ -164,7 +164,7 @@ async function instagramAdmin(route, request, env, user, fetchFn) {
       return json({ error: 'instagram said no', detail: String(e.message).slice(0, 400) }, 502);
     }
     if (result.error) return json(result, 400);
-    return json(await instagramStatus(env));
+    return json(await instagramStatus(env, fetchFn));
   }
   return json({ error: 'not found' }, 404);
 }

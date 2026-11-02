@@ -15,6 +15,10 @@
 //   INSTAGRAM_CONFIG_ID   the configuration ID from "API setup with Unified login" (not secret)
 //   INSTAGRAM_ACCOUNT_ID  @ourjkadventures' account ID (not secret, in wrangler.jsonc). Meta's key covers "all" accounts
 //                         without naming ours, and the lists that would name it need business_management
+//   INSTAGRAM_ACCESS_TOKEN  secret, optional: a system-user key made in our own business settings. When it's set, the
+//                         website uses it and the sign-in on /admin isn't needed. This is the way that works for an app
+//                         and an Instagram account in the same business portfolio: Meta's sign-in keys are meant for
+//                         apps that serve other businesses (docs/decisions.md, 2026-11)
 //
 // Meta's docs: developers.facebook.com/documentation/instagram-platform/instagram-api-with-unified-login
 
@@ -77,7 +81,13 @@ async function appsecretProof(env, token) {
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 async function keyedUrl(env, path, token, params) {
-  return graphUrl(path, { ...params, access_token: token, appsecret_proof: await appsecretProof(env, token) });
+  const extra = env.META_APP_SECRET ? { appsecret_proof: await appsecretProof(env, token) } : {};
+  return graphUrl(path, { ...params, access_token: token, ...extra });
+}
+
+// the system-user key kept as a Cloudflare secret, if there is one
+function cloudflareKey(env) {
+  return typeof env.INSTAGRAM_ACCESS_TOKEN === 'string' ? env.INSTAGRAM_ACCESS_TOKEN.trim() : '';
 }
 
 // which Instagram account was shared. Meta's guide says /me/assigned_instagram_accounts; if that comes back empty,
@@ -203,7 +213,24 @@ export async function disconnect(env) {
 }
 
 // what /admin shows. never includes the key itself
-export async function instagramStatus(env) {
+export async function instagramStatus(env, fetchFn = fetch) {
+  const key = cloudflareKey(env);
+  if (key) {
+    if (!env.REEL_STORE) return { configured: false, missing: ['REEL_STORE'] };
+    // a live check that the key opens our account, with meta's words if it doesn't
+    const { accounts, notes } = await findAccounts(env, key, '', fetchFn);
+    const reels = await env.REEL_STORE.get(KEY_REELS, 'json');
+    return {
+      configured: true,
+      connected: accounts.length > 0,
+      source: 'cloudflare',
+      username: accounts.length ? accounts[0].username : '',
+      check_error: accounts.length ? '' : notes.join('; ').slice(0, 400),
+      last_error: reels && reels.last_error ? reels.last_error : '',
+      reels_fetched_at: reels ? reels.fetched_at : null,
+      reels_count: reels ? reels.reels.length : null
+    };
+  }
   if (!instagramConfigured(env)) return { configured: false, missing: SETTINGS.filter((k) => !env[k]) };
   const tok = await readToken(env);
   if (!tok) return { configured: true, connected: false };
@@ -215,6 +242,7 @@ export async function instagramStatus(env) {
     connected_at: tok.connected_at,
     expires_at: tok.expires_at || null,
     key_stopped: !!tok.key_stopped,
+    last_error: reels && reels.last_error ? reels.last_error : '',
     reels_fetched_at: reels ? reels.fetched_at : null,
     reels_count: reels ? reels.reels.length : null
   };
@@ -249,9 +277,16 @@ async function fetchReels(env, tok, fetchFn) {
 export async function reelsRoute(request, env, fetchFn = fetch, now = Date.now()) {
   if (request.method !== 'GET') return json({ error: 'method' }, 405);
   // not set up or not connected yet: the page shows its stand-in reels
-  if (!instagramConfigured(env)) return json({ connected: false, reels: [] }, 200, 'public, max-age=300');
-  const tok = await readToken(env);
-  if (!tok) return json({ connected: false, reels: [] }, 200, 'public, max-age=300');
+  const notConnected = () => json({ connected: false, reels: [] }, 200, 'public, max-age=300');
+  if (!env.REEL_STORE) return notConnected();
+  const key = cloudflareKey(env);
+  let tok;
+  if (key) tok = { access_token: key, source: 'cloudflare' };
+  else {
+    if (!instagramConfigured(env)) return notConnected();
+    tok = await readToken(env);
+    if (!tok) return notConnected();
+  }
 
   const saved = await env.REEL_STORE.get(KEY_REELS, 'json');
   if (saved && now - saved.fetched_at < FRESH_MS) return json({ connected: true, reels: saved.reels }, 200, 'public, max-age=300');
@@ -261,13 +296,21 @@ export async function reelsRoute(request, env, fetchFn = fetch, now = Date.now()
     return json({ error: 'unavailable' }, 502);
   }
   try {
+    if (!tok.instagram_id) {
+      // the cloudflare key doesn't say which account it's for: look it up (once per fetch, every 30 minutes at most)
+      const { accounts, notes } = await findAccounts(env, tok.access_token, '', fetchFn);
+      if (!accounts.length) throw new MetaError('no account: ' + notes.join('; '));
+      tok.instagram_id = accounts[0].id;
+    }
     const reels = await fetchReels(env, tok, fetchFn);
     await env.REEL_STORE.put(KEY_REELS, JSON.stringify({ fetched_at: now, reels }));
     return json({ connected: true, reels }, 200, 'public, max-age=300');
   } catch (e) {
     console.log('instagram reels failed', e.message);
-    // mark a dead key once, so /admin can say "connect again"
-    if (e.keyDead) await env.REEL_STORE.put(KEY_TOKEN, JSON.stringify({ ...tok, key_stopped: true }));
+    // mark a dead sign-in key once, so /admin can say "connect again"
+    if (e.keyDead && tok.source !== 'cloudflare') await env.REEL_STORE.put(KEY_TOKEN, JSON.stringify({ ...tok, key_stopped: true }));
+    // try again in 30 minutes, not on every visit, and let /admin show what went wrong
+    await env.REEL_STORE.put(KEY_REELS, JSON.stringify({ fetched_at: now, reels: saved ? saved.reels : [], last_error: e.message.slice(0, 300) }));
     // Meta is down or the key stopped working: the last saved copy beats an empty page
     if (saved) return json({ connected: true, reels: saved.reels, stale: true }, 200, 'public, max-age=60');
     return json({ error: 'unavailable' }, 502);

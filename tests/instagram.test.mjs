@@ -339,3 +339,67 @@ test('without the Cloudflare pieces, /admin says what is missing and connecting 
   assert.deepEqual(s, { configured: false, missing: ['REEL_STORE', 'META_APP_SECRET', 'INSTAGRAM_CONFIG_ID'] });
   assert.equal((await call(env, g, meta, 'POST', '/api/admin/instagram/start', token)).status, 503);
 });
+
+/* ---------- the system-user key kept in cloudflare (INSTAGRAM_ACCESS_TOKEN) ---------- */
+
+test('with the key in cloudflare: no sign-in needed, reels come from our account', async () => {
+  const { env, kv } = setup({ INSTAGRAM_ACCESS_TOKEN: ' suat-key ', INSTAGRAM_ACCOUNT_ID: '1789' });
+  const meta = fakeMeta();
+  const r = await reelsRoute(get('/api/reels'), env, meta.fetchFn);
+  const body = await r.json();
+  assert.equal(body.connected, true);
+  assert.deepEqual(body.reels.map((x) => x.id), ['1', '3']);
+  assert.ok(!JSON.stringify(body).includes('suat-key'));
+  // nothing about the key is written to the drawer, only the saved reels
+  assert.equal(kv.data.has('instagram:token'), false);
+  assert.ok(!kv.data.get('instagram:reels').includes('suat-key'));
+});
+
+test('with the key in cloudflare and no meta app settings, it still works (no signature then)', async () => {
+  _resetCaches();
+  const kv = fakeKV();
+  const env = { REEL_STORE: kv, INSTAGRAM_ACCESS_TOKEN: 'suat-key', INSTAGRAM_ACCOUNT_ID: '1789' };
+  const calls = [];
+  const fetchFn = async (url) => {
+    calls.push(String(url));
+    const u = new URL(String(url));
+    if (u.searchParams.get('access_token') !== 'suat-key') return Response.json({ error: { code: 190, message: 'bad key' } }, { status: 400 });
+    if (u.pathname === '/v26.0/1789') return Response.json({ id: '1789', username: 'ourjkadventures' });
+    if (u.pathname === '/v26.0/1789/media') return Response.json({ data: [{ id: '1', media_type: 'VIDEO', thumbnail_url: 'https://cdn.ig/1.jpg', permalink: 'https://www.instagram.com/reel/1/' }] });
+    return Response.json({ error: { code: 803, message: 'unknown' } }, { status: 404 });
+  };
+  const body = await (await reelsRoute(get('/api/reels'), env, fetchFn)).json();
+  assert.equal(body.reels.length, 1);
+  assert.ok(calls.every((c) => !c.includes('appsecret_proof')));
+});
+
+test('/admin with the key in cloudflare: a live check, and meta\'s words when it fails', async () => {
+  const g = fakeGoogle();
+  const token = await sign({ email: OWNER });
+  const good = setup({ INSTAGRAM_ACCESS_TOKEN: 'suat-key', INSTAGRAM_ACCOUNT_ID: '1789' });
+  let s = await (await call(good.env, g, fakeMeta(), 'GET', '/api/admin/instagram', token)).json();
+  assert.equal(s.source, 'cloudflare');
+  assert.equal(s.connected, true);
+  assert.equal(s.username, 'ourjkadventures');
+  assert.ok(!JSON.stringify(s).includes('suat-key'));
+
+  const bad = setup({ INSTAGRAM_ACCESS_TOKEN: 'suat-key', INSTAGRAM_ACCOUNT_ID: '1789' });
+  s = await (await call(bad.env, g, fakeMeta({ revoked: true }), 'GET', '/api/admin/instagram', token)).json();
+  assert.equal(s.connected, false);
+  assert.match(s.check_error, /Error validating access token/);
+});
+
+test('a failed fetch waits 30 minutes before asking meta again, and /admin hears why', async () => {
+  const { env } = setup({ INSTAGRAM_ACCESS_TOKEN: 'suat-key', INSTAGRAM_ACCOUNT_ID: '1789' });
+  const down = fakeMeta({ down: true });
+  const t = Date.now();
+  assert.equal((await reelsRoute(get('/api/reels'), env, down.fetchFn, t)).status, 502);
+  const asked = down.calls.length;
+  for (let i = 1; i < 10; i++) await reelsRoute(get('/api/reels'), env, down.fetchFn, t + i * 60 * 1000);
+  assert.equal(down.calls.length, asked);
+  const s = await instagramStatus(env, fakeMeta().fetchFn);
+  assert.match(s.last_error, /down/);
+  // after 30 minutes it tries again, and recovers
+  const body = await (await reelsRoute(get('/api/reels'), env, fakeMeta().fetchFn, t + 31 * 60 * 1000)).json();
+  assert.equal(body.reels.length, 2);
+});
