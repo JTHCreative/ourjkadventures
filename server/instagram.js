@@ -13,6 +13,8 @@
 //   META_APP_ID           the Meta app's App ID (App settings > Basic). not secret, but kept with the secret
 //   META_APP_SECRET       secret, the Meta app's App secret (App settings > Basic)
 //   INSTAGRAM_CONFIG_ID   the configuration ID from "API setup with Unified login" (not secret)
+//   INSTAGRAM_ACCOUNT_ID  @ourjkadventures' account ID (not secret, in wrangler.jsonc). Meta's key covers "all" accounts
+//                         without naming ours, and the lists that would name it need business_management
 //
 // Meta's docs: developers.facebook.com/documentation/instagram-platform/instagram-api-with-unified-login
 
@@ -83,6 +85,14 @@ async function keyedUrl(env, path, token, params) {
 // business portfolio's own lists of Instagram accounts. what each one said goes back to /admin if all come up empty
 async function findAccounts(env, token, businessId, fetchFn) {
   const notes = [];
+  // the account we were told about: check the key can read it, and use the ID Meta gives back
+  if (env.INSTAGRAM_ACCOUNT_ID) {
+    try {
+      const a = await metaJson(await fetchFn(await keyedUrl(env, '/' + encodeURIComponent(String(env.INSTAGRAM_ACCOUNT_ID).trim()), token, { fields: 'id,username' })), 'INSTAGRAM_ACCOUNT_ID');
+      if (a && a.id) return { accounts: [{ id: String(a.id), username: a.username || '' }], notes };
+      notes.push('INSTAGRAM_ACCOUNT_ID gave nothing back');
+    } catch (e) { notes.push(e.message); }
+  }
   try {
     const shared = await metaJson(await fetchFn(await keyedUrl(env, '/me/assigned_instagram_accounts', token, { fields: 'id,username' })), 'assigned accounts');
     const list = (Array.isArray(shared.data) ? shared.data : []).filter((a) => a && a.id);

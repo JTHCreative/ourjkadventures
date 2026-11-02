@@ -272,6 +272,28 @@ test('a key that covers "all" accounts: found through the business portfolio\'s 
   assert.equal(JSON.parse(kv.data.get('instagram:token')).instagram_id, '1789');
 });
 
+test('a key that covers "all" accounts and no business_management: found through INSTAGRAM_ACCOUNT_ID', async () => {
+  const { env, kv } = setup({ INSTAGRAM_ACCOUNT_ID: ' 1789 ' });
+  const g = fakeGoogle();
+  const meta = fakeMeta({ accounts: [], granted: [{ scope: 'instagram_basic' }, { scope: 'instagram_manage_messages' }], ownedError: true });
+  const token = await sign({ email: OWNER });
+  const r = await call(env, g, meta, 'POST', '/api/admin/instagram/finish', token, { code: 'good-code', state: await startState(env, g, meta, token) });
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).username, 'ourjkadventures');
+  assert.equal(JSON.parse(kv.data.get('instagram:token')).instagram_id, '1789');
+  // the told-about account is checked first, so the other lookups aren't needed
+  assert.ok(!meta.calls.some((c) => c.includes('assigned_instagram_accounts')));
+});
+
+test('a wrong INSTAGRAM_ACCOUNT_ID says so, and the other lookups still run', async () => {
+  const { env, kv } = setup({ INSTAGRAM_ACCOUNT_ID: '999' });
+  const g = fakeGoogle(), meta = fakeMeta();
+  const token = await sign({ email: OWNER });
+  const r = await call(env, g, meta, 'POST', '/api/admin/instagram/finish', token, { code: 'good-code', state: await startState(env, g, meta, token) });
+  assert.equal(r.status, 200);
+  assert.equal(JSON.parse(kv.data.get('instagram:token')).instagram_id, '1789');
+});
+
 test('when no account can be found, /admin is told what the key covers', async () => {
   const { env, kv } = setup();
   const g = fakeGoogle(), meta = fakeMeta({ accounts: [], granted: [{ scope: 'instagram_manage_messages', target_ids: ['1789'] }] });
