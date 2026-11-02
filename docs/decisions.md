@@ -183,3 +183,16 @@ permission, the account's ID (shown on Meta's sign-in screen, not secret) is a p
 `INSTAGRAM_ACCOUNT_ID`, in `wrangler.jsonc`. Connecting checks the key can read that account and stores the ID
 Meta returns. The other lookups stay as fallbacks.
 
+## 2026-11 Instagram: a system-user key from our own business settings
+The Unified Login sign-in connected on Meta's side, but its key could not open @ourjkadventures: the
+assigned-accounts list was empty, `debug_token` showed `instagram_basic` for "all" with no account IDs, the
+portfolio's account lists needed `business_management`, and reading the account by ID gave "(#10)
+Application does not have permission for this action". Meta's Facebook Login for Business docs explain why:
+business integration system user keys are for Tech Providers, and the app's business portfolio must be
+"separate from the business portfolio owned by your business client". Ours are the same portfolio.
+So the website now uses a system user key made in our own Business settings (Employee role, only the
+Instagram account and the app assigned, only `instagram_basic`, never expires), kept as the Cloudflare
+secret `INSTAGRAM_ACCESS_TOKEN`. When that secret is set, `/admin` shows a live check instead of the connect
+button. The sign-in code stays for now but isn't needed. A failed fetch is re-tried after 30 minutes, not
+on every visit, and `/admin` shows Meta's reason.
+
