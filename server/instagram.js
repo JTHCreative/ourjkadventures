@@ -79,8 +79,9 @@ async function keyedUrl(env, path, token, params) {
 }
 
 // which Instagram account was shared. Meta's guide says /me/assigned_instagram_accounts; if that comes back empty,
-// the key's own description (debug_token) lists the account IDs each permission covers
-async function findAccounts(env, token, fetchFn) {
+// the key's own description (debug_token) may list the account IDs each permission covers, and failing that the
+// business portfolio's own lists of Instagram accounts. what each one said goes back to /admin if all come up empty
+async function findAccounts(env, token, businessId, fetchFn) {
   const notes = [];
   try {
     const shared = await metaJson(await fetchFn(await keyedUrl(env, '/me/assigned_instagram_accounts', token, { fields: 'id,username' })), 'assigned accounts');
@@ -107,7 +108,19 @@ async function findAccounts(env, token, fetchFn) {
       if (a && a.id) found.push({ id: String(a.id), username: a.username || '' });
     } catch (e) { notes.push(e.message); }
   }
-  return { accounts: found, notes };
+  if (found.length) return { accounts: found, notes };
+
+  // the business portfolio's own lists of Instagram accounts
+  if (!businessId) { notes.push('no business id'); return { accounts: [], notes }; }
+  for (const edge of ['owned_instagram_accounts', 'instagram_accounts']) {
+    try {
+      const r = await metaJson(await fetchFn(await keyedUrl(env, '/' + encodeURIComponent(businessId) + '/' + edge, token, { fields: 'id,username' })), edge);
+      const list = (Array.isArray(r.data) ? r.data : []).filter((a) => a && a.id).map((a) => ({ id: String(a.id), username: a.username || '' }));
+      if (list.length) return { accounts: list, notes };
+      notes.push(edge + ' was empty');
+    } catch (e) { notes.push(e.message); }
+  }
+  return { accounts: [], notes };
 }
 
 async function readToken(env) {
@@ -152,7 +165,7 @@ export async function finishLogin(env, ownerEmail, code, state, requestUrl, fetc
     businessId = (await metaJson(await fetchFn(await keyedUrl(env, '/me', tok.access_token, { fields: 'client_business_id' })), 'business')).client_business_id || '';
   } catch (e) { console.log('instagram business id', e.message); }
 
-  const { accounts, notes } = await findAccounts(env, tok.access_token, fetchFn);
+  const { accounts, notes } = await findAccounts(env, tok.access_token, businessId, fetchFn);
   if (!accounts.length) {
     console.log('instagram: no account found', notes.join('; '));
     return { error: 'no account', detail: notes.join('; ').slice(0, 400) };

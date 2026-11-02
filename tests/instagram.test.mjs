@@ -60,6 +60,11 @@ function fakeMeta(opts = {}) {
     if (u.pathname === '/v26.0/me') return Response.json({ client_business_id: 'biz-1', id: 'sys-9' });
     if (u.pathname === '/v26.0/me/assigned_instagram_accounts') return Response.json({ data: accounts });
     if (u.pathname === '/v26.0/1789') return Response.json({ id: '1789', username: 'ourjkadventures' });
+    if (u.pathname === '/v26.0/biz-1/owned_instagram_accounts') {
+      if (opts.ownedError) return fail(400, 200, 'Requires business_management permission');
+      return Response.json({ data: opts.owned || [] });
+    }
+    if (u.pathname === '/v26.0/biz-1/instagram_accounts') return Response.json({ data: opts.bizAccounts || [] });
     if (u.pathname === '/v26.0/1789/media') return Response.json({ data: media });
     return fail(404, 803, 'unknown ' + u.pathname);
   };
@@ -257,6 +262,16 @@ test('if the assigned list comes back empty, the account is found from what the 
   assert.ok(meta.calls.filter((c) => c.includes('shh')).every((c) => /\/(oauth\/access_token|debug_token)\?/.test(c)));
 });
 
+test('a key that covers "all" accounts: found through the business portfolio\'s own list', async () => {
+  const { env, kv } = setup();
+  const g = fakeGoogle();
+  const meta = fakeMeta({ accounts: [], granted: [{ scope: 'instagram_basic' }, { scope: 'instagram_manage_messages' }], ownedError: true, bizAccounts: [{ id: '1789', username: 'ourjkadventures' }] });
+  const token = await sign({ email: OWNER });
+  const r = await call(env, g, meta, 'POST', '/api/admin/instagram/finish', token, { code: 'good-code', state: await startState(env, g, meta, token) });
+  assert.equal(r.status, 200);
+  assert.equal(JSON.parse(kv.data.get('instagram:token')).instagram_id, '1789');
+});
+
 test('when no account can be found, /admin is told what the key covers', async () => {
   const { env, kv } = setup();
   const g = fakeGoogle(), meta = fakeMeta({ accounts: [], granted: [{ scope: 'instagram_manage_messages', target_ids: ['1789'] }] });
@@ -267,6 +282,7 @@ test('when no account can be found, /admin is told what the key covers', async (
   assert.equal(body.error, 'no account');
   assert.match(body.detail, /assigned accounts list was empty/);
   assert.match(body.detail, /instagram_manage_messages \(1 account\)/);
+  assert.match(body.detail, /owned_instagram_accounts was empty; instagram_accounts was empty/);
   assert.ok(!JSON.stringify(body).includes('suat-key') && !JSON.stringify(body).includes('shh'));
   assert.equal(kv.data.has('instagram:token'), false);
 });
