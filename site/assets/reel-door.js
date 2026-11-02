@@ -678,7 +678,9 @@
     }
     stage.addEventListener('pointerup', function (e) { release(e, false); });
     stage.addEventListener('pointercancel', function (e) { release(e, true); });
-    stage.addEventListener('lostpointercapture', function (e) { if (drag && drag.moving) release(e, true); });
+    // only when the stage itself loses the pointer. on touch screens the browser first holds the finger for whatever was
+    // touched (a reel's picture); moving that hold to the stage tells the picture it lost it, and that notice bubbles up
+    stage.addEventListener('lostpointercapture', function (e) { if (e.target === stage && drag && drag.moving) release(e, true); });
 
     // a drag that ends over a link or button must not also click it. a tap on a reel that isn't at the front
     // (even on its link) brings it forward; on the front reel, its links and buttons work as usual, and a tap
@@ -778,8 +780,8 @@
       var opts = optionsFrom(node);
       var src = node.getAttribute('data-reels-src');
       if (!src) { opts.reels = PLACEHOLDER_REELS; mount(node, opts); return; }
-      // real reels: if they can't be had, hide the whole section rather than show stand-ins
-      var section = node.closest('section') || node;
+      // real reels: if they can't be had, hide the reel door (only it, not the page around it) rather than show stand-ins
+      var section = node;
       fetch(src).then(function (r) {
         if (!r.ok) throw new Error('reels ' + r.status);
         return r.json();
