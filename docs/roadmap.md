@@ -79,7 +79,8 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [x] Owner changes (2026-11-01): moved to the About page; reels sized so the front one and both neighbours always fit whole; tapping the front reel opens it full screen with a close button at the top; no arrows on phones (upright or sideways)
 - [x] Reel door: real reels from our Instagram (spec, Path A). `/api/reels` (30 minute saved copy in Workers KV, last copy kept if Instagram is down), "connect instagram" on `/admin`. 1 reel sits alone; 2 reels each show twice (2026-11-01)
 - [x] Switched to Meta's "Instagram API with Unified Login" (the only Instagram setup Meta offered the new app): Facebook Login for Business with a configuration, a business-owned key that doesn't expire, so no weekly renewal job (2026-11-02)
-- [ ] Owner: the configuration, Instagram tester invite, `REEL_STORE` KV namespace and the three settings (`setup/instagram.md`, steps 1 to 3), then send the KV ID so it goes in `wrangler.jsonc`, then **connect instagram** on `/admin`. Until then the About page shows the stand-in reels
+- [x] Owner: the configuration, Instagram tester invite, `REEL_STORE` KV namespace and the three settings (`setup/instagram.md`, steps 1 to 3). KV namespace bound in `wrangler.jsonc` (2026-11-02)
+- [ ] Merge the reel door branch to `main`, then owner: **connect instagram** on `/admin` (`setup/instagram.md`, step 4). Until then the About page shows the stand-in reels
 - [ ] Chinese Zodiac and Hometown Series pages when those pins exist
 - [ ] Remaining 3D models as they arrive (`/add-3d-model`)
 - [x] Home page restructured: full-width video reel with the headline on top, then a two-column story section
