@@ -8,6 +8,8 @@
     "directory": "./site",
     "binding": "ASSETS"
   },
-     "observability": { "enabled": true },
-     "keep_vars": true
-   }
+  // the KV drawer for the instagram key and the saved reels (docs/setup/instagram.md, step 3)
+  "kv_namespaces": [{ "binding": "REEL_STORE", "id": "09a672c7570c4bea8b4584e92c287bbb" }],
+  "observability": { "enabled": true },
+  "keep_vars": true
+}

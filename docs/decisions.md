@@ -135,3 +135,43 @@ only, so `products.json` lists `["standard", "large"]` for those two and `["stan
 `/admin` no longer offers large rows nobody will fill. The site doesn't call the large pins "limited" to
 customers: that reads as urgency, which the brand voice avoids. On `/admin`, the product groups fold open
 and shut, each heading showing how many of its products are linked.
+
+## 2026-11 The reel door is plain JavaScript, stacked by z-index
+The spec says to use whatever the site already uses, and the site is plain HTML/JS with no build step,
+so the reel door is one file (`assets/reel-door.js`) that any page can switch on with
+`<div data-reel-door>`. Its motion runs off one number (the ring angle) in plain variables and writes
+each reel's position straight to its style, so nothing is rebuilt per frame. Reels are layered by
+z-index (closest to the front on top), not real 3D depth, because two cards in shared 3D space slice
+through each other as they pass. When the Astro port happens, this file can be an island as-is.
+Instagram's own embed was kept only as a fallback: it can't be styled, and its iframe swallows drags.
+
+## 2026-11 Reel door on the About page, full screen in the page, not the browser's
+The owner moved the reel door from the home page to the About page and asked for smaller reels, full
+screen on tap, and no arrows on phones. Full screen is a cover over the page (a modal `<dialog>`, with a
+close button at the top and Escape to close), not the browser's own fullscreen mode, because iPhones don't
+allow that for anything but a bare video, and the cover keeps our caption and buttons. The spec's minimum
+reel width (160px) gave way to "front reel and both neighbours always fit": reels are now 120 to 200px wide.
+
+## 2026-11 Instagram reels: key in Workers KV, sign-in finished on /admin
+The Instagram key lives in Workers KV, not a Cloudflare secret, because the worker has to replace it every
+week and a worker can't change its own secrets. KV is free at this size (see `setup/instagram.md`). The
+sign-in comes back to `/api/admin/instagram/callback`, which can't carry the owner's ticket (it's a plain
+redirect from Instagram), so it does nothing but forward the one-time code to `/admin`. The signed-in owner's
+page then sends it to `/api/admin/instagram/finish`, which checks the ticket and `ADMIN_EMAILS` like every
+other owner request, plus a one-time "state" tied to the owner who pressed connect. The KV binding stays a
+comment in `wrangler.jsonc` until the owner creates the namespace, because a made-up ID breaks deploys.
+With only two reels the ring shows each twice: a two-reel ring puts one directly behind the other and the
+turn swings them off the screen. One reel shows on its own with no controls.
+
+## 2026-11 Instagram: Unified Login, not Instagram Login (supersedes the weekly renewal above)
+When the owner created the Meta app, the dashboard only offered "API setup with Unified login" (and the
+Facebook-login setup, which needs a Facebook Page). Meta's docs call Unified Login the recommended setup and
+the only one getting new features. It signs in through Facebook Login for Business with a configuration
+(`INSTAGRAM_CONFIG_ID`), exchanges the code at `graph.facebook.com` with the *Meta* app ID and secret, and
+gives a key that belongs to the business portfolio and, by default, doesn't expire. So the weekly renewal
+job and its cron trigger were removed. The website finds the Instagram account through
+`/me/assigned_instagram_accounts` and reads `/{instagram id}/media`. If Meta stops accepting the key (error
+190), it is marked once and not retried, the last saved reels keep showing, and `/admin` asks to connect
+again. Meta requires `instagram_manage_messages` in every Unified Login configuration; the website never
+uses it, and the key never leaves the worker.
+

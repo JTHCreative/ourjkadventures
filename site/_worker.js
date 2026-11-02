@@ -8,6 +8,7 @@
 //   SUPPORT_EMAIL (optional)       shown to buyers on the Square checkout page
 //   FIREBASE_PROJECT_ID, FIREBASE_SERVICE_ACCOUNT  accounts, see server/firebase.js
 //   ADMIN_EMAILS                   who may use /admin, see server/admin.js
+//   REEL_STORE, META_APP_ID, META_APP_SECRET, INSTAGRAM_CONFIG_ID  the About page's reels, see server/instagram.js
 //
 // The account code lives in ../server so it is bundled into this worker but never published as a file.
 
@@ -17,6 +18,7 @@ import { configured as firebaseConfigured, userFromRequest } from '../server/fir
 import { admin } from '../server/admin.js';
 import { getCatalog, catalogRoute } from '../server/catalog.js';
 import { stockCounts, squareHost, SQUARE_VERSION } from '../server/square.js';
+import { reelsRoute, callbackBounce, CALLBACK_PATH } from '../server/instagram.js';
 
 const MAX_LINES = 30;
 const MAX_QTY = 20;
@@ -28,6 +30,9 @@ export default {
     if (url.pathname === '/api/catalog') return catalogRoute(request, env);
     if (url.pathname === '/api/account' || url.pathname === '/api/account/orders') return account(request, env);
     if (url.pathname === '/api/reviews') return reviews(request, env);
+    if (url.pathname === '/api/reels') return reelsRoute(request, env);
+    // instagram's sign-in comes back here; it only forwards the one-time code to /admin (see server/instagram.js)
+    if (url.pathname === CALLBACK_PATH) return callbackBounce(request);
     if (url.pathname === '/api/admin' || url.pathname.startsWith('/api/admin/')) return admin(request, env);
     return env.ASSETS.fetch(request);
   }
