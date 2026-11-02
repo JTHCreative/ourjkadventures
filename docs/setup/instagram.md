@@ -1,81 +1,59 @@
 # Instagram setup for the reel door (owner steps)
 
-The reel door on the About page ("out and about.") shows stand-in reels until the website can read
-**@ourjkadventures**. It's all free: the Meta app, the Instagram API and the Cloudflare pieces fit in the
-free plans (see "what it costs" at the end).
+The reel door on the About page ("out and about.") shows the real reels from **@ourjkadventures**. It's
+all free: the Meta app, the Instagram API and the Cloudflare pieces fit in the free plans (see "what it
+costs" at the end). Connected 2026-11-02.
 
-**How it works, in one picture:** the website gets its own staff key to the Instagram account, cut at the
-front desk of our business portfolio (J+K Adventures): a **system user** is a staff member that's a
-program, not a person. Its key can only read our posts, never expires, and is kept as a Cloudflare secret
-that only the website can use. Every 30 minutes at most, the website fetches the latest reels, keeps a
-copy in Cloudflare (Workers KV), and shows that copy to visitors.
+**How it works, in one picture:** the website has its own staff key to the Instagram account, cut at the
+front desk of our business portfolio (J+K Adventures). The key belongs to a **system user** called
+`website`: a staff member that's a program, not a person. The key can only read, never expires, and is kept
+as a Cloudflare secret that only the website can use. Meta lets this kind of key reach an Instagram account
+through the Facebook Page it's linked to, so the website asks for the J+K Adventures Page and reads the
+account linked to it. Every 30 minutes at most it fetches the latest reels, keeps a copy in Cloudflare
+(Workers KV), and shows that copy to visitors.
 
 **Never** put the key or the app secret in the repo, an email or a chat.
 
-Already done: the Meta app (`j+k adventures website`) owned by the J+K Adventures business portfolio,
-@ourjkadventures in that portfolio, the `REEL_STORE` KV namespace, and `META_APP_ID`, `META_APP_SECRET`
-and `INSTAGRAM_CONFIG_ID` in Cloudflare. The J+K Adventures Facebook Page's ID (`INSTAGRAM_PAGE_ID`, `1209633565574678`) is in
-`wrangler.jsonc`: the website finds @ourjkadventures through it.
+## What's in place
+| Where | What | Keep it because |
+|---|---|---|
+| Meta | the app `j+k adventures website`, owned by J+K Adventures | the key is made for this app |
+| Meta | the Facebook Page **J+K Adventures** (ID `1209633565574678`), linked to @ourjkadventures | it's the key's way in. It can stay empty |
+| Meta | the system user **website** (Employee), assigned @ourjkadventures (Content on), the Page and the app | it owns the key |
+| Cloudflare secret | `INSTAGRAM_ACCESS_TOKEN` | the key |
+| Cloudflare secret | `META_APP_SECRET` | signs every request to Meta |
+| Cloudflare | `META_APP_ID` (optional) | only for the "key" line in `/admin`'s test answers |
+| `wrangler.jsonc` | `INSTAGRAM_PAGE_ID` and the `REEL_STORE` KV binding | which Page to ask for, and where the saved copy lives |
 
-## Why not the "connect instagram" sign-in
-We tried it first. Meta's sign-in ("Unified login", built on Facebook Login for Business) is meant for
-apps that connect to *other* businesses' accounts: Meta's docs say the app's business portfolio must be
-"separate from the business portfolio owned by your business client". Ours are the same portfolio, so the
-key it gave could not open our own account ("Application does not have permission for this action").
-A system user key from our own business settings is Meta's way for a business to read its own account.
-
-## 1. Make the website's key (about 10 minutes)
+## If it ever needs setting up again
 Meta changes its labels now and then, so the names below may be slightly different.
 
-1. Go to **business.facebook.com/settings** (Business settings) and make sure **J+K Adventures** is the
-   portfolio shown at the top.
-2. **Users** > **System users** > **Add**. Name it `website`, role **Employee** (not Admin: it only needs
-   to read). Press **Create system user**.
-3. With `website` selected, press **Assign assets** (or **Add assets**):
-   - **Instagram accounts** > **ourjkadventures**: give it the smallest access that lets it see content
-     (for example "View content" or "Partial access"). Save.
-   - **Apps** > **j+k adventures website**: give it access (for example "Develop app"). Save.
-4. Still on `website`, press **Generate new token** (or **Generate token**):
-   - App: **j+k adventures website**
-   - Token expiration: **Never**
-   - Permissions: tick only **instagram_basic**. If it isn't in the list, send Claude Code a screenshot of
-     the list instead of guessing.
-   - Press **Generate token**, then copy the key. It's shown only once.
-
-## 1b. Link the Instagram account to a Facebook Page (needed)
-This kind of key reaches an Instagram account through a linked Facebook Page. Without one, `/admin`'s test
-answers show "facebook pages: none", and reading the account fails with "(#10) Application does not have
-permission". (`1323062497557751`, the ID on Meta's screens, is the portfolio's label for the account, not
-the Instagram account itself: Meta says it has no posts.) A Page is free and doesn't need any posts.
-
-1. Business settings > **Accounts** > **Pages** > **Add** > **Create a new Page**, named "j+k adventures"
-   (or use an existing Page, as long as it's listed under J+K Adventures).
-2. **Accounts** > **Instagram accounts** > **ourjkadventures** > **Connect assets** > pick the Page.
-3. **Users** > **System users** > **website** > **Assign assets** > **Pages** > the Page, with the smallest
-   access that lets it see content.
-4. The Page's ID (Business settings > **Accounts** > **Pages**, or the Page's **About** > **Page
-   transparency**) goes in `wrangler.jsonc` as `INSTAGRAM_PAGE_ID`. Meta leaves the Page out of the key's
-   own list of Pages, so the website asks for it by ID.
-5. Make a new key for `website` (step 1.4) with three permissions: **instagram_basic**,
-   **pages_show_list** and **pages_read_engagement**. Put it in Cloudflare in place of the old one (step 2).
-
-## 2. Put the key in Cloudflare
-1. **Workers & Pages** > **ourjkadventures** > **Settings** > **Variables and Secrets** > **Add**:
-   `INSTAGRAM_ACCESS_TOKEN`, type **Secret**, and paste the key.
-2. Press **Deploy**.
-
-## 3. Check it
-1. Sign in on the website with your owner email and open `https://ourjkadventures.com/admin`.
-2. The **instagram** box should say "connected as @ourjkadventures, with the key in cloudflare." (There's
-   no connect button any more while the key is there.)
-3. Open the About page. Your recent reels should replace the stand-ins. A brand new reel can take up to
-   30 minutes to show.
+1. **The Page.** Business settings (business.facebook.com/settings, with J+K Adventures selected) >
+   **Accounts** > **Pages**: the J+K Adventures Page should be listed. If not, **Add** > **Create a new
+   Page**, then put its ID (shown there, or on the Page under **About** > **Page transparency**) in
+   `wrangler.jsonc` as `INSTAGRAM_PAGE_ID`.
+2. **Link the Page to Instagram.** On facebook.com, switch into the Page > **Settings & privacy** >
+   **Settings** > **Linked accounts** > **Instagram** > **Connect account**, and log in as @ourjkadventures.
+   (Business settings' **Connect assets** on the Instagram account only offers ad accounts.) Afterwards,
+   **Accounts** > **Instagram accounts** > **ourjkadventures** > **Connected assets** shows the Page.
+3. **The system user.** **Users** > **System users** > **Add**, named `website`, role **Employee**. Then
+   **Assign assets**:
+   - **Instagram accounts** > **ourjkadventures**, with **Content** on.
+   - **Pages** > **J+K Adventures** (its switches may be greyed out, set "on the Instagram side": that's fine).
+   - **Apps** > **j+k adventures website**.
+4. **The key.** On `website`, **Generate new token**: app **j+k adventures website**, expiration **Never**,
+   permissions **instagram_basic**, **pages_show_list** and **pages_read_engagement**. Copy it (shown once).
+5. **Cloudflare.** **Workers & Pages** > **ourjkadventures** > **Settings** > **Variables and Secrets**:
+   `INSTAGRAM_ACCESS_TOKEN` as a **Secret** (paste the key), then **Deploy** (not "Save version", which
+   doesn't put it live). `META_APP_SECRET` (the app's **App settings** > **Basic** > App secret) as a Secret.
+6. **Check.** Open `https://ourjkadventures.com/admin`. The **instagram** box should say "connected as
+   @ourjkadventures, with the key in cloudflare." Then the About page shows the reels (a brand new reel can
+   take up to 30 minutes).
 
 ## When something looks wrong
-- **The box says "the key in cloudflare does not open @ourjkadventures yet" with Meta's words:** send that
-  sentence to Claude Code. The most likely fixes: the system user wasn't given the Instagram account
-  (step 1.3), the key was made without `instagram_basic` (step 1.4), or the account ID in `wrangler.jsonc`
-  isn't the one Meta's data system uses.
+- **The box says "the key in cloudflare does not open @ourjkadventures":** under it is a list of Meta's
+  answers to a few test questions. Send the whole list to Claude Code. The "page" line shows whether the key
+  can read the Page and which Instagram account is linked to it.
 - **The box says "the last fetch did not work":** Meta was unreachable or refused for a while. The About
   page keeps the last reels it saved and tries again within 30 minutes.
 - **The "out and about." section has disappeared:** the website couldn't get any reels yet, or the account
@@ -88,6 +66,18 @@ the Instagram account itself: Meta says it has no posts.) A Page is free and doe
   **Deploy**. To cancel the key itself, remove the `website` system user in Business settings.
 - **Someone else should take over:** add their email to `ADMIN_EMAILS` (see `firebase.md`). The key belongs
   to the business portfolio, so it keeps working when people come and go.
+
+## Cleaning up the first attempt (optional)
+We first tried Meta's "connect instagram" sign-in (Unified login). It can't open an account in the app's own
+business portfolio, so its code is gone (see `docs/decisions.md`). These leftovers are harmless; removing
+them just keeps things tidy:
+- **Cloudflare:** delete the variable `INSTAGRAM_CONFIG_ID` (and `INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET`
+  if they're still there), then **Deploy**. Keep `INSTAGRAM_ACCESS_TOKEN`, `META_APP_SECRET`, and
+  `META_APP_ID` if you like the "key" line in `/admin`'s test answers.
+- **Meta app** (developers.facebook.com > your app > **Use cases** > **Manage messaging & content on
+  Instagram** > **Customize** > **API setup with Unified login**): you can delete the configuration, the two
+  redirect URLs, and the Instagram tester. Nothing uses them.
+- **Leave alone:** the app itself, the Facebook Page and its link to Instagram, and the `website` system user.
 
 ## What it costs
 Nothing on top of what you pay now. Checked against Cloudflare's pricing pages (November 2026):

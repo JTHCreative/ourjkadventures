@@ -82,7 +82,7 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [x] Owner: the configuration, Instagram tester invite, `REEL_STORE` KV namespace and the three settings (`setup/instagram.md`, steps 1 to 3). KV namespace bound in `wrangler.jsonc` (2026-11-02)
 - [x] Reel door merged and live (#20 to #23)
 - [x] Instagram connected (2026-11-02): system user key in Business settings (`INSTAGRAM_ACCESS_TOKEN`), reaching @ourjkadventures through the J+K Adventures Facebook Page (`INSTAGRAM_PAGE_ID`). Real reels show on the About page
-- [ ] Tidy up: the Unified Login sign-in code on `/admin` and its settings (`META_APP_ID`, `INSTAGRAM_CONFIG_ID`, `REEL_STORE` token keys) are no longer used; `META_APP_SECRET` still signs requests
+- [x] Tidied up (2026-11-02): the Unified Login sign-in code and its tests removed; `/admin` shows a status check. Owner: optional Cloudflare and Meta app clean-up in `setup/instagram.md`
 - [ ] Chinese Zodiac and Hometown Series pages when those pins exist
 - [ ] Remaining 3D models as they arrive (`/add-3d-model`)
 - [x] Home page restructured: full-width video reel with the headline on top, then a two-column story section
