@@ -16,3 +16,5 @@ ADMIN_EMAILS=ourjkadventures@gmail.com
 META_APP_ID=
 META_APP_SECRET=
 INSTAGRAM_CONFIG_ID=
+# the system-user key from business settings (docs/setup/instagram.md); when set, no sign-in is needed
+INSTAGRAM_ACCESS_TOKEN=

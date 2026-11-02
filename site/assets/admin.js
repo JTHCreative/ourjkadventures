@@ -250,6 +250,22 @@ function paintInstagram(s, extra) {
       (s.missing && s.missing.length ? ' (still needed in cloudflare: ' + s.missing.join(', ') + ').' : '.');
     return;
   }
+  // the website uses the system-user key kept in cloudflare: nothing to connect here, just show how it's going
+  if (s.source === 'cloudflare') {
+    connect.hidden = true;
+    off.hidden = true;
+    if (!s.connected) {
+      state.textContent = 'the key in cloudflare does not open @ourjkadventures yet (meta said: ' + (s.check_error || 'nothing') + '). see docs/setup/instagram.md.';
+      return;
+    }
+    const lines = ['connected as @' + (s.username || 'ourjkadventures') + ', with the key in cloudflare.'];
+    if (s.reels_count !== null && s.reels_count !== undefined) {
+      lines.push(s.reels_count === 1 ? 'one reel on the about page.' : s.reels_count + ' reels on the about page.');
+    }
+    if (s.last_error) lines.push('the last fetch did not work (meta said: ' + s.last_error + '). the about page keeps the last reels it saved, and tries again within 30 minutes.');
+    state.textContent = lines.join(' ');
+    return;
+  }
   if (!s.connected) {
     connect.hidden = false;
     connect.textContent = 'connect instagram';
