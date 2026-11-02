@@ -92,6 +92,12 @@
   function safeUrl(u, fallback) {
     return typeof u === 'string' && /^https:\/\//i.test(u) ? u : fallback;
   }
+  // the address of instagram's own player for a post: only for a real instagram reel or post link
+  function embedUrl(permalink) {
+    var m = typeof permalink === 'string' && /^https:\/\/(?:www\.)?instagram\.com\/(reels?|p|tv)\/([A-Za-z0-9_-]{5,40})\/?(?:[?#].*)?$/.exec(permalink);
+    if (!m) return '';
+    return 'https://www.instagram.com/' + (m[1] === 'p' ? 'p' : 'reel') + '/' + m[2] + '/embed/';
+  }
   function assetUrl(u) {
     return typeof u === 'string' && (/^https:\/\//i.test(u) || /^assets\//.test(u)) ? u : '';
   }
@@ -220,6 +226,9 @@
       var caption = typeof r.caption === 'string' ? r.caption.trim() : '';
       var video = null;
       var videoUrl = assetUrl(r.videoUrl);
+      // no video file (meta leaves it out for licensed music): full screen plays it in instagram's own player instead
+      var embed = !videoUrl && !r.placeholder ? embedUrl(r.permalink) : '';
+      if (embed) media.setAttribute('aria-label', (single ? 'watch this reel' : 'watch reel ' + (i % real + 1)) + ' full screen, in instagram\'s player');
       if (videoUrl) {
         video = document.createElement('video');
         video.muted = true;
@@ -238,8 +247,14 @@
         img.alt = '';
         img.draggable = false;
         img.loading = i < 3 || i > N - 3 ? 'eager' : 'lazy';
-        // no video file (instagram leaves it out for licensed music): full screen shows the still and a link to the post
         media.appendChild(img);
+        if (embed) {
+          // a play mark, so it's clear this one plays when opened
+          var mark = el('span', 'reel-door__play-mark');
+          mark.setAttribute('aria-hidden', 'true');
+          mark.appendChild(icon(ICON.play));
+          media.appendChild(mark);
+        }
       }
       card.appendChild(media);
 
@@ -294,7 +309,7 @@
       var it = { node: node, haze: haze, bar: bar, video: video, playBtn: playBtn, soundBtn: soundBtn,
         focusables: [media, handle, playBtn, soundBtn].filter(Boolean),
         thumb: thumb, videoUrl: videoUrl, permalink: permalink, username: username, caption: caption,
-        placeholder: !!r.placeholder };
+        placeholder: !!r.placeholder, embed: embed };
 
       if (video) {
         video.addEventListener('timeupdate', function () {
@@ -501,6 +516,7 @@
       close.addEventListener('click', function () { f.dialog.close(); });
       top.appendChild(close);
       var frame = el('div', 'reel-door__full-frame');
+      f.frame = frame;
       f.card = el('div', 'reel-door__card');
       f.media = el('div', 'reel-door__media');
       f.tools = el('div', 'reel-door__full-tools');
@@ -571,6 +587,8 @@
       full.video = null;
       full.dialog.setAttribute('aria-label', single ? 'a reel from our instagram' : 'reel ' + (i % real + 1) + ' of ' + real);
       full.card.classList.toggle('reel-door__card--placeholder', it.placeholder);
+      full.card.classList.toggle('reel-door__card--embed', !!it.embed);
+      full.frame.classList.toggle('reel-door__full-frame--embed', !!it.embed);
       full.handle.href = it.permalink;
       full.handle.textContent = '@' + it.username;
       full.caption.textContent = it.caption;
@@ -600,6 +618,17 @@
         full.tools.hidden = false;
         paintFull();
         if (!calm && !held) v.play().catch(paintFull);
+      } else if (it.embed) {
+        // instagram's own player, loaded only now that someone asked for it, and removed again on close
+        var frameEl = document.createElement('iframe');
+        frameEl.className = 'reel-door__embed';
+        frameEl.src = it.embed;
+        frameEl.title = 'reel from @' + it.username + ', in instagram\'s player';
+        frameEl.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture; fullscreen');
+        frameEl.setAttribute('allowfullscreen', '');
+        frameEl.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+        full.media.appendChild(frameEl);
+        full.tools.hidden = true;
       } else {
         var img = el('img');
         img.src = it.thumb;
@@ -793,7 +822,7 @@
     });
   }
 
-  root.ReelDoor = { mount: mount, place: place, reach: reach, settleAngle: settleAngle, DEFAULTS: DEFAULTS, PLACEHOLDER_REELS: PLACEHOLDER_REELS };
+  root.ReelDoor = { mount: mount, place: place, reach: reach, settleAngle: settleAngle, embedUrl: embedUrl, DEFAULTS: DEFAULTS, PLACEHOLDER_REELS: PLACEHOLDER_REELS };
 
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);

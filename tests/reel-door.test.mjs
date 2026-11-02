@@ -8,7 +8,7 @@ import vm from 'node:vm';
 const box = { globalThis: {} };
 box.globalThis = box;
 vm.runInNewContext(readFileSync(new URL('../site/assets/reel-door.js', import.meta.url), 'utf8'), box);
-const { place, reach, settleAngle, DEFAULTS, PLACEHOLDER_REELS } = box.ReelDoor;
+const { place, reach, settleAngle, embedUrl, DEFAULTS, PLACEHOLDER_REELS } = box.ReelDoor;
 
 const N = 8, s = 360 / N, W = 208;
 const Rx = reach(N, W, DEFAULTS.spread);
@@ -78,5 +78,15 @@ test('eight placeholder reels in the spec shape, lowercase, no exclamation marks
     assert.ok(r.id && r.thumbnailUrl && r.permalink);
     assert.equal(r.caption, r.caption.toLowerCase());
     assert.ok(!r.caption.includes('!'));
+  }
+});
+
+test('instagram\'s player is only ever pointed at a real instagram reel or post', () => {
+  assert.equal(embedUrl('https://www.instagram.com/reel/C9xYz_12-ab/'), 'https://www.instagram.com/reel/C9xYz_12-ab/embed/');
+  assert.equal(embedUrl('https://instagram.com/reels/C9xYz_12-ab'), 'https://www.instagram.com/reel/C9xYz_12-ab/embed/');
+  assert.equal(embedUrl('https://www.instagram.com/p/C9xYz_12-ab/?igsh=abc'), 'https://www.instagram.com/p/C9xYz_12-ab/embed/');
+  for (const bad of ['https://www.instagram.com/ourjkadventures/', 'https://evil.example/reel/C9xYz/', 'http://www.instagram.com/reel/C9xYz_12-ab/',
+    'javascript:alert(1)', 'https://www.instagram.com/reel/../../x/', 'https://www.instagram.com.evil.example/reel/C9xYz_12-ab/', undefined]) {
+    assert.equal(embedUrl(bad), '', String(bad));
   }
 });
