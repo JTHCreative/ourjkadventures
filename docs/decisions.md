@@ -163,3 +163,15 @@ comment in `wrangler.jsonc` until the owner creates the namespace, because a mad
 With only two reels the ring shows each twice: a two-reel ring puts one directly behind the other and the
 turn swings them off the screen. One reel shows on its own with no controls.
 
+## 2026-11 Instagram: Unified Login, not Instagram Login (supersedes the weekly renewal above)
+When the owner created the Meta app, the dashboard only offered "API setup with Unified login" (and the
+Facebook-login setup, which needs a Facebook Page). Meta's docs call Unified Login the recommended setup and
+the only one getting new features. It signs in through Facebook Login for Business with a configuration
+(`INSTAGRAM_CONFIG_ID`), exchanges the code at `graph.facebook.com` with the *Meta* app ID and secret, and
+gives a key that belongs to the business portfolio and, by default, doesn't expire. So the weekly renewal
+job and its cron trigger were removed. The website finds the Instagram account through
+`/me/assigned_instagram_accounts` and reads `/{instagram id}/media`. If Meta stops accepting the key (error
+190), it is marked once and not retried, the last saved reels keep showing, and `/admin` asks to connect
+again. Meta requires `instagram_manage_messages` in every Unified Login configuration; the website never
+uses it, and the key never leaves the worker.
+
