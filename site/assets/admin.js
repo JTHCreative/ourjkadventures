@@ -256,6 +256,15 @@ function paintInstagram(s, extra) {
     off.hidden = true;
     if (!s.connected) {
       state.textContent = 'the key in cloudflare does not open @ourjkadventures yet (meta said: ' + (s.check_error || 'nothing') + '). see docs/setup/instagram.md.';
+      // the answers to a few test questions, for working out why
+      if (s.diagnostics && s.diagnostics.length) {
+        const list = el('ul', 'caption');
+        list.setAttribute('data-instagram-diagnostics', '');
+        s.diagnostics.forEach((d) => list.appendChild(el('li', null, d)));
+        const old = document.querySelector('[data-instagram-diagnostics]');
+        if (old) old.remove();
+        state.after(list);
+      }
       return;
     }
     const lines = ['connected as @' + (s.username || 'ourjkadventures') + ', with the key in cloudflare.'];

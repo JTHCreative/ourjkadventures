@@ -65,6 +65,7 @@ function fakeMeta(opts = {}) {
       return Response.json({ data: opts.owned || [] });
     }
     if (u.pathname === '/v26.0/biz-1/instagram_accounts') return Response.json({ data: opts.bizAccounts || [] });
+    if (u.pathname === '/v26.0/me/accounts') return Response.json({ data: opts.pages || [] });
     if (u.pathname === '/v26.0/1789/media') return Response.json({ data: media });
     return fail(404, 803, 'unknown ' + u.pathname);
   };
@@ -402,4 +403,26 @@ test('a failed fetch waits 30 minutes before asking meta again, and /admin hears
   // after 30 minutes it tries again, and recovers
   const body = await (await reelsRoute(get('/api/reels'), env, fakeMeta().fetchFn, t + 31 * 60 * 1000)).json();
   assert.equal(body.reels.length, 2);
+});
+
+test('an instagram account linked to a facebook page the key can see is found that way', async () => {
+  const { env, kv } = setup({ INSTAGRAM_ACCESS_TOKEN: 'suat-key', INSTAGRAM_ACCOUNT_ID: '' });
+  const meta = fakeMeta({ accounts: [], granted: [{ scope: 'instagram_basic' }],
+    pages: [{ id: 'p1', name: 'j+k adventures', instagram_business_account: { id: '1789', username: 'ourjkadventures' } }] });
+  const body = await (await reelsRoute(get('/api/reels'), env, meta.fetchFn)).json();
+  assert.equal(body.reels.length, 2);
+  assert.ok(kv.data.has('instagram:reels'));
+});
+
+test('when the key opens nothing, /admin gets plain answers to test questions, never the key', async () => {
+  const { env } = setup({ INSTAGRAM_ACCESS_TOKEN: 'suat-key', INSTAGRAM_ACCOUNT_ID: '555' });
+  const meta = fakeMeta({ accounts: [], granted: [{ scope: 'instagram_basic' }] });
+  const s = await instagramStatus(env, meta.fetchFn);
+  assert.equal(s.connected, false);
+  const text = s.diagnostics.join('\n');
+  assert.match(text, /^key: type SYSTEM_USER, valid true, for our app true, expires never, permissions instagram_basic$/m);
+  assert.match(text, /^facebook pages: none$/m);
+  assert.match(text, /^assigned instagram: none$/m);
+  assert.match(text, /^account 555: 404/m);
+  assert.ok(!text.includes('suat-key') && !text.includes('shh'));
 });
