@@ -574,8 +574,8 @@
     sheet.appendChild(starLine);
     sheet.appendChild(about);
     sheet.appendChild(buy);
-    sheet.appendChild(reviewBlock(p, starLine));
     panel.appendChild(sheet);
+    panel.appendChild(reviewBlock(p, starLine));
     panel.hidden = false;
     if (window.matchMedia && window.matchMedia('(max-width: 760px)').matches) {
       panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -626,7 +626,7 @@
   }
 
   function reviewBlock(p, starLine) {
-    var block = el('section', 'pup-reviews');
+    var block = el('section', 'card clean pup-reviews');
     block.setAttribute('aria-label', 'reviews of the ' + pupName(p) + ' pin');
     block.hidden = true;
     var list = el('div', 'review-list');

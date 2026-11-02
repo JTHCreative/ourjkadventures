@@ -597,7 +597,8 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
   100% { transform: rotate(0) scale(1.2); }
 }
 
-.pup-panel { flex: 0 0 320px; width: 320px; position: sticky; top: var(--space-4); max-height: calc(100vh - 2 * var(--space-4)); overflow-y: auto; }
+/* the pin's card, with its reviews in a card of their own below, so neither needs a scroll bar */
+.pup-panel { flex: 0 0 400px; width: 400px; display: flex; flex-direction: column; gap: var(--space-4); }
 .pup-panel[hidden] { display: none; }
 .pup-sheet { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-2); padding: var(--space-6) var(--space-5) var(--space-5); animation: pup-in 0.28s ease both; }
 .pup-sheet .close { position: absolute; top: var(--space-3); right: var(--space-3); }
@@ -614,7 +615,7 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .stars-full { position: absolute; left: 0; top: 0; overflow: hidden; color: var(--honey-600); }
 .pup-star-line { display: flex; align-items: center; justify-content: center; gap: var(--space-2); font-size: 16px; line-height: 22px; }
 .pup-star-line[hidden] { display: none; }
-.pup-reviews { align-self: stretch; text-align: left; margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1.5px solid var(--line); display: flex; flex-direction: column; gap: var(--space-4); }
+.pup-reviews { text-align: left; padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); animation: pup-in 0.28s ease 0.06s both; }
 .pup-reviews[hidden] { display: none; }
 .pup-reviews-title { font-size: 22px; line-height: 28px; }
 .review-list { display: flex; flex-direction: column; gap: var(--space-4); }
@@ -634,7 +635,7 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .size-pick label { display: inline-flex; align-items: center; min-height: 40px; padding: 0 var(--space-4); border: 1.5px solid var(--line-strong); border-radius: var(--radius-pill); font-size: 17px; color: var(--ink-soft); cursor: pointer; background: var(--surface); }
 .size-pick input:checked + label { border-color: var(--ink); color: var(--ink); background: var(--honey-100); }
 .size-pick input:focus-visible + label { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
-.stock-line { margin: 0; }
+.stock-line { margin: 0; font-size: 17px; line-height: 24px; color: var(--ink-soft); }
 .line .lnote { grid-column: 1 / -1; margin: 0; }
 .star-input { border: 0; padding: 0; margin: 0; }
 .star-input legend { padding: 0; font-size: 16px; line-height: 22px; font-weight: 500; margin-bottom: var(--space-1); }
@@ -648,10 +649,10 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 
 @media (max-width: 760px) {
   .pup-stage { flex-direction: column; align-items: stretch; }
-  .pup-panel { order: -1; flex: none; width: 100%; position: static; max-height: none; overflow: visible; }
+  .pup-panel { order: -1; flex: none; width: 100%; }
   .pup-frame { flex: none; max-width: none; padding: 12px; }
   .pup-felt { padding: var(--space-4) var(--space-2); gap: var(--space-2) 2px; }
-  .pup-sheet { animation-name: pup-in-down; }
+  .pup-sheet, .pup-reviews { animation-name: pup-in-down; }
   @keyframes pup-in-down { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -659,7 +660,7 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
   .reel-video { transition: none; }
   .pup-pin img, .pup-pin::before, .pup-pin::after { transition: none; }
   .pup-pin:hover img, .pup-pin:focus-visible img, .pup-pin.is-held img { animation: none; }
-  .pup-sheet { animation: none; }
+  .pup-sheet, .pup-reviews { animation: none; }
   .float-shop, .float-shop.show { transition: none; transform: none; }
 }
 
