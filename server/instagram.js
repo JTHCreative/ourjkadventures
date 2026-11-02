@@ -15,6 +15,9 @@
 //   INSTAGRAM_CONFIG_ID   the configuration ID from "API setup with Unified login" (not secret)
 //   INSTAGRAM_ACCOUNT_ID  @ourjkadventures' account ID (not secret, in wrangler.jsonc). Meta's key covers "all" accounts
 //                         without naming ours, and the lists that would name it need business_management
+//   INSTAGRAM_PAGE_ID     the J+K Adventures Facebook Page's ID (not secret, in wrangler.jsonc). The system-user key
+//                         reaches @ourjkadventures through this Page, but Meta leaves the Page out of the key's own
+//                         list of Pages, so the website asks for it by ID
 //   INSTAGRAM_ACCESS_TOKEN  secret, optional: a system-user key made in our own business settings. When it's set, the
 //                         website uses it and the sign-in on /admin isn't needed. This is the way that works for an app
 //                         and an Instagram account in the same business portfolio: Meta's sign-in keys are meant for
@@ -129,6 +132,16 @@ async function findAccounts(env, token, businessId, fetchFn) {
     } catch (e) { notes.push(e.message); }
   }
   if (found.length) return { accounts: found, notes };
+
+  // the Instagram account linked to our Facebook Page, asked for by the Page's ID
+  if (env.INSTAGRAM_PAGE_ID) {
+    try {
+      const page = await metaJson(await fetchFn(await keyedUrl(env, '/' + encodeURIComponent(String(env.INSTAGRAM_PAGE_ID).trim()), token, { fields: 'instagram_business_account{id,username}' })), 'INSTAGRAM_PAGE_ID');
+      const a = page && page.instagram_business_account;
+      if (a && a.id) return { accounts: [{ id: String(a.id), username: a.username || '' }], notes };
+      notes.push('INSTAGRAM_PAGE_ID has no linked instagram account');
+    } catch (e) { notes.push(e.message); }
+  }
 
   // an Instagram account linked to a Facebook Page the key can see (the classic Facebook-login way)
   try {
@@ -250,6 +263,11 @@ async function diagnose(env, key, fetchFn) {
     (d) => (d.data || []).map((p) => p.name + ' -> ' + (p.instagram_business_account ? '@' + p.instagram_business_account.username + ' ' + p.instagram_business_account.id : 'no instagram')).join(', ') || 'none');
   await ask('assigned instagram', await keyedUrl(env, '/me/assigned_instagram_accounts', key, { fields: 'id,username' }),
     (d) => (d.data || []).map((a) => '@' + a.username + ' ' + a.id).join(', ') || 'none');
+  if (env.INSTAGRAM_PAGE_ID) {
+    const pid = encodeURIComponent(String(env.INSTAGRAM_PAGE_ID).trim());
+    await ask('page ' + pid, await keyedUrl(env, '/' + pid, key, { fields: 'name,instagram_business_account{id,username}' }),
+      (d) => d.name + ' -> ' + (d.instagram_business_account ? '@' + d.instagram_business_account.username + ' ' + d.instagram_business_account.id : 'no instagram linked'));
+  }
   if (id) {
     await ask('account ' + id, await keyedUrl(env, '/' + id, key, { fields: 'id' }), (d) => 'found ' + d.id);
     await ask('account ' + id + ' posts', await keyedUrl(env, '/' + id + '/media', key, { fields: 'id', limit: '1' }), (d) => (d.data || []).length + ' found');

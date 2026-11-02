@@ -66,6 +66,7 @@ function fakeMeta(opts = {}) {
     }
     if (u.pathname === '/v26.0/biz-1/instagram_accounts') return Response.json({ data: opts.bizAccounts || [] });
     if (u.pathname === '/v26.0/me/accounts') return Response.json({ data: opts.pages || [] });
+    if (u.pathname === '/v26.0/page-1') return Response.json({ id: 'page-1', name: 'J+K Adventures', instagram_business_account: { id: '1789', username: 'ourjkadventures' } });
     if (u.pathname === '/v26.0/1789/media') return Response.json({ data: media });
     return fail(404, 803, 'unknown ' + u.pathname);
   };
@@ -425,4 +426,15 @@ test('when the key opens nothing, /admin gets plain answers to test questions, n
   assert.match(text, /^assigned instagram: none$/m);
   assert.match(text, /^account 555: 404/m);
   assert.ok(!text.includes('suat-key') && !text.includes('shh'));
+});
+
+test('the instagram account is found through INSTAGRAM_PAGE_ID when the key\'s page list leaves the page out', async () => {
+  const { env } = setup({ INSTAGRAM_ACCESS_TOKEN: 'suat-key', INSTAGRAM_ACCOUNT_ID: '', INSTAGRAM_PAGE_ID: 'page-1' });
+  const meta = fakeMeta({ accounts: [], granted: [{ scope: 'instagram_basic' }], pages: [] });
+  const s = await instagramStatus(env, meta.fetchFn);
+  assert.equal(s.connected, true);
+  assert.equal(s.username, 'ourjkadventures');
+  const body = await (await reelsRoute(get('/api/reels'), env, meta.fetchFn)).json();
+  assert.equal(body.reels.length, 2);
+  assert.ok(meta.calls.some((c) => c.includes('/v26.0/1789/media?')));
 });

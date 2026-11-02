@@ -196,3 +196,12 @@ secret `INSTAGRAM_ACCESS_TOKEN`. When that secret is set, `/admin` shows a live 
 button. The sign-in code stays for now but isn't needed. A failed fetch is re-tried after 30 minutes, not
 on every visit, and `/admin` shows Meta's reason.
 
+## 2026-11 Instagram through the Facebook Page, asked for by ID
+A system user key reaches an Instagram account through its linked Facebook Page, so the owner created the
+J+K Adventures Page and linked @ourjkadventures to it. Even with the `website` system user assigned (Content
+on the Instagram account) and a key holding `instagram_basic`, `pages_show_list` and `pages_read_engagement`,
+Meta left the Page out of `/me/accounts`. So the Page's ID (not secret) is `INSTAGRAM_PAGE_ID` in
+`wrangler.jsonc`, and the website asks `/{page id}?fields=instagram_business_account` directly.
+`INSTAGRAM_ACCOUNT_ID` was removed: `1323062497557751` turned out to be the portfolio's label for the account
+(no `media` field), not the Instagram account.
+
