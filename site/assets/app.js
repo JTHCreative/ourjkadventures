@@ -814,6 +814,8 @@
       b.setAttribute('aria-pressed', 'false');
       var img = el('img');
       img.src = PIN_IMG[s] || '';
+      img.width = 900;
+      img.height = 900;
       img.alt = '';
       img.draggable = false;
       b.appendChild(img);
