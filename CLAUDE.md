@@ -13,12 +13,13 @@ an everyday analogy when a concept is technical.
 |---|---|
 | `site/` | The live static site. Plain HTML, CSS and JS, no build step. A Cloudflare Worker with static assets serves this folder (`wrangler.jsonc`), deployed from `main` |
 | `site/assets/app.js` | Bag, pup board, size choice and stock line, speech bubbles, 3D viewer, checkout call |
+| `site/assets/featured.js` | The featured carousel at the top of `shop.html`: up to eight in-stock picks turning on a ring, each with a floor shadow; drag or flick to spin faster, pause button, still under reduced motion. `app.js` mounts it from `/api/catalog`'s `featured` list |
 | `site/assets/reel-door.js` | The reel door on the About page: a ring of reels to drag, tap or step through; tapping the front reel opens it full screen (reels with licensed music, which Meta sends without a video file, ask "watch on instagram?" and open there in a new tab). Reels come from `/api/reels`; stand-ins until Instagram is connected. Spec: `docs/reel-door-spec.md` |
 | `site/assets/styles.css` | All styles. Design tokens are the CSS variables on `:root` |
 | `site/products.json` | What the site shows: slug, name, kind, `series` for pins (`pup-club`, `hometown`, `zodiac`), which sizes a product comes in, shipping. **No prices**: those come from Square |
-| `site/_worker.js` | Server side (the Worker). `/api/catalog` (products with Square price and stock), `/api/checkout` (Square payment link), `/api/account`, `/api/reviews`, `/api/admin`, `/api/reels` (the About page's Instagram reels); everything else falls through to static files |
+| `site/_worker.js` | Server side (the Worker). `/api/catalog` (products with Square price and stock, and the in-stock featured picks), `/api/checkout` (Square payment link), `/api/account`, `/api/reviews`, `/api/admin`, `/api/reels` (the About page's Instagram reels); everything else falls through to static files |
 | `server/` | Server code the worker imports: Firebase tickets and Firestore (`firebase.js`), accounts, reviews, the shop switch (`shop.js`), Square reads (`square.js`), the catalog (`catalog.js`), the owner's API (`admin.js`), Instagram reels with a system-user key (Cloudflare secret `INSTAGRAM_ACCESS_TOKEN`) through our Facebook Page, saved copy in Workers KV (`instagram.js`). Bundled by wrangler, never published |
-| `site/admin.html`, `site/assets/admin.js` | The owner's page at `/admin`: shop open switch, Square links, review approval, Instagram status check. Not linked from any nav |
+| `site/admin.html`, `site/assets/admin.js` | The owner's page at `/admin`: shop open switch, Square links, featured picks, review approval, Instagram status check. Not linked from any nav |
 | `site/assets/account.js` | Firebase sign-in in the browser; runs the account pages |
 | `firestore.rules` | Firestore rules: no browser access at all, including `settings/*`. The owner publishes them in the Firebase console |
 | `tests/` | `node --test tests/*.test.mjs` |
@@ -56,6 +57,7 @@ an everyday analogy when a concept is technical.
 - Each website product and size is linked to a Square item on `/admin`. Unlinked means sold out.
 - Stock shows as a plain "N in stock." while the shop is open, never as urgency.
 - 3D models exist for 10 pups. Still missing: cavalier, dachshund, french-bulldog, poodle, rottweiler, yorkie (their "See in 3D" button stays faded).
+- The shop page has a featured carousel on top (picked on `/admin`, saved in `settings/featured_<square mode>`; only in-stock products, at most eight; hidden when none), then a "pins" card with a button per set and a "pin boards" card. A featured pup links to `pup-club.html#<slug>`, which opens that pup.
 - The Bay Area board hangs top left on a six-spot gallery wall in a living room photo on `pin-boards.html` (five spots empty for future boards); tapping it opens `bay-area-pin-board.html` (zoomable full-size image, price and add to bag).
 - Contact: support@ourjkadventures.com. Instagram: @ourjkadventures.
 

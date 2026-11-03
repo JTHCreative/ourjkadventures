@@ -21,7 +21,7 @@
   }
 
   /* ---------- the catalog (/api/catalog) ---------- */
-  var catalog = { currency: 'USD', open: false, items: {}, byKey: {} };
+  var catalog = { currency: 'USD', open: false, items: {}, byKey: {}, featured: [] };
   var catalogPromise = null;
   function loadCatalog(fresh) {
     if (catalogPromise && !fresh) return catalogPromise;
@@ -33,6 +33,8 @@
       catalog.open = j.open === true;
       catalog.items = {};
       catalog.byKey = {};
+      // the owner's picks for the carousel at the top of the shop: slugs, already only ones in stock
+      catalog.featured = Array.isArray(j.featured) ? j.featured : [];
       (j.items || []).forEach(function (p) {
         p.sizes = p.sizes || [];
         catalog.items[p.slug] = p;
@@ -811,6 +813,7 @@
       var b = el('button', 'pup-pin');
       b.type = 'button';
       b.setAttribute('data-breed', PUP_BREED[s] || p.name);
+      b.setAttribute('data-slug', s);
       b.setAttribute('aria-label', pupName(p) + ' pin' + (priceRange(p) ? ', ' + priceRange(p) : ''));
       b.setAttribute('aria-pressed', 'false');
       var img = el('img');
@@ -834,12 +837,48 @@
     });
   }
 
+  // a link like pup-club.html#corgi (from the featured carousel) opens that pup straight away
+  function openPupFromHash(grid) {
+    var slug = decodeURIComponent((location.hash || '').slice(1));
+    var p = slug && catalog.items[slug];
+    if (!p || p.kind !== 'pin') return;
+    var btn = Array.prototype.find.call(grid.querySelectorAll('.pup-pin'), function (b) { return b.getAttribute('data-slug') === slug; });
+    if (btn) showPup(p, btn);
+  }
+
+  /* ---------- the shop: featured carousel ---------- */
+  var BOARD_IMG = { 'bay-area-pin-board': 'assets/img/bay-area-board.webp' };
+  var SERIES_PAGE = { 'pup-club': 'pup-club.html', hometown: 'hometown-series.html', zodiac: 'chinese-zodiac.html' };
+  // where a featured product's picture is, and which page it opens
+  function featuredItem(p) {
+    var img = p.kind === 'board' ? BOARD_IMG[p.slug] : PIN_IMG[p.slug];
+    var href = p.kind === 'board' ? (BOARD_PAGE[p.slug] || 'pin-boards.html')
+      : p.series === 'pup-club' ? 'pup-club.html#' + encodeURIComponent(p.slug) : (SERIES_PAGE[p.series] || 'shop.html');
+    if (!img) return null;
+    var name = p.kind === 'board' ? p.name : pupName(p);
+    var price = priceRange(p);
+    return { href: href, img: img, board: p.kind === 'board', name: name, price: price, label: name + (p.kind === 'board' ? '' : ' pin') + (price ? ', ' + price : '') };
+  }
+  function buildFeatured(band) {
+    var ring = band.querySelector('[data-featured-ring]');
+    var items = catalog.featured.map(function (slug) { return catalog.items[slug]; })
+      .filter(Boolean).map(featuredItem).filter(Boolean);
+    if (!ring || !items.length || !window.Featured) { band.hidden = true; return; }
+    band.hidden = false;
+    window.Featured.mount(ring, items);
+    // two or fewer stand still, so there is nothing to spin
+    var hint = band.querySelector('.featured-hint');
+    if (hint) hint.hidden = items.length < 3;
+  }
+
   function loadShop() {
     var pupGrid = document.getElementById('pup-grid');
     var boardSlot = document.getElementById('board-slot');
     var boardBuy = document.getElementById('board-buy');
-    if (!pupGrid && !boardSlot && !boardBuy) return;
+    var featured = document.querySelector('[data-featured]');
+    if (!pupGrid && !boardSlot && !boardBuy && !featured) return;
     loadCatalog().then(function () {
+      if (featured) buildFeatured(featured);
       if (boardBuy) {
         boardBuy.textContent = '';
         var bb = catalog.items['bay-area-pin-board'];
@@ -850,7 +889,7 @@
           boardBuy.appendChild(area);
         }
       }
-      if (pupGrid) buildPupBoard(pupGrid, catalog.items);
+      if (pupGrid) { buildPupBoard(pupGrid, catalog.items); openPupFromHash(pupGrid); }
       if (boardSlot) {
         boardSlot.textContent = '';
         var b = catalog.items['bay-area-pin-board'];

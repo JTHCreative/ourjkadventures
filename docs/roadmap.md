@@ -90,5 +90,7 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [x] Floating shop + bag pill once the header scrolls away
 - [x] Pup pin reviews: 1 to 5 stars and a note from signed-in accounts, approved by the owner first, "kind words." on the home page (`setup/reviews.md`)
 - [x] Owner's page `/admin` (2026-10-31): shop open switch (Firestore `settings/shop`), Square links, review approval. Owner is a confirmed email in `ADMIN_EMAILS`, not a custom claim (see decisions)
+- [x] Shop page (2026-11-03): featured carousel on top (owner picks up to eight in-stock products on `/admin`), then pins (a button per set) and pin boards
+- [ ] Owner: on `/admin`, pick the first featured products once the shop's items are linked and in stock
 - [ ] Owner: add `ADMIN_EMAILS` in Cloudflare and publish the updated `firestore.rules` (`setup/firebase.md`, steps 14 to 17)
 - [ ] Owner: approve the first reviews on `/admin`

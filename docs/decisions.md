@@ -247,3 +247,21 @@ Rounding the positions too (plain `quantize`) was tried and rejected: the enamel
 that the pins came out shifted or scrambled. Stronger compression (meshopt or Draco) was skipped because the
 browser would need a decoder from Google's servers. When models are redone, bump `?v=` in `MODEL_3D` in
 `app.js`, since `/assets/3d/` is cached as never changing.
+
+
+## 2026-11 The shop's featured carousel: the owner picks, the server checks stock
+The shop page opens with a carousel of up to eight products the owner picks on `/admin`. The picks live in
+Firestore at `settings/featured_production` (or `settings/featured_sandbox` while testing, so practising never
+changes the real shop), stored as one line, `"corgi,aussie"`, because our Firestore helper has no lists and
+slugs never hold commas. Rules:
+
+- **Only in stock.** `/api/admin/featured` refuses a new pick unless Square shows stock right now. A pick that
+  sells out later may stay picked: `/api/catalog` leaves it out of the carousel until it is restocked, so the
+  owner doesn't have to come back and re-pick it. If Square can't be read, nothing is saved.
+- **Shown while the shop is closed too.** It is a window display: only slugs go to the browser, never stock
+  numbers, and each product's own page still says "coming soon".
+- **Motion.** It turns slowly (one turn in 40 s), rests while a mouse is over it or a pin has keyboard focus,
+  and has a pause button (moving content needs one). A drag or flick spins it faster and it drifts back to
+  cruise. Under `prefers-reduced-motion` it starts paused and only moves when dragged or stepped, with no
+  coasting. One or two picks stand side by side instead of turning.
+- Its own file, `assets/featured.js`, like the reel door, rather than growing `app.js`.
