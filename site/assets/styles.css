@@ -923,6 +923,19 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .link-row select { width: 100%; min-width: 0; min-height: 44px; padding: var(--space-2) var(--space-3); font: inherit; font-size: 16px; color: var(--ink); background: var(--surface); border: 1.5px solid var(--line-strong); border-radius: var(--radius-sm); }
 .link-row select:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .link-list + .admin-actions { margin-top: var(--space-4); }
+/* featured picks on /admin: a tick box per product, with the spot it takes on the ring */
+.feature-list { border: 0; margin: 0; padding: 0; min-width: 0; }
+.feature-list + .admin-actions { margin-top: var(--space-4); }
+.feature-head { margin-top: var(--space-4); }
+.feature-row { display: flex; align-items: center; gap: var(--space-3); min-height: 48px; padding: var(--space-2) 0; border-bottom: 1.5px solid var(--line); cursor: pointer; }
+.feature-row input { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--cobalt); }
+.feature-row input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.feature-row.is-off { cursor: default; }
+.feature-row.is-off .feature-name { color: var(--ink-muted); }
+.feature-order { flex: none; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-pill); font-size: 14px; font-weight: 600; color: var(--on-honey); }
+.feature-order:not(:empty) { background: var(--honey-100); }
+.feature-words { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-3); min-width: 0; }
+.feature-name { font-size: 18px; line-height: 24px; }
 .link-group + .link-group { margin-top: var(--space-4); }
 /* fold-out headings: the whole line is the button, with an arrow that turns when open */
 .link-group > summary, .link-series > summary { display: flex; align-items: baseline; gap: var(--space-3); cursor: pointer; list-style: none; padding: var(--space-2) 0; }

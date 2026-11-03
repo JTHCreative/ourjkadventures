@@ -166,6 +166,8 @@ function wireProducts() {
     try {
       paintProducts(await api('POST', '/api/admin/products', { links }));
       saved.textContent = 'saved. the shop shows it within a minute.';
+      // a new link changes what's in stock, and so what can be featured
+      loadFeatured();
     } catch (err) {
       saved.textContent = err.data && err.data.error === 'used twice'
         ? 'one square item is picked for two products. each square item can stand behind only one.'
@@ -173,6 +175,108 @@ function wireProducts() {
     }
     btn.disabled = false;
   });
+}
+
+/* ---------- featured: what turns in the carousel at the top of the shop ---------- */
+// picks keep the order they were ticked in, which is the order they stand on the ring
+let picks = [];
+let featuredMax = 8;
+
+function stockWords(p, picked) {
+  if (!p.linked) return 'not linked to square';
+  if (p.stock > 0) return p.stock + ' in stock';
+  return picked ? "sold out, hidden from the carousel until it's back" : 'sold out';
+}
+
+function paintFeatured(data) {
+  const note = $('[data-featured-note]');
+  const form = $('[data-featured-form]');
+  featuredMax = data.max || 8;
+  if (!data.stockKnown) {
+    form.hidden = true;
+    note.textContent = 'we could not read the stock from square just now, so nothing can be picked. try again in a moment.';
+    return;
+  }
+  const known = new Set(data.products.map((p) => p.slug));
+  picks = (data.featured || []).filter((s) => known.has(s));
+  note.textContent = '';
+  const list = $('[data-feature-list]');
+  list.textContent = '';
+  const rows = [];
+  const section = (title, items) => {
+    if (!items.length) return;
+    list.appendChild(el('p', 'link-series-title feature-head', title));
+    items.forEach((p) => {
+      const row = el('label', 'feature-row');
+      const box = el('input');
+      box.type = 'checkbox';
+      box.value = p.slug;
+      box.checked = picks.includes(p.slug);
+      const order = el('span', 'feature-order');
+      order.setAttribute('aria-hidden', 'true');
+      const words = el('span', 'feature-words');
+      const name = el('span', 'feature-name', p.slug === 'golden' ? 'goldie' : p.name);
+      const stock = el('span', 'caption');
+      words.append(name, stock);
+      row.append(box, order, words);
+      list.appendChild(row);
+      rows.push({ p, box, order, stock });
+      box.addEventListener('change', () => {
+        picks = box.checked ? picks.concat(p.slug) : picks.filter((s) => s !== p.slug);
+        $('[data-featured-saved]').textContent = '';
+        refresh();
+      });
+    });
+  };
+  // every product, grouped the same way as the square links above
+  SERIES.forEach((s) => section(s.title, data.products.filter((p) => p.kind === 'pin' && p.series === s.id)));
+  section('other pins', data.products.filter((p) => p.kind === 'pin' && !SERIES.some((s) => s.id === p.series)));
+  section('pin boards', data.products.filter((p) => p.kind === 'board'));
+  section('everything else', data.products.filter((p) => p.kind !== 'pin' && p.kind !== 'board'));
+
+  function refresh() {
+    const full = picks.length >= featuredMax;
+    rows.forEach(({ p, box, order, stock }) => {
+      const picked = picks.includes(p.slug);
+      // a sold-out pick can be unticked, never newly ticked; when eight are picked the rest wait
+      box.disabled = !picked && (p.stock <= 0 || full);
+      order.textContent = picked ? String(picks.indexOf(p.slug) + 1) : '';
+      stock.textContent = stockWords(p, picked);
+      box.closest('.feature-row').classList.toggle('is-off', box.disabled);
+    });
+    $('[data-featured-count]').textContent = picks.length + ' of ' + featuredMax + ' picked.';
+  }
+  refresh();
+  form.hidden = false;
+}
+
+function wireFeatured() {
+  const form = $('[data-featured-form]');
+  const saved = $('[data-featured-saved]');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    saved.textContent = 'saving.';
+    try {
+      paintFeatured(await api('POST', '/api/admin/featured', { slugs: picks }));
+      saved.textContent = 'saved. the shop shows it within a minute.';
+    } catch (err) {
+      const why = err.data && err.data.error;
+      saved.textContent = why === 'sold out'
+        ? 'one of those just sold out, so it could not be picked. the list has been refreshed.'
+        : why === 'too many' ? 'eight is the most the carousel holds.' : "that didn't save. try again in a moment.";
+      if (why === 'sold out') loadFeatured();
+    }
+    btn.disabled = false;
+  });
+}
+
+async function loadFeatured() {
+  try { paintFeatured(await api('GET', '/api/admin/featured')); } catch (e) {
+    $('[data-featured-form]').hidden = true;
+    $('[data-featured-note]').textContent = RESTING;
+  }
 }
 
 async function loadProducts() {
@@ -300,6 +404,8 @@ async function open() {
   try { wireShop(await api('GET', '/api/admin/shop')); } catch (e) { $('[data-shop-state]').textContent = RESTING; }
   wireProducts();
   loadProducts();
+  wireFeatured();
+  loadFeatured();
   loadReviews();
   loadInstagram();
 }
