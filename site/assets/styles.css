@@ -418,11 +418,77 @@ a.card.clean { text-decoration: none; color: var(--ink); }
 a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: rgba(58, 53, 50, 0.38); box-shadow: 0 2px 4px rgba(58, 53, 50, 0.05), 0 14px 34px rgba(58, 53, 50, 0.10); }
 .card.clean.product { padding: var(--space-5) var(--space-4); }
 
-.set-grid { gap: var(--space-5); }
-.set-card { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-2); padding: var(--space-6) var(--space-5); }
-.set-card .pins { width: 100%; display: flex; justify-content: center; align-items: center; gap: var(--space-2); min-height: 84px; }
-.set-card .pins img { height: auto; max-height: 76px; width: 29%; min-width: 0; object-fit: contain; filter: drop-shadow(0 1px 1px rgba(58,53,50,.25)) drop-shadow(0 3px 6px rgba(58,53,50,.18)); }
-.set-card .soon { min-height: 84px; display: flex; align-items: center; }
+/* the shop's two halves: pins (a button per set) and pin boards */
+.shop-halves { gap: var(--space-5); align-items: stretch; }
+.shop-half { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-6) var(--space-5); }
+.shop-half .set-go { align-self: center; }
+.set-buttons { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-2); }
+.set-btn, .board-btn {
+  display: flex; align-items: center; gap: var(--space-4);
+  min-height: 72px; padding: var(--space-3) var(--space-4);
+  color: var(--ink); text-decoration: none;
+  background: var(--surface); border: 1.5px solid var(--line); border-radius: var(--radius-md);
+  transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease;
+}
+.set-btn::after, .board-btn::after {
+  content: ""; flex: none; margin-left: auto; width: 9px; height: 9px;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg);
+}
+.set-btn:hover, .board-btn:hover { border-color: var(--line-strong); background: var(--surface-raised); box-shadow: var(--shadow-paper); }
+.set-btn:focus-visible, .board-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.set-btn-art { flex: none; width: 96px; display: flex; align-items: center; justify-content: center; }
+.set-btn-art img { width: 32px; height: 32px; object-fit: contain; margin: 0 -2px; filter: drop-shadow(0 1px 1px color-mix(in srgb, var(--ink) 25%, transparent)); }
+.set-btn-words { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.set-btn-name { font-size: 21px; line-height: 26px; font-weight: 500; }
+.set-btn-note { font-size: 15px; line-height: 20px; color: var(--ink-muted); }
+/* the board is a picture of a whole board, so it gets a frame where the pins get none */
+.feat-item--board .feat-float img { height: auto; max-height: var(--feat-w); width: auto; max-width: 82%; margin: 0 auto; border-radius: var(--radius-sm); box-shadow: var(--shadow-paper); }
+.board-btn { flex: 1; flex-direction: column; justify-content: center; text-align: center; padding: var(--space-5) var(--space-4); margin-top: var(--space-2); }
+.board-btn img { width: 100%; max-width: 190px; height: auto; border-radius: var(--radius-sm); box-shadow: var(--shadow-card); }
+.board-btn .set-btn-words { align-items: center; }
+.board-btn::after { display: none; }
+
+/* featured: a band across the top of the shop, with the ring of picks turning in it (assets/featured.js) */
+.featured-band { --feat-w: 156px; background: var(--surface-raised); border-top: 1.5px solid var(--line); border-bottom: 1.5px solid var(--line); padding: var(--space-6) 0 var(--space-5); margin-top: var(--space-6); overflow: hidden; }
+.featured-band[hidden] { display: none; }
+.featured-hint { margin-top: var(--space-1); }
+.feat-stage {
+  position: relative; height: calc(var(--feat-w) * 1.72 + 56px); margin-top: var(--space-3);
+  touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: grab;
+}
+.feat-stage.is-dragging { cursor: grabbing; }
+.feat-stage .feat-item { position: absolute; left: 50%; top: calc(var(--feat-w) * 0.34); transform-origin: 50% 100%; will-change: transform, opacity; }
+.feat-row { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--space-7); margin-top: var(--space-4); }
+.feat-item {
+  width: var(--feat-w); display: flex; flex-direction: column; align-items: center;
+  color: var(--ink); text-decoration: none; border-radius: var(--radius-md); -webkit-user-drag: none;
+}
+.feat-item:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 4px; }
+.feat-float { display: block; width: 100%; position: relative; z-index: 1; }
+.feat-float img { display: block; width: 100%; height: var(--feat-w); object-fit: contain; pointer-events: none; }
+/* the little shadow on the floor under each pin: it travels with it round the ring, and shrinks as the pin floats up */
+.feat-shadow {
+  position: absolute; left: 50%; top: calc(var(--feat-w) * 0.93); width: 62%; height: calc(var(--feat-w) * 0.1);
+  border-radius: 50%; transform: translateX(-50%);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--ink) 34%, transparent), transparent);
+}
+.feat-label { display: flex; flex-direction: column; align-items: center; margin-top: var(--space-4); white-space: nowrap; }
+.feat-name { font-size: 19px; line-height: 24px; font-weight: 500; }
+.feat-price { font-size: 15px; line-height: 20px; color: var(--ink-muted); }
+.feat-row .feat-label { opacity: 1; }
+.feat-controls { display: flex; justify-content: center; gap: var(--space-3); margin-top: var(--space-2); }
+.feat-controls .icon-btn { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--line-strong); border-radius: var(--radius-pill); background: var(--surface); }
+.feat-controls .icon-btn svg { width: 20px; height: 20px; }
+.feat-controls .icon-btn:hover { background: var(--surface-sunken); }
+.feat-controls .icon-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+@media (max-width: 640px) {
+  .featured-band { --feat-w: 96px; }
+  .shop-half { padding: var(--space-5) var(--space-4); }
+  .set-btn { gap: var(--space-3); padding: var(--space-3); }
+  .set-btn-art { width: 72px; }
+  .set-btn-art img { width: 26px; height: 26px; }
+}
+@media (prefers-reduced-motion: reduce) { .set-btn, .board-btn { transition: none; } }
 .set-go { margin-top: var(--space-2); font-weight: 500; letter-spacing: 0.02em; color: var(--cobalt); text-decoration: underline; text-underline-offset: 3px; }
 .crumb { margin-bottom: var(--space-5); font-size: 16px; }
 

@@ -40,37 +40,49 @@
     <p class="body-lg muted" style="margin-top:var(--space-4)">small enamel pins for the things you love, and a board to hang them on. pick a set.</p>
   </div>
 </section>
+<!-- featured: the owner's picks (chosen on /admin), turning on a ring. built by assets/featured.js from /api/catalog,
+     and left hidden when nothing picked is in stock -->
+<section class="featured-band" data-featured aria-labelledby="featured-title" hidden>
+  <div class="wrap">
+    <h2 class="eyebrow center" id="featured-title">featured</h2>
+    <p class="caption center featured-hint">drag to give it a spin. tap one to meet it.</p>
+    <div class="featured-ring" data-featured-ring></div>
+  </div>
+</section>
 <section class="section">
   <div class="wrap">
-    <div class="grid grid-2 set-grid">
-      <a class="card clean set-card" href="pup-club.html">
-        <div class="pins">
-          <img src="assets/img/pins/aussie.webp" width="900" height="900" alt="">
-          <img src="assets/img/pins/corgi.webp" width="900" height="900" alt="">
-          <img src="assets/img/pins/shiba.webp" width="900" height="900" alt="">
+    <div class="grid grid-2 shop-halves">
+      <section class="card clean shop-half" aria-labelledby="shop-pins-title">
+        <h2 class="title" id="shop-pins-title">pins</h2>
+        <p class="muted">three sets. pick one to see what's in it.</p>
+        <div class="set-buttons">
+          <a class="set-btn" href="pup-club.html">
+            <span class="set-btn-art" aria-hidden="true">
+              <img src="assets/img/pins/aussie.webp" width="900" height="900" alt="">
+              <img src="assets/img/pins/corgi.webp" width="900" height="900" alt="">
+              <img src="assets/img/pins/shiba.webp" width="900" height="900" alt="">
+            </span>
+            <span class="set-btn-words"><span class="set-btn-name">pup club</span><span class="set-btn-note">sixteen dogs. from $12.</span></span>
+          </a>
+          <a class="set-btn" href="hometown-series.html">
+            <span class="set-btn-art" aria-hidden="true"><span class="jka-tag jka-tag--honey">soon</span></span>
+            <span class="set-btn-words"><span class="set-btn-name">hometown series</span><span class="set-btn-note">pins for the places that made you. coming soon.</span></span>
+          </a>
+          <a class="set-btn" href="chinese-zodiac.html">
+            <span class="set-btn-art" aria-hidden="true"><span class="jka-tag jka-tag--honey">soon</span></span>
+            <span class="set-btn-words"><span class="set-btn-name">chinese zodiac</span><span class="set-btn-note">the zodiac, one pin at a time. coming soon.</span></span>
+          </a>
         </div>
-        <h2 class="title">pup club</h2>
-        <p class="muted">sixteen dogs. pins from $12.</p>
-        <span class="set-go">see the pack</span>
-      </a>
-      <a class="card clean set-card" href="chinese-zodiac.html">
-        <div class="soon"><span class="jka-tag jka-tag--honey">coming soon</span></div>
-        <h2 class="title">chinese zodiac</h2>
-        <p class="muted">the zodiac, one pin at a time.</p>
-        <span class="set-go">see the set</span>
-      </a>
-      <a class="card clean set-card" href="hometown-series.html">
-        <div class="soon"><span class="jka-tag jka-tag--honey">coming soon</span></div>
-        <h2 class="title">hometown series</h2>
-        <p class="muted">pins for the places that made you.</p>
-        <span class="set-go">see the set</span>
-      </a>
-      <a class="card clean set-card" href="pin-boards.html">
-        <div class="soon"><span class="jka-tag">pin boards</span></div>
-        <h2 class="title">bay area pin board</h2>
-        <p class="muted">a wall you would want to look at. $80.</p>
-        <span class="set-go">see the board</span>
-      </a>
+      </section>
+      <section class="card clean shop-half" aria-labelledby="shop-boards-title">
+        <h2 class="title" id="shop-boards-title">pin boards</h2>
+        <p class="muted">a wall you would want to look at, with room for every pin.</p>
+        <a class="board-btn" href="pin-boards.html">
+          <img src="assets/img/bay-area-board.webp" alt="" loading="lazy">
+          <span class="set-btn-words"><span class="set-btn-name">bay area pin board</span><span class="set-btn-note">$80.</span></span>
+        </a>
+        <a class="set-go" href="pin-boards.html">see all the boards</a>
+      </section>
     </div>
   </div>
 </section>
@@ -88,6 +100,7 @@
     <p class="caption">&copy; 2026 j+k adventures.</p>
   </div>
 </footer>
+<script src="assets/featured.js"></script>
 <script src="assets/app.js"></script>
 </body>
 </html>
