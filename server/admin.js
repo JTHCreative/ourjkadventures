@@ -9,6 +9,8 @@
 //   POST /api/admin/reviews  { id, status: "approved" | "hidden" }
 //   GET  /api/admin/products  website products, the Square items they could be, and the links chosen
 //   POST /api/admin/products  { links: { "aussie": "<square variation id>", "aussie:large": "", ... } }
+//   GET  /api/admin/featured  products that could go in the shop's featured carousel, their stock, and the picks
+//   POST /api/admin/featured  { slugs: ["corgi", "aussie", ...] }  at most eight; a new pick must be in stock
 //   GET  /api/admin/instagram  does the key in cloudflare open @ourjkadventures, and how many reels (never the key)
 //
 // Cloudflare setting (Settings > Variables and secrets):
@@ -17,7 +19,7 @@
 import { configured, userFromRequest } from './firebase.js';
 import { readShopSwitch, setShopOpen } from './shop.js';
 import { pendingReviews, setReviewStatus, REVIEW_STATUSES } from './reviews.js';
-import { siteProducts, siteKeys, readLinks, saveLinks } from './catalog.js';
+import { siteProducts, siteKeys, readLinks, saveLinks, freshCatalog, readFeatured, saveFeatured, stockOf, MAX_FEATURED } from './catalog.js';
 import { squareConfigured, squareMode, listVariations, stockCounts } from './square.js';
 import { instagramStatus } from './instagram.js';
 
@@ -88,6 +90,15 @@ export async function admin(request, env, fetchFn = fetch) {
       return json(await productLinks(request, env, fetchFn));
     }
 
+    if (route === 'featured') {
+      if (request.method === 'GET') return json(await featuredChoices(request, env, fetchFn));
+      if (request.method !== 'POST') return json({ error: 'method' }, 405);
+      const body = await readJson(request);
+      const result = await changeFeatured(request, env, body.slugs, user.email, fetchFn);
+      if (result.error) return json(result, result.status || 400);
+      return json(await featuredChoices(request, env, fetchFn));
+    }
+
     if (route === 'instagram') {
       if (request.method !== 'GET') return json({ error: 'method' }, 405);
       return json(await instagramStatus(env, fetchFn));
@@ -139,5 +150,38 @@ async function changeLinks(request, env, wanted, fetchFn) {
     links[key] = id;
   }
   await saveLinks(env, links, fetchFn);
+  return { saved: true };
+}
+
+/* ---------- featured: what spins in the carousel at the top of the shop ---------- */
+// Like choosing what goes in the shop window: only things on the shelf can go in, and at most eight fit.
+async function featuredChoices(request, env, fetchFn) {
+  const { ok, value } = await freshCatalog(env, request.url, fetchFn);
+  const featured = await readFeatured(env, fetchFn);
+  return {
+    max: MAX_FEATURED,
+    // false when Square or Firestore didn't answer, so every stock number below would read 0
+    stockKnown: ok && squareConfigured(env),
+    featured,
+    products: value.items.map((p) => ({ slug: p.slug, name: p.name, kind: p.kind, series: p.series, linked: p.sizes.length > 0, stock: stockOf(p) }))
+  };
+}
+
+async function changeFeatured(request, env, wanted, who, fetchFn) {
+  if (!Array.isArray(wanted) || !wanted.every((s) => typeof s === 'string')) return { error: 'slugs' };
+  const slugs = [...new Set(wanted)];
+  if (slugs.length !== wanted.length) return { error: 'picked twice' };
+  if (slugs.length > MAX_FEATURED) return { error: 'too many', max: MAX_FEATURED };
+  if (!squareConfigured(env)) return { error: 'square not configured', status: 503 };
+  const { ok, value } = await freshCatalog(env, request.url, fetchFn);
+  if (!ok) return { error: 'square unreachable', status: 503 };
+  const stock = Object.fromEntries(value.items.map((p) => [p.slug, stockOf(p)]));
+  // a pick already saved may stay after it sells out (it simply hides until it's back); a new one must be in stock
+  const before = new Set(await readFeatured(env, fetchFn));
+  for (const slug of slugs) {
+    if (!(slug in stock)) return { error: 'unknown product ' + slug };
+    if (!before.has(slug) && stock[slug] <= 0) return { error: 'sold out', slug };
+  }
+  await saveFeatured(env, slugs, who, fetchFn);
   return { saved: true };
 }

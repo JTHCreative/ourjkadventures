@@ -5,7 +5,8 @@
 //   3. Square          the price and how many are on the shelf
 // The result is kept for a minute, like reading the stock list once a minute instead of on every visit.
 //
-//   GET /api/catalog   for the website: products, sizes, prices, stock, and whether the shop is open
+//   GET /api/catalog   for the website: products, sizes, prices, stock, whether the shop is open, and which
+//                      products the owner put in the featured carousel (only ones in stock, at most eight)
 //
 // A pin's standard size has the key "aussie"; its large size "aussie:large". The bag uses these keys.
 
@@ -16,11 +17,14 @@ import { squareConfigured, squareMode, getVariations, stockCounts } from './squa
 const CACHE_MS = 60 * 1000;
 const RETRY_MS = 10 * 1000;
 export const SIZES = ['standard', 'large'];
+export const MAX_FEATURED = 8;
 
 let cache = { value: null, until: 0, mode: null };
 
 export function sizeKey(slug, size) { return size === 'standard' ? slug : slug + ':' + size; }
 function linksDoc(env) { return 'settings/square_' + squareMode(env); }
+// the featured picks follow the Square mode too, so practising in the sandbox never changes the real shop
+function featuredDoc(env) { return 'settings/featured_' + squareMode(env); }
 
 export async function siteProducts(env, origin) {
   const res = await env.ASSETS.fetch(new Request(new URL('/products.json', origin)));
@@ -49,6 +53,21 @@ export async function saveLinks(env, links, fetchFn = fetch) {
   await firestoreSet(env, linksDoc(env), links, fetchFn);
   cache = { value: null, until: 0, mode: null };
 }
+
+// the owner's featured picks, in the order chosen. Firestore keeps them as one line, "corgi,aussie"
+export async function readFeatured(env, fetchFn = fetch) {
+  const doc = await firestoreGet(env, featuredDoc(env), fetchFn);
+  const slugs = doc && typeof doc.slugs === 'string' ? doc.slugs.split(',').map((x) => x.trim()).filter(Boolean) : [];
+  return [...new Set(slugs)];
+}
+
+export async function saveFeatured(env, slugs, who, fetchFn = fetch) {
+  await firestoreSet(env, featuredDoc(env), { slugs: slugs.join(','), updatedAt: new Date(), updatedBy: who || '' }, fetchFn);
+  cache = { value: null, until: 0, mode: null };
+}
+
+// how many of a product are on the shelf, all sizes together
+export function stockOf(item) { return (item.sizes || []).reduce((n, s) => n + (s.stock > 0 ? s.stock : 0), 0); }
 
 async function build(env, origin, fetchFn) {
   const products = await siteProducts(env, origin);
@@ -81,8 +100,17 @@ async function build(env, origin, fetchFn) {
       byKey[k.key] = { variation_id: v.id, price_cents: v.price_cents, currency: v.currency, stock, marked_sold_out: v.marked_sold_out, slug: p.slug, size: k.size };
       sizes.push({ size: k.size, key: k.key, price_cents: v.price_cents, stock });
     }
-    return { slug: p.slug, name: p.name, kind: p.kind, description: p.description || '', sizes };
+    return { slug: p.slug, name: p.name, kind: p.kind, series: p.series || '', description: p.description || '', sizes };
   });
+
+  // featured: the owner's picks that are on the shelf right now. a pick that sells out steps out of the carousel
+  // and comes back by itself when it's restocked. a missing or unreadable list just means no carousel
+  let featured = [];
+  if (configured(env)) {
+    try { featured = await readFeatured(env, fetchFn); } catch (e) { console.log('featured: ' + e.message); }
+  }
+  const inStock = new Set(items.filter((p) => stockOf(p) > 0).map((p) => p.slug));
+  featured = featured.filter((slug) => inStock.has(slug)).slice(0, MAX_FEATURED);
 
   return {
     ok,
@@ -92,9 +120,15 @@ async function build(env, origin, fetchFn) {
       shipping_cents: products.shipping_cents || 0,
       shipping_label: products.shipping_label || 'shipping',
       items,
+      featured,
       byKey
     }
   };
+}
+
+// a fresh look, skipping the one-minute memory, for the owner's page. ok is false if Square or Firestore didn't answer
+export async function freshCatalog(env, origin, fetchFn = fetch) {
+  return build(env, origin, fetchFn);
 }
 
 export async function getCatalog(env, origin, fetchFn = fetch) {
@@ -113,6 +147,9 @@ export function publicCatalog(c) {
   return {
     open: c.open,
     currency: c.currency,
+    // only slugs, and only ones in stock. shown while the shop is closed too: the carousel is a window display,
+    // and each pin's own page still says "coming soon"
+    featured: c.featured || [],
     items: c.items.map((p) => ({
       ...p,
       sizes: p.sizes.map((s) => ({ size: s.size, key: s.key, price_cents: s.price_cents, stock: c.open ? s.stock : 0 }))
