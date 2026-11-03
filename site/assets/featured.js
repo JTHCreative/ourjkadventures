@@ -10,7 +10,10 @@
    pause button stops all motion. Someone who asks for less motion gets a still ring that moves only when dragged
    or stepped, with no coasting. Off screen, or in a hidden tab, nothing runs.
 
-   Use: Featured.mount(node, items), items = [{ href, img, name, price, label }]. app.js does this from /api/catalog. */
+   With only one or two picks, they are repeated round the ring (six spots) so it still turns like a carousel. The
+   repeats are skipped by the keyboard and screen readers, so each pick is met once.
+
+   Use: Featured.mount(node, items), items = [{ href, img, srcset?, board?, name, price, label }]. app.js does this from /api/catalog. */
 (function (root) {
   'use strict';
 
@@ -76,6 +79,16 @@
     play: ['M8 5.5v13l11-6.5z']
   };
 
+  var MIN_SPOTS = 6;        // fewer picks than this (one or two) are repeated round the ring
+
+  // the ring's spots: the picks themselves, or with one or two, the picks over again until there are six
+  function ringOf(items) {
+    if (!items.length || items.length >= 3) return items.map(function (it) { return { it: it, copy: false }; });
+    var out = [];
+    for (var k = 0; out.length < MIN_SPOTS; k++) out.push({ it: items[k % items.length], copy: k >= items.length });
+    return out;
+  }
+
   function buildItem(it) {
     var a = el('a', 'feat-item' + (it.board ? ' feat-item--board' : ''));
     a.href = it.href;
@@ -84,6 +97,7 @@
     var float = el('span', 'feat-float');
     var img = el('img');
     img.src = it.img;
+    if (it.srcset) { img.srcset = it.srcset; img.sizes = '160px'; }
     img.alt = '';
     if (!it.board) { img.width = 300; img.height = 300; }
     img.draggable = false;
@@ -105,18 +119,16 @@
     items = (items || []).filter(function (it) { return it && it.href && it.img; }).slice(0, 8);
     node.textContent = '';
     if (!items.length) return null;
-    var N = items.length;
-
-    // one or two: they just stand side by side. a ring of two only swaps places, which isn't much to look at
-    if (N < 3) {
-      var row = el('div', 'feat-row');
-      items.forEach(function (it) { row.appendChild(buildItem(it).node); });
-      node.appendChild(row);
-      return { N: N };
-    }
+    var spots = ringOf(items);
+    var N = spots.length;
 
     var stage = el('div', 'feat-stage');
-    var built = items.map(buildItem);
+    var built = spots.map(function (sp) {
+      var b = buildItem(sp.it);
+      // a repeat is there for the look of the ring: a tap still opens it, but tabbing and screen readers skip it
+      if (sp.copy) { b.node.tabIndex = -1; b.node.setAttribute('aria-hidden', 'true'); }
+      return b;
+    });
     built.forEach(function (b) { stage.appendChild(b.node); });
     node.appendChild(stage);
 
@@ -340,5 +352,5 @@
     return { N: N };
   }
 
-  root.Featured = { mount: mount, spot: spot, frontAngle: frontAngle, drift: drift, CRUISE: CRUISE };
+  root.Featured = { mount: mount, ringOf: ringOf, spot: spot, frontAngle: frontAngle, drift: drift, CRUISE: CRUISE };
 })(typeof window !== 'undefined' ? window : globalThis);

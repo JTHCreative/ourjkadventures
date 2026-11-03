@@ -35,3 +35,14 @@ test('a fast spin drifts back toward cruise within about ten seconds, never past
   assert.ok(w < CRUISE + 2);
   assert.equal(drift(CRUISE, CRUISE, 1 / 60), CRUISE);
 });
+
+test('one or two picks are repeated round the ring so it still turns; three or more stand once each', () => {
+  const two = box.Featured.ringOf([{ id: 'a' }, { id: 'b' }]);
+  assert.equal(two.length, 6);
+  assert.equal(two.map((s) => s.it.id).join(''), 'ababab');
+  assert.equal(JSON.stringify(two.map((s) => s.copy)), '[false,false,true,true,true,true]');
+  assert.equal(box.Featured.ringOf([{ id: 'a' }]).length, 6);
+  const three = box.Featured.ringOf([{ id: 'a' }, { id: 'b' }, { id: 'c' }]);
+  assert.equal(three.length, 3);
+  assert.ok(three.every((s) => !s.copy));
+});

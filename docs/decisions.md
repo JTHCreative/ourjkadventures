@@ -263,5 +263,7 @@ slugs never hold commas. Rules:
 - **Motion.** It turns slowly (one turn in 40 s), rests while a mouse is over it or a pin has keyboard focus,
   and has a pause button (moving content needs one). A drag or flick spins it faster and it drifts back to
   cruise. Under `prefers-reduced-motion` it starts paused and only moves when dragged or stepped, with no
-  coasting. One or two picks stand side by side instead of turning.
+  coasting. One or two picks are repeated round the ring (six spots) so it still turns; the repeats are
+  skipped by the keyboard and screen readers. (First version stood one or two picks still, side by side,
+  which read as a banner rather than a carousel.)
 - Its own file, `assets/featured.js`, like the reel door, rather than growing `app.js`.
