@@ -409,7 +409,8 @@
       art.setAttribute('aria-label', 'see the ' + p.name + ' up close');
     }
     var img = el('img');
-    img.src = 'assets/img/bay-area-board.webp';
+    img.src = BOARD_IMG[p.slug] || BOARD_IMG['bay-area-pin-board'];
+    if (BOARD_SRCSET[p.slug]) { img.srcset = BOARD_SRCSET[p.slug]; img.sizes = '280px'; }
     img.alt = BOARD_PAGE[p.slug] ? '' : 'the ' + p.name + ' design';
     img.loading = 'lazy';
     art.appendChild(img);
@@ -847,7 +848,9 @@
   }
 
   /* ---------- the shop: featured carousel ---------- */
-  var BOARD_IMG = { 'bay-area-pin-board': 'assets/img/bay-area-board.webp' };
+  // the framed board: a small copy, and the full-size one for sharp screens
+  var BOARD_IMG = { 'bay-area-pin-board': 'assets/img/bay-area-board-wall.webp' };
+  var BOARD_SRCSET = { 'bay-area-pin-board': 'assets/img/bay-area-board-wall.webp 280w, assets/img/bay-area-board-full.webp 1118w' };
   var SERIES_PAGE = { 'pup-club': 'pup-club.html', hometown: 'hometown-series.html', zodiac: 'chinese-zodiac.html' };
   // where a featured product's picture is, and which page it opens
   function featuredItem(p) {
@@ -857,7 +860,7 @@
     if (!img) return null;
     var name = p.kind === 'board' ? p.name : pupName(p);
     var price = priceRange(p);
-    return { href: href, img: img, board: p.kind === 'board', name: name, price: price, label: name + (p.kind === 'board' ? '' : ' pin') + (price ? ', ' + price : '') };
+    return { href: href, img: img, srcset: p.kind === 'board' ? BOARD_SRCSET[p.slug] : '', board: p.kind === 'board', name: name, price: price, label: name + (p.kind === 'board' ? '' : ' pin') + (price ? ', ' + price : '') };
   }
   function buildFeatured(band) {
     var ring = band.querySelector('[data-featured-ring]');
@@ -866,9 +869,6 @@
     if (!ring || !items.length || !window.Featured) { band.hidden = true; return; }
     band.hidden = false;
     window.Featured.mount(ring, items);
-    // two or fewer stand still, so there is nothing to spin
-    var hint = band.querySelector('.featured-hint');
-    if (hint) hint.hidden = items.length < 3;
   }
 
   function loadShop() {

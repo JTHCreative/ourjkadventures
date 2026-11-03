@@ -441,10 +441,10 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .set-btn-words { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .set-btn-name { font-size: 21px; line-height: 26px; font-weight: 500; }
 .set-btn-note { font-size: 15px; line-height: 20px; color: var(--ink-muted); }
-/* the board is a picture of a whole board, so it gets a frame where the pins get none */
-.feat-item--board .feat-float img { height: auto; max-height: var(--feat-w); width: auto; max-width: 82%; margin: 0 auto; border-radius: var(--radius-sm); box-shadow: var(--shadow-paper); }
+/* the board picture is taller than wide: fit it in the pin's square */
+.feat-item--board .feat-float img { height: auto; max-height: var(--feat-w); width: auto; max-width: 82%; margin: 0 auto; }
 .board-btn { flex: 1; flex-direction: column; justify-content: center; text-align: center; padding: var(--space-5) var(--space-4); margin-top: var(--space-2); }
-.board-btn img { width: 100%; max-width: 190px; height: auto; border-radius: var(--radius-sm); box-shadow: var(--shadow-card); }
+.board-btn img { width: 100%; max-width: 190px; height: auto; filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--ink) 18%, transparent)); }
 .board-btn .set-btn-words { align-items: center; }
 .board-btn::after { display: none; }
 
@@ -458,7 +458,6 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 }
 .feat-stage.is-dragging { cursor: grabbing; }
 .feat-stage .feat-item { position: absolute; left: 50%; top: calc(var(--feat-w) * 0.34); transform-origin: 50% 100%; will-change: transform, opacity; }
-.feat-row { display: flex; justify-content: center; flex-wrap: wrap; gap: var(--space-7); margin-top: var(--space-4); }
 .feat-item {
   width: var(--feat-w); display: flex; flex-direction: column; align-items: center;
   color: var(--ink); text-decoration: none; border-radius: var(--radius-md); -webkit-user-drag: none;
@@ -475,7 +474,6 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .feat-label { display: flex; flex-direction: column; align-items: center; margin-top: var(--space-4); white-space: nowrap; }
 .feat-name { font-size: 19px; line-height: 24px; font-weight: 500; }
 .feat-price { font-size: 15px; line-height: 20px; color: var(--ink-muted); }
-.feat-row .feat-label { opacity: 1; }
 .feat-controls { display: flex; justify-content: center; gap: var(--space-3); margin-top: var(--space-2); }
 .feat-controls .icon-btn { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--line-strong); border-radius: var(--radius-pill); background: var(--surface); }
 .feat-controls .icon-btn svg { width: 20px; height: 20px; }
