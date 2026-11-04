@@ -486,7 +486,16 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
   .set-btn-art { width: 72px; }
   .set-btn-art img { width: 26px; height: 26px; }
 }
-@media (prefers-reduced-motion: reduce) { .set-btn, .board-btn { transition: none; } }
+/* most asked for, on the shop page: same look as the set buttons, numbered */
+.wanted-band { padding-top: 0; }
+.wanted-list { display: flex; flex-direction: column; gap: var(--space-2); margin: 0; padding: 0; list-style: none; counter-reset: wanted; }
+.wanted-row { counter-increment: wanted; }
+.wanted-link { display: flex; align-items: center; gap: var(--space-3); min-height: 64px; padding: var(--space-2) var(--space-3); border: 1.5px solid var(--line); border-radius: var(--radius-md); color: inherit; text-decoration: none; transition: border-color 0.2s ease, background-color 0.2s ease; }
+.wanted-link::before { content: counter(wanted); flex: none; width: 24px; text-align: center; font-weight: 600; color: var(--honey-800); }
+.wanted-link img { flex: none; width: 48px; height: 48px; object-fit: contain; }
+.wanted-link:hover { border-color: var(--line-strong); background: var(--surface-raised); }
+.wanted-link:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .set-btn, .board-btn, .wanted-link { transition: none; } }
 .set-go { margin-top: var(--space-2); font-weight: 500; letter-spacing: 0.02em; color: var(--cobalt); text-decoration: underline; text-underline-offset: 3px; }
 .crumb { margin-bottom: var(--space-5); font-size: 16px; }
 
@@ -921,6 +930,20 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .link-row select { width: 100%; min-width: 0; min-height: 44px; padding: var(--space-2) var(--space-3); font: inherit; font-size: 16px; color: var(--ink); background: var(--surface); border: 1.5px solid var(--line-strong); border-radius: var(--radius-sm); }
 .link-row select:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .link-list + .admin-actions { margin-top: var(--space-4); }
+/* one product on /admin: name and available switch, then a square link per size */
+.link-product { padding: var(--space-3) 0; border-bottom: 1.5px solid var(--line); }
+.link-product .link-row { padding: var(--space-2) 0 0; border-bottom: 0; }
+.link-product-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.link-product-name { font-size: 19px; line-height: 24px; font-weight: 500; }
+.link-product-switch { display: inline-flex; align-items: center; gap: var(--space-2); }
+.link-product-note { margin-top: var(--space-1); }
+.link-product.is-unavailable .link-product-name { color: var(--ink-muted); }
+.switch--sm { width: 48px; height: 28px; }
+.switch--sm .switch-knob { width: 19px; height: 19px; }
+.switch--sm[aria-checked="true"] .switch-knob { transform: translateX(20px); }
+.interest-admin { margin: 0; padding-left: var(--space-5); }
+.interest-admin li { padding: var(--space-2) 0; border-bottom: 1.5px solid var(--line); }
+.interest-admin li .caption { margin-left: var(--space-3); }
 /* featured picks on /admin: a tick box per product, with the spot it takes on the ring */
 .feature-list { border: 0; margin: 0; padding: 0; min-width: 0; }
 .feature-list + .admin-actions { margin-top: var(--space-4); }
