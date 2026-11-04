@@ -131,6 +131,10 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   address. Ticket and IP are stored only as HMACs (the IP mixed with the day), keyed from the Firebase
   service account. The vote record, the tally (`interest_<mode>/{slug}`) and the per-IP count go in one
   Firestore `:commit` with a "must not exist yet" check on the vote, so a double tap can't count twice.
+  The button is an on/off toggle (`aria-pressed`): tapping it again sends `DELETE /api/interest { slug }`,
+  which removes that ticket's vote and takes one off the tally and off the door count it was added to
+  (the vote remembers which, as `ipDoc`), in one commit with a "must exist" check, so the tally can't go
+  below zero and tapping on and off doesn't use up the daily limit.
   The shop page's "most asked for" card lists the top six not-available products with votes, and hides
   when there are none. `/admin` shows every tally, including for products that have since arrived.
 - **Pin boards:** `pin-boards.html` opens with a gallery wall in a living room (`.room` in the page;
