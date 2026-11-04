@@ -93,6 +93,7 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [x] Shop page (2026-11-03): featured carousel on top (owner picks up to eight in-stock products on `/admin`), then pins (a button per set) and pin boards
 - [ ] Owner: on `/admin`, pick the first featured products once the shop's items are linked and in stock
 - [x] "i'm interested" (2026-11-04): an available switch per product on `/admin`. Switched off, it's off sale and shows an "i'm interested" button, open or closed; one vote per browser, at most 10 per pin per day from one connection. Public counts on each product and a "most asked for" card on the shop page; every tally on `/admin`
+- [x] "i'm interested" is an on/off toggle (2026-11-04): tapping again takes the vote back, one off the tally
 - [ ] Owner: switch off on `/admin` any product that isn't made yet, so it collects interest instead of reading "coming soon" or "sold out"
 - [ ] Maybe later: "tell me when it's here" (an email when an interested product arrives). Needs an email sender, so ask first
 - [ ] Owner: add `ADMIN_EMAILS` in Cloudflare and publish the updated `firestore.rules` (`setup/firebase.md`, steps 14 to 17)

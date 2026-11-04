@@ -294,3 +294,6 @@ checks together:
   in the sandbox never touch the real counts.
 - **Not a reservation.** Nothing is held or charged. It's a show of hands. A product switched off is off sale
   even if it's linked and in stock, so a pin can be stocked in Square before it's announced.
+- **Taking it back (added the same day).** The owner asked for a second tap to undo the vote. It removes that
+  browser's vote and takes one off the tally and off the day's door count it was added to, all in one step.
+  Only the ticket that cast a vote can take it back, so nobody can lower someone else's count.

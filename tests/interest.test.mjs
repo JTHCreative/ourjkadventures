@@ -129,3 +129,39 @@ test('the owner sees every tally, including for products that have since arrived
   // in the shop now, so the public count steps away
   assert.equal((await catalog(s)).items.find((p) => p.slug === 'corgi').interest, 0);
 });
+
+const unvote = (s, slug, opts = {}) => s.call('DELETE', '/api/interest', { body: { slug }, ...opts });
+
+test('tapping again takes the vote back: one off the tally, and the browser can vote again', async () => {
+  const s = setup();
+  const first = await vote(s, 'corgi');
+  const cookie = 'jka_voter=' + ticketOf(first);
+  await vote(s, 'corgi', { ip: '9.9.9.9' }); // someone else
+  assert.deepEqual(await (await unvote(s, 'corgi', { cookie })).json(), { removed: true, count: 1 });
+  assert.equal((await catalog(s)).items.find((p) => p.slug === 'corgi').interest, 1);
+  // a second take-back finds nothing of theirs, and never goes below what others gave
+  assert.deepEqual(await (await unvote(s, 'corgi', { cookie })).json(), { removed: false, reason: 'not counted', count: 1 });
+  // and they can say yes again
+  assert.deepEqual(await (await vote(s, 'corgi', { cookie })).json(), { counted: true, count: 2 });
+});
+
+test('no ticket, or another browser\'s ticket, takes nothing back', async () => {
+  const s = setup();
+  await vote(s, 'corgi');
+  assert.equal((await (await unvote(s, 'corgi')).json()).removed, false);
+  assert.equal((await (await unvote(s, 'corgi', { cookie: 'jka_voter=00000000-0000-4000-8000-000000000000' })).json()).removed, false);
+  assert.equal((await unvote(s, 'not-a-pin')).status, 400);
+  assert.equal((await unvote(s, 'corgi', { origin: 'https://elsewhere.test' })).status, 403);
+  assert.equal((await catalog(s)).items.find((p) => p.slug === 'corgi').interest, 1);
+});
+
+test('tapping on and off does not use up the daily limit for one connection', async () => {
+  const s = setup();
+  const cookie = 'jka_voter=' + ticketOf(await vote(s, 'corgi'));
+  await unvote(s, 'corgi', { cookie });
+  for (let i = 0; i < IP_DAILY_CAP + 3; i++) {
+    assert.equal((await (await vote(s, 'corgi', { cookie })).json()).counted, true);
+    assert.equal((await (await unvote(s, 'corgi', { cookie })).json()).removed, true);
+  }
+  assert.equal((await (await vote(s, 'corgi', { cookie })).json()).counted, true);
+});

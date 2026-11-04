@@ -3,8 +3,10 @@
 // (even if it is linked to Square and has stock); instead it shows an "i'm interested" button, open or closed.
 // Each tap adds one to that product's tally, and the tallies are shown in public.
 //
-//   POST /api/interest   { slug }   -> { counted: true, count }
-//                                   or { counted: false, reason: "already" | "limit", count }
+//   POST   /api/interest   { slug }   -> { counted: true, count }
+//                                     or { counted: false, reason: "already" | "limit", count }
+//   DELETE /api/interest   { slug }   tapped again: take this browser's vote back
+//                                     -> { removed: true, count } or { removed: false, reason: "not counted", count }
 //
 // One vote each, as best a website can tell without asking people to sign in. Two checks, like a coat check
 // (your ticket) and a doorman (who counts heads from each door):
@@ -18,7 +20,8 @@
 // sandbox never touches the real tallies:
 //   settings/available_<mode>          { aussie: true, corgi: false, ... }   missing means available
 //   interest_<mode>/{slug}             { slug, count }                        the public tally
-//   interest_votes_<mode>/{slug}_{h}   { slug, at }                           one per ticket per pin
+//   interest_votes_<mode>/{slug}_{h}   { slug, at, ipDoc }                    one per ticket per pin. ipDoc says which
+//                                                                             door count to give back if it's taken back
 //   interest_ips_<mode>/{slug}_{h}     { slug, day, count }                   votes from one connection on one day
 
 import { configured, firestoreGet, firestoreSet, firestoreList, firestoreCommit } from './firebase.js';
@@ -95,7 +98,7 @@ async function productSlugs(request, env) {
 
 // onCounted(slug, count) lets the catalog's one-minute memory catch up straight away
 export async function interestRoute(request, env, fetchFn = fetch, onCounted) {
-  if (request.method !== 'POST') return json({ error: 'method' }, 405);
+  if (request.method !== 'POST' && request.method !== 'DELETE') return json({ error: 'method' }, 405);
   if (!configured(env)) return json({ error: 'not configured' }, 503);
   // only taps from our own pages: another website can't make its visitors vote
   const origin = request.headers.get('Origin');
@@ -105,6 +108,9 @@ export async function interestRoute(request, env, fetchFn = fetch, onCounted) {
   try { body = (await request.json()) || {}; } catch (e) {}
   const slug = body.slug;
   if (typeof slug !== 'string' || !/^[a-z0-9-]{1,40}$/.test(slug)) return json({ error: 'slug' }, 400);
+
+  // taking a vote back needs the ticket that cast it. no ticket, nothing of theirs to take back
+  if (request.method === 'DELETE') return takeBack(request, env, slug, fetchFn, onCounted);
 
   // a fresh ticket for a first-time visitor, kept for a year and only ever sent back to this address
   let ticket = readTicket(request);
@@ -132,7 +138,7 @@ export async function interestRoute(request, env, fetchFn = fetch, onCounted) {
 
     // the vote, the tally and the door count go in together. if this ticket already voted for this pin, none of them do
     const counted = await firestoreCommit(env, [
-      { create: votePath, data: { slug, at: new Date() } },
+      { create: votePath, data: { slug, at: new Date(), ipDoc: ipPath } },
       { add: tallyPath, field: 'count', data: { slug } },
       { add: ipPath, field: 'count', data: { slug, day } }
     ], fetchFn);
@@ -143,5 +149,33 @@ export async function interestRoute(request, env, fetchFn = fetch, onCounted) {
   } catch (e) {
     console.log('interest error', e.message);
     return json({ error: 'unavailable' }, 503, headers);
+  }
+}
+
+// Tapped again: like handing the ticket back at the coat check. The vote, one off the tally, and one off the door
+// count it was added to (that day's, even if today is another day) all go together, so the tally can't drift or
+// go below zero. Votes from before this existed have no ipDoc: their door count simply runs out at midnight.
+async function takeBack(request, env, slug, fetchFn, onCounted) {
+  const ticket = readTicket(request);
+  try {
+    if (!(await productSlugs(request, env)).includes(slug)) return json({ error: 'slug' }, 400);
+    const tallyPath = tallies(env) + '/' + encodeURIComponent(slug);
+    const countNow = async () => { const d = await firestoreGet(env, tallyPath, fetchFn); return Math.max(0, (d && d.count) || 0); };
+    const votePath = ticket && votes(env) + '/' + encodeURIComponent(slug + '_' + (await scramble(env, 'ticket|' + ticket)));
+    const vote = votePath && (await firestoreGet(env, votePath, fetchFn));
+    if (!vote) return json({ removed: false, reason: 'not counted', count: await countNow() });
+    const writes = [{ remove: votePath }, { add: tallyPath, field: 'count', by: -1, data: { slug } }];
+    // only a door count this server wrote itself: never a path that could point somewhere else
+    if (typeof vote.ipDoc === 'string' && vote.ipDoc.startsWith(ips(env) + '/' + encodeURIComponent(slug + '_'))) {
+      writes.push({ add: vote.ipDoc, field: 'count', by: -1, data: { slug } });
+    }
+    // false here means a second tap beat this one to it: the vote is gone either way
+    const removed = await firestoreCommit(env, writes, fetchFn);
+    const count = await countNow();
+    if (onCounted) onCounted(slug, count);
+    return json(removed ? { removed: true, count } : { removed: false, reason: 'not counted', count });
+  } catch (e) {
+    console.log('interest take back error', e.message);
+    return json({ error: 'unavailable' }, 503);
   }
 }

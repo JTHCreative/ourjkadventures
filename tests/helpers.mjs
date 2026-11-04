@@ -42,8 +42,12 @@ export function fakeGoogle() {
         if (w.currentDocument && w.currentDocument.exists === false && docs[path(w.update.name)]) {
           return Response.json({ error: { status: 'ALREADY_EXISTS' } }, { status: 409 });
         }
+        if (w.delete && w.currentDocument && w.currentDocument.exists === true && !docs[path(w.delete)]) {
+          return Response.json({ error: { status: 'NOT_FOUND' } }, { status: 404 });
+        }
       }
       for (const w of writes) {
+        if (w.delete) { delete docs[path(w.delete)]; continue; }
         const p = path(w.update.name);
         docs[p] = w.updateMask ? Object.assign(docs[p] || {}, w.update.fields) : w.update.fields;
         for (const t of w.updateTransforms || []) {
