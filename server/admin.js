@@ -14,7 +14,7 @@
 //   POST /api/admin/featured  { slugs: ["corgi", "aussie", ...] }  at most eight; a new pick must be in stock
 //   POST /api/admin/availability  { slug, available: true|false }  not available: off sale, shows "i'm interested"
 //   GET  /api/admin/notify   who is waiting for an "it's here" email, per product, and today's email count
-//   POST /api/admin/notify   { slug }  send "it's here" to everyone confirmed for it (up to today's allowance)
+//   POST /api/admin/notify   { slug }  send "it's here" to everyone waiting for it (up to today's allowance)
 //   GET  /api/admin/instagram  does the key in cloudflare open @ourjkadventures, and how many reels (never the key)
 //
 // Cloudflare setting (Settings > Variables and secrets):

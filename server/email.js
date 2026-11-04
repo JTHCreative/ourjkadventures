@@ -65,14 +65,6 @@ async function post(env, path, body, idempotencyKey, fetchFn) {
   throw e;
 }
 
-// Sends one email if today's count allows. Returns false (and sends nothing) when the day is full.
-export async function sendOne(env, message, fetchFn = fetch) {
-  if ((await emailsLeftToday(env, fetchFn)) < 1) return false;
-  await post(env, '/emails', payload(env, message), null, fetchFn);
-  await noteSent(env, 1, fetchFn);
-  return true;
-}
-
 // Sends up to 100 emails in one go, all or none. The idempotency key means that if the same batch is sent twice
 // within a day (a retry after a hiccup), Resend sends it only once. Callers keep to emailsLeftToday themselves.
 export async function sendBatch(env, messages, idempotencyKey, fetchFn = fetch) {
