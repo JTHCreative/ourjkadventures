@@ -1099,17 +1099,17 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 /* ---------- the reel door: a ring of reels from our instagram (assets/reel-door.js, docs/reel-door-spec.md) ---------- */
 .about-reels { margin-top: var(--space-4); }
 .reel-door {
-  --reel-door-w: 208px;
+  --reel-door-w: 200px;                  /* the card's width on screen, set by reel-door.js to fit the stage */
   position: relative;
   overflow: hidden;                      /* the rear reels may reach past a phone's edge: no sideways scroll */
-  padding: var(--space-5) 6px var(--space-2);
+  padding: var(--space-5) 6px var(--space-4);
   max-width: 1200px;
   margin: 0 auto;
 }
 .reel-door[hidden] { display: none; }
 .reel-door__stage {
   position: relative;
-  height: calc(var(--reel-door-w) * 16 / 9 * 1.16);
+  height: calc(var(--reel-door-w) * 436 / 212 * 1.2);
   touch-action: pan-y;
   user-select: none; -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -1120,25 +1120,44 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .reel-door__stage.is-dragging { cursor: grabbing; }
 .reel-door__stage:focus { outline: none; }
 .reel-door__stage:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* each reel is mounted on a backing card like our pins: laid out at its printed size, 212 x 436, and
+   scaled as a whole by reel-door.js (so the measurements below are the spec's, less the 3px border) */
 .reel-door__reel {
   position: absolute;
   left: 50%; top: 50%;
-  width: var(--reel-door-w);
-  aspect-ratio: 9 / 16;
-  margin-left: calc(var(--reel-door-w) / -2);
-  margin-top: calc(var(--reel-door-w) * 8 / -9);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
+  width: 212px; height: 436px;
+  margin: -218px 0 0 -106px;
+  border-radius: 20px;
   will-change: transform;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  outline: 1px solid transparent;        /* keeps the tilted edges smooth */
+  transform-origin: 50% 50%;
 }
 .reel-door__card {
   position: relative;
-  width: 100%; height: 100%;
+  width: 212px; height: 436px;
+  border: 3px solid var(--ink);
+  border-radius: 20px;
+  background: var(--surface-paper);      /* plain parchment card stock: no texture or gradient */
+  text-align: left;
+}
+/* the hang slot, like the hole a pin card hangs from */
+.reel-door__slot {
+  position: absolute; top: 7px; left: 50%;
+  width: 36px; height: 10px; margin-left: -18px;
+  border: 2px solid var(--ink); border-radius: var(--radius-pill);
+  background: var(--surface);
+}
+/* the window the reel plays in */
+.reel-door__window {
+  position: absolute; left: 9px; top: 27px;
+  width: 185px; height: 330px;
+  border: 3px solid var(--ink);
+  border-radius: 10px;
   overflow: hidden;
-  border: 1.5px solid var(--ink);
-  border-radius: var(--radius-lg);
-  clip-path: inset(0 round var(--radius-lg));   /* a playing video ignores rounded corners without this */
-  background: var(--surface-paper);
+  clip-path: inset(0 round 10px);        /* a playing video ignores rounded corners without this */
+  background: var(--surface);
 }
 .reel-door__media {
   position: absolute; inset: 0; display: block; width: 100%; height: 100%;
@@ -1147,62 +1166,81 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .reel-door__reel.is-front .reel-door__media { cursor: zoom-in; }
 .reel-door--single .reel-door__stage { cursor: default; }
 .reel-door__media img, .reel-door__media video { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
-.reel-door__card--placeholder .reel-door__media img { object-fit: contain; padding: 14% 14% 42%; }
-.reel-door__media:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -4px; border-radius: var(--radius-lg); }
+.reel-door__card--placeholder .reel-door__media img { object-fit: contain; padding: 18% 14% 30%; }
+.reel-door__media:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -4px; border-radius: 7px; }
+/* on the video: the reel's number, top left */
+.reel-door__num {
+  position: absolute; top: 8px; left: 8px;
+  min-width: 28px; height: 26px; padding: 0 8px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 2px solid var(--ink); border-radius: var(--radius-pill); background: var(--surface-raised);
+  font-size: 14px; line-height: 20px; font-weight: 500; color: var(--ink);
+  pointer-events: none;
+}
+/* like, comment and share, bottom right: printed on, a tap goes to the picture underneath */
+.reel-door__social {
+  position: absolute; right: 8px; bottom: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+  pointer-events: none;
+}
+.reel-door__social-icon {
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--ink); border-radius: 50%; background: var(--surface-raised); color: var(--ink);
+}
+.reel-door__social-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 /* a reel with licensed music: only plays on instagram, so tapping it asks first */
 .reel-door__play-mark {
-  position: absolute; top: 34%; left: 50%;
+  position: absolute; top: 50%; left: 50%;
   width: 48px; height: 48px; margin: -24px 0 0 -24px;
   display: flex; align-items: center; justify-content: center;
-  border-radius: 50%; background: var(--surface-raised); border: 1.5px solid var(--ink); color: var(--ink);
+  border-radius: 50%; background: var(--surface-raised); border: 2px solid var(--ink); color: var(--ink);
 }
 .reel-door__play-mark svg { width: 20px; height: 20px; fill: currentColor; margin-left: 2px; }
-.reel-door__tools { position: absolute; top: var(--space-2); right: var(--space-2); display: none; gap: var(--space-1); }
-.reel-door__reel.is-front .reel-door__tools { display: flex; }
+/* play and sound, top right of the front reel */
+.reel-door__tools { position: absolute; top: 8px; right: 8px; display: none; gap: 6px; }
+.reel-door__reel.is-front .reel-door__tools, .reel-door__full .reel-door__tools { display: flex; }
 .reel-door__tools[hidden] { display: none !important; }
 .reel-door__tool {
-  width: 40px; height: 40px; padding: 0;
+  width: 36px; height: 36px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 50%; background: var(--surface-raised); border: 1.5px solid var(--line-strong); color: var(--ink);
+  border-radius: 50%; background: var(--surface-raised); border: 2px solid var(--ink); color: var(--ink);
   cursor: pointer;
 }
 .reel-door__tool svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.reel-door__panel {
-  position: absolute; left: 0; right: 0; bottom: 0;
-  padding: var(--space-2) var(--space-3) var(--space-3);
-  background: var(--surface-raised);
-  border-top: 1.5px solid var(--ink);
-  text-align: left;
-}
-.reel-door__who { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+/* printed under the window: who, the caption, and the front reel's progress bar */
+.reel-door__printed { position: absolute; left: 11px; right: 11px; top: 367px; }
+.reel-door__who { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .reel-door__avatar {
-  flex: none; width: 24px; height: 24px; padding: 2px;
-  border-radius: 50%; border: 1.5px solid var(--ink); background: var(--surface); object-fit: contain;
+  flex: none; width: 28px; height: 28px; padding: 3px;
+  border-radius: 50%; border: 2px solid var(--ink); background: var(--surface); object-fit: contain;
 }
 .reel-door__handle {
   min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font-size: 14px; line-height: 20px; font-weight: 500; color: var(--ink); text-decoration: none;
+  font-size: 16px; line-height: 24px; font-weight: 400; color: var(--ink); text-decoration: none;
 }
 .reel-door__handle:hover { text-decoration: underline; }
 .reel-door__handle:focus-visible, .reel-door__tool:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .reel-door__caption {
-  margin-top: var(--space-1);
+  margin-top: 2px;
   font-size: 14px; line-height: 20px; font-weight: 500; color: var(--ink-muted);
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.reel-door__progress { display: none; height: 3px; margin-top: var(--space-2); border-radius: var(--radius-pill); background: var(--cream-400); overflow: hidden; }
-.reel-door__reel.is-front .reel-door__progress { display: block; }
+.reel-door__caption[hidden] { display: none; }
+.reel-door__progress { visibility: hidden; height: 4px; margin-top: 6px; border-radius: var(--radius-pill); background: var(--surface); overflow: hidden; }
+.reel-door__reel.is-front .reel-door__progress, .reel-door__full .reel-door__progress { visibility: visible; }
 .reel-door__bar { height: 100%; background: var(--accent); transform: scaleX(0); transform-origin: left center; transition: transform 0.25s linear; }
 .reel-door__reel.is-running .reel-door__bar { animation: reel-door-fill 6s linear forwards; }   /* a still's turn at the front */
 .reel-door.is-away .reel-door__bar { animation-play-state: paused; }
 @keyframes reel-door-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
-.reel-door__haze { position: absolute; inset: 0; background: var(--surface); pointer-events: none; opacity: 0; }
+/* the cream haze over rear reels */
+.reel-door__haze { position: absolute; inset: 0; border-radius: 17px; background: var(--surface); pointer-events: none; opacity: 0; }
 
 .reel-door__controls { display: flex; align-items: center; justify-content: center; gap: var(--space-4); margin-top: var(--space-4); }
 .reel-door__arrow {
   flex: none; width: 56px; height: 56px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 50%; background: var(--surface-raised); border: 1.5px solid var(--line-strong); color: var(--ink);
+  border-radius: 50%; background: var(--surface-raised); border: 2px solid var(--line-strong); color: var(--ink);
   cursor: pointer;
 }
 .reel-door__arrow svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
@@ -1244,23 +1282,22 @@ html.reel-door-locked { overflow: hidden; }
   min-height: 44px; padding: 0 var(--space-4) 0 var(--space-3);
   display: inline-flex; align-items: center; gap: var(--space-2);
   font-family: var(--font-serif); font-size: 16px; line-height: 24px; font-weight: 500; color: var(--ink);
-  background: var(--surface-raised); border: 1.5px solid var(--line-strong); border-radius: var(--radius-pill);
+  background: var(--surface-raised); border: 2px solid var(--line-strong); border-radius: var(--radius-pill);
   cursor: pointer;
 }
 .reel-door__close svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
 .reel-door__close:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .reel-door__full-frame {
   flex: none;
-  height: min(calc(100vh - 100px), calc((100vw - 32px) * 16 / 9));
-  height: min(calc(100dvh - 100px), calc((100vw - 32px) * 16 / 9));
-  aspect-ratio: 9 / 16;
+  height: min(calc(100vh - 100px), calc((100vw - 32px) * 436 / 212));
+  height: min(calc(100dvh - 100px), calc((100vw - 32px) * 436 / 212));
+  aspect-ratio: 212 / 436;
+  border-radius: 20px;
 }
-.reel-door__full-frame .reel-door__card { box-shadow: var(--shadow-card); }
-.reel-door__full-tools { position: absolute; top: var(--space-3); right: var(--space-3); display: flex; gap: var(--space-2); }
-.reel-door__full-tools[hidden] { display: none; }
-.reel-door__full .reel-door__panel { padding: var(--space-3) var(--space-4) var(--space-4); }
-.reel-door__full .reel-door__caption { -webkit-line-clamp: 4; font-size: 16px; line-height: 24px; }
-.reel-door__full .reel-door__progress { display: block; }
+.reel-door__full-frame .reel-door__card {
+  transform-origin: 0 0;                 /* reel-door.js scales the printed card up to the frame */
+  box-shadow: 0.4px 5px 9px rgba(58, 53, 50, 0.24), 1px 16px 32px rgba(58, 53, 50, 0.4);
+}
 /* the "watch on instagram?" question */
 .reel-door__ask {
   width: min(400px, calc(100vw - 32px)); padding: var(--space-5);

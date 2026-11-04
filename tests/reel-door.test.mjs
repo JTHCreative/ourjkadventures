@@ -8,7 +8,7 @@ import vm from 'node:vm';
 const box = { globalThis: {} };
 box.globalThis = box;
 vm.runInNewContext(readFileSync(new URL('../site/assets/reel-door.js', import.meta.url), 'utf8'), box);
-const { place, reach, settleAngle, instagramLink, DEFAULTS, PLACEHOLDER_REELS } = box.ReelDoor;
+const { place, reach, settleAngle, cardShadow, CARD_W, CARD_H, instagramLink, DEFAULTS, PLACEHOLDER_REELS } = box.ReelDoor;
 
 const N = 8, s = 360 / N, W = 208;
 const Rx = reach(N, W, DEFAULTS.spread);
@@ -89,4 +89,21 @@ test('"watch on instagram" only ever links to a real instagram reel or post', ()
     'javascript:alert(1)', 'https://www.instagram.com/reel/../../x/', 'https://www.instagram.com.evil.example/reel/C9xYz_12-ab/', undefined]) {
     assert.equal(instagramLink(bad), '', String(bad));
   }
+});
+
+test('the backing card is the printed 212 x 436', () => {
+  assert.equal(CARD_W, 212);
+  assert.equal(CARD_H, 436);
+});
+
+test('the shadow is warm brown, grows as a card lifts or swaps, fades at the back and falls to the right', () => {
+  const rgba = /rgba\(58,53,50,/g;
+  const frontS = cardShadow(at(0, 0)), side = cardShadow(at(1, 0)), back = cardShadow(at(4, 0));
+  const mid = cardShadow(at(0, s / 2));
+  assert.equal((frontS.css.match(rgba) || []).length, 2, 'two layers, both in the ink brown');
+  assert.ok(frontS.k > side.k, 'the lifted front card casts more shadow than a neighbour');
+  assert.ok(mid.k > side.k, 'a card mid-swap casts more than one at rest beside it');
+  assert.ok(back.fade < side.fade && back.fade < frontS.fade, 'the shadow fades toward the back');
+  assert.ok(frontS.sx > 0, 'the light is up and to the left, so the shadow falls right');
+  assert.ok(frontS.k <= 1.4 && mid.k <= 1.4);
 });
