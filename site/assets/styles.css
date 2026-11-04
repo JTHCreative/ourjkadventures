@@ -1171,15 +1171,6 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .reel-door__media img, .reel-door__media video { display: block; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 .reel-door__card--placeholder .reel-door__media img { object-fit: contain; padding: 18% 14% 30%; }
 .reel-door__media:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -4px; border-radius: 7px; }
-/* on the video: the reel's number, top left */
-.reel-door__num {
-  position: absolute; top: 8px; left: 8px;
-  min-width: 28px; height: 26px; padding: 0 8px;
-  display: inline-flex; align-items: center; justify-content: center;
-  border: 2px solid var(--ink); border-radius: var(--radius-pill); background: var(--surface-raised);
-  font-size: 14px; line-height: 20px; font-weight: 500; color: var(--ink);
-  pointer-events: none;
-}
 /* like, comment and share, bottom right: printed on, a tap goes to the picture underneath */
 .reel-door__social {
   position: absolute; right: 8px; bottom: 8px;
@@ -1290,12 +1281,54 @@ html.reel-door-locked { overflow: hidden; }
 }
 .reel-door__close svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
 .reel-door__close:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.reel-door__full-top { max-width: none; }
+/* left to right: who and the caption, the counts, then the card. centred as one group */
+.reel-door__full-body {
+  flex: none; width: 100%;
+  display: flex; align-items: center; justify-content: center; gap: var(--space-4);
+}
 .reel-door__full-frame {
   flex: none;
-  height: min(calc(100vh - 100px), calc((100vw - 32px) * 436 / 212));
-  height: min(calc(100dvh - 100px), calc((100vw - 32px) * 436 / 212));
-  aspect-ratio: 212 / 436;
+  height: min(calc(100vh - 100px), calc((100vw - 32px) * 380 / 212));
+  height: min(calc(100dvh - 100px), calc((100vw - 32px) * 380 / 212));
+  aspect-ratio: 212 / 380;
   border-radius: 20px;
+}
+/* the bare full-screen card: just the window and the progress bar under it */
+.reel-door__card--bare { height: 380px; }
+.reel-door__card--bare .reel-door__printed { top: 361px; }
+.reel-door__card--bare .reel-door__progress { margin-top: 0; }
+/* the window beside the card: who posted it and the whole caption, scrolling if it's long */
+.reel-door__about {
+  flex: 0 1 320px; min-width: 0; align-self: center;
+  max-height: min(calc(100dvh - 100px), 520px); overflow-y: auto;
+  padding: var(--space-4);
+  border: 3px solid var(--ink); border-radius: var(--radius-lg);
+  background: var(--surface-paper);
+  box-shadow: 0.4px 3px 6px rgba(58, 53, 50, 0.18), 1px 10px 20px rgba(58, 53, 50, 0.24);
+}
+.reel-door__about .reel-door__who { gap: var(--space-2); }
+.reel-door__about-text {
+  margin-top: var(--space-3);
+  font-size: 16px; line-height: 24px; color: var(--ink);
+  white-space: pre-line; overflow-wrap: anywhere;
+}
+.reel-door__about-text[hidden] { display: none; }
+/* likes, comments and shares, in a column next to the card */
+.reel-door__counts { flex: none; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); align-self: flex-end; margin-bottom: 18%; }
+.reel-door__counts[hidden], .reel-door__counts-item[hidden] { display: none; }
+.reel-door__counts-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.reel-door__counts .reel-door__social-icon { width: 44px; height: 44px; }
+.reel-door__counts .reel-door__social-icon svg { width: 22px; height: 22px; }
+.reel-door__counts-n { font-size: 14px; line-height: 20px; font-weight: 500; color: var(--ink); }
+/* not enough room side by side: the card on top, the counts in a row under it, then the caption window.
+   the screen scrolls to reach them */
+@media (max-width: 760px) {
+  .reel-door__full[open] { overflow-y: auto; }
+  .reel-door__full-body { flex-direction: column; align-items: center; }
+  .reel-door__full-frame { order: 1; }
+  .reel-door__counts { order: 2; flex-direction: row; gap: var(--space-5); align-self: center; margin-bottom: 0; }
+  .reel-door__about { order: 3; flex: none; width: min(100%, 420px); max-height: none; overflow: visible; }
 }
 .reel-door__full-frame .reel-door__card {
   transform-origin: 0 0;                 /* reel-door.js scales the printed card up to the frame */

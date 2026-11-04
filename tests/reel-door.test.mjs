@@ -107,3 +107,9 @@ test('the shadow is warm brown, grows as a card lifts or swaps, fades at the bac
   assert.ok(frontS.sx > 0, 'the light is up and to the left, so the shadow falls right');
   assert.ok(frontS.k <= 1.4 && mid.k <= 1.4);
 });
+
+test('counts are written the way instagram writes them', () => {
+  const { shortCount } = box.ReelDoor;
+  assert.deepEqual([0, 7, 999, 1000, 1234, 9999, 12345, 999999, 1000000, 1450000, 23000000].map(shortCount),
+    ['0', '7', '999', '1k', '1.2k', '9.9k', '12k', '999k', '1m', '1.4m', '23m']);
+});

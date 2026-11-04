@@ -399,3 +399,21 @@ swaps. The motion, controls and Instagram parts didn't change.
 - **The shadow is worked out each frame** (`cardShadow` in `reel-door.js`, tested), from a light up and to the
   left, so it falls slightly right, grows with lift and swap, and fades toward the back.
 
+
+## 2026-11 Full-screen reels: the counts and the caption beside the card
+The owner asked for the full-screen reel to use the empty space either side of the card: the like, comment and share
+counts in a column to the left of the card (not printed on the video), and a window left of that with who posted it
+and the whole caption (instead of one cut-off line under the window). The reel-number pill is gone everywhere.
+
+- **Only counts that are public on Instagram.** Meta leaves `like_count` out when we hide the like count on a post,
+  so then no likes show. Instagram's "hide like count" hides shares too, so we drop shares with it. Comments show
+  unless commenting is off. Stand-in reels have no counts, so the column hides.
+- **Shares need one more permission.** Likes and comments are plain fields, but shares are an "insight", which needs
+  `instagram_manage_insights` on the key. Without it, the first ask fails and we skip the rest, so the reels never
+  break over it (`docs/setup/instagram.md`, step 4).
+- **"Real time" means within 10 minutes.** Like a shop window updated a few times an hour rather than a live feed:
+  visitors still never reach Meta directly, the saved copy just refreshes every 10 minutes now instead of 30. That's
+  about 6 media calls and a few dozen share asks an hour, well inside Meta's limits.
+- **Whole captions.** The saved copy keeps up to 2,200 characters (Instagram's own limit), up from 300.
+- **Phones.** There's no room beside the card under 760px wide, so the counts sit in a row under the card and the
+  caption window under that; the screen scrolls to them.

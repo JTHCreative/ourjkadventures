@@ -9,7 +9,7 @@ front desk of our business portfolio (J+K Adventures). The key belongs to a **sy
 `website`: a staff member that's a program, not a person. The key can only read, never expires, and is kept
 as a Cloudflare secret that only the website can use. Meta lets this kind of key reach an Instagram account
 through the Facebook Page it's linked to, so the website asks for the J+K Adventures Page and reads the
-account linked to it. Every 30 minutes at most it fetches the latest reels, keeps a copy in Cloudflare
+account linked to it. Every 10 minutes at most it fetches the latest reels, keeps a copy in Cloudflare
 (Workers KV), and shows that copy to visitors.
 
 **Never** put the key or the app secret in the repo, an email or a chat.
@@ -42,20 +42,22 @@ Meta changes its labels now and then, so the names below may be slightly differe
    - **Pages** > **J+K Adventures** (its switches may be greyed out, set "on the Instagram side": that's fine).
    - **Apps** > **j+k adventures website**.
 4. **The key.** On `website`, **Generate new token**: app **j+k adventures website**, expiration **Never**,
-   permissions **instagram_basic**, **pages_show_list** and **pages_read_engagement**. Copy it (shown once).
+   permissions **instagram_basic**, **pages_show_list**, **pages_read_engagement** and **instagram_manage_insights**
+   (that last one is only for the share counts on a full-screen reel; without it the reels still show, with likes and
+   comments but no shares). Copy it (shown once).
 5. **Cloudflare.** **Workers & Pages** > **ourjkadventures** > **Settings** > **Variables and Secrets**:
    `INSTAGRAM_ACCESS_TOKEN` as a **Secret** (paste the key), then **Deploy** (not "Save version", which
    doesn't put it live). `META_APP_SECRET` (the app's **App settings** > **Basic** > App secret) as a Secret.
 6. **Check.** Open `https://ourjkadventures.com/admin`. The **instagram** box should say "connected as
    @ourjkadventures, with the key in cloudflare." Then the About page shows the reels (a brand new reel can
-   take up to 30 minutes).
+   take up to 10 minutes).
 
 ## When something looks wrong
 - **The box says "the key in cloudflare does not open @ourjkadventures":** under it is a list of Meta's
   answers to a few test questions. Send the whole list to Claude Code. The "page" line shows whether the key
   can read the Page and which Instagram account is linked to it.
 - **The box says "the last fetch did not work":** Meta was unreachable or refused for a while. The About
-  page keeps the last reels it saved and tries again within 30 minutes.
+  page keeps the last reels it saved and tries again within 10 minutes.
 - **The "out and about." section has disappeared:** the website couldn't get any reels yet, or the account
   has no video posts. Check `/admin`.
 - **A reel shows its cover with a play mark instead of playing in the ring:** it uses licensed music
