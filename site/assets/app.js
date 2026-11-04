@@ -679,7 +679,7 @@
   var MODEL_3D = {};
   ['aussie', 'beagle', 'corgi', 'german-shepherd', 'golden', 'husky', 'pit-bull', 'pomeranian', 'pug', 'shiba'].forEach(function (s) {
     // ?v= changes whenever the model files are redone: /assets/3d/ is cached as never-changing (see _headers)
-    MODEL_3D[s] = 'assets/3d/' + s + '.glb?v=2';
+    MODEL_3D[s] = 'assets/3d/' + s + '.glb?v=3';
   });
   var MV_SRC = 'https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js';
   var mvPromise = null;
