@@ -235,3 +235,30 @@ test('only the owner sees or sends', async () => {
   assert.equal((await s.call('POST', '/api/admin/notify', { token: pup, body: { slug: 'corgi' } })).status, 403);
   assert.equal((await s.call('GET', '/api/admin/notify')).status, 401);
 });
+
+test('the pin board gets "email me when it\'s here" too, sent from /admin like a pin', async () => {
+  const slug = 'bay-area-pin-board';
+  const s = setup({ unavailable: [slug] });
+  assert.equal((await signUp(s, slug, 'a@example.com')).status, 'added');
+  assert.deepEqual(await waiting(s), [[slug, 1]]);
+  await flip(s, slug, true);
+  assert.equal((await (await pressSend(s, slug)).json()).sent, 1);
+  const m = s.sent[0];
+  assert.equal(m.subject, 'the bay area pin board is here!');
+  assert.ok(m.html.includes('<img src="https://x.test/assets/img/email/bay-area-pin-board.png"'));
+  assert.ok(m.html.includes('href="https://x.test/bay-area-pin-board.html"'));
+  assert.deepEqual(await waiting(s), []);
+});
+
+test('the owner sees each address on a list, oldest first; no one else does', async () => {
+  const s = setup();
+  await signUp(s, 'corgi', 'First@Example.com');
+  await new Promise((r) => setTimeout(r, 5));
+  await signUp(s, 'corgi', 'second@example.com', { ip: '9.9.9.9' });
+  const row = (await (await s.call('GET', '/api/admin/notify', { token: await owner() })).json()).products[0];
+  assert.deepEqual(row.people.map((p) => p.email), ['first@example.com', 'second@example.com']);
+  assert.ok(row.people.every((p) => !isNaN(new Date(p.at))));
+  assert.equal((await s.call('GET', '/api/admin/notify', { token: await sign({ email: 'pup@example.com' }) })).status, 403);
+  // the public catalog never carries them
+  assert.ok(!JSON.stringify(await (await s.call('GET', '/api/catalog')).json()).includes('example.com'));
+});

@@ -165,3 +165,33 @@ test('tapping on and off does not use up the daily limit for one connection', as
   }
   assert.equal((await (await vote(s, 'corgi', { cookie })).json()).counted, true);
 });
+
+// the bay area pin board goes through exactly what the pins do: the owner's switch, the vote, taking it back,
+// the public tally and the owner's tally
+test('the pin board: switched off on /admin, it takes "i\'m interested" votes like a pin', async () => {
+  const s = setup({ unavailable: [] });
+  const owner = await sign({ email: OWNER });
+  const slug = 'bay-area-pin-board';
+  // while it's available there's nothing to wait for
+  assert.equal((await vote(s, slug)).status, 409);
+
+  assert.equal((await s.call('POST', '/api/admin/availability', { token: owner, body: { slug, available: false } })).status, 200);
+  let board = (await catalog(s)).items.find((p) => p.slug === slug);
+  assert.equal(board.available, false);
+  assert.deepEqual(board.sizes, []);
+
+  const first = await vote(s, slug);
+  assert.deepEqual(await first.json(), { counted: true, count: 1 });
+  const cookie = 'jka_voter=' + ticketOf(first);
+  assert.equal((await vote(s, slug, { ip: '9.9.9.9' })).status, 200);
+  assert.equal((await catalog(s)).items.find((p) => p.slug === slug).interest, 2);
+
+  // tapped again: one off
+  assert.deepEqual(await (await unvote(s, slug, { cookie })).json(), { removed: true, count: 1 });
+  const body = await (await s.call('GET', '/api/admin/products', { token: owner })).json();
+  assert.equal(body.available[slug], false);
+  assert.equal(body.interest[slug], 1);
+
+  // checkout won't sell it while it's switched off
+  assert.equal((await s.call('POST', '/api/checkout', { body: { items: [{ key: slug, qty: 1 }] } })).status, 400);
+});
