@@ -61,6 +61,7 @@ an everyday analogy when a concept is technical.
 - 3D models exist for 10 pups. Still missing: cavalier, dachshund, french-bulldog, poodle, rottweiler, yorkie (their "See in 3D" button stays faded).
 - The shop page has a featured carousel on top (picked on `/admin`, saved in `settings/featured_<square mode>`; only in-stock products, at most eight; hidden when none), then a "pins" card with a button per set and a "pin boards" card. A featured pup links to `pup-club.html#<slug>`, which opens that pup.
 - The Bay Area board hangs top left on a six-spot gallery wall in a living room photo on `pin-boards.html` (five spots empty for future boards); tapping it opens `bay-area-pin-board.html` (zoomable full-size image, price and add to bag).
+- Reviews: signed-in accounts (confirmed email) or guests. Guests give a name and email (never shown; shown as "first l." like accounts), one review per email per pin, at most 5 a day per connection, same typo hint and DNS check as the email list. Every review waits for approval on `/admin`. A "create an account with us too" tick box sends them to `create-account.html` with name and email filled in (sessionStorage, never the address bar); guest reviews join an account once it signs in with that email confirmed (`claimGuestReviews` in `server/reviews.js`).
 - Contact: support@ourjkadventures.com. Instagram: @ourjkadventures.
 
 ## Running and checking

@@ -463,7 +463,7 @@ function paintReviews(list) {
     stars.setAttribute('aria-label', r.rating + ' out of 5 stars');
     item.append(el('p', 'admin-review-pin', pinName(r.slug)), stars);
     item.appendChild(el('p', 'review-text', r.text || '(stars only, no words.)'));
-    item.appendChild(el('p', 'caption', r.name + (dateText(r.date) ? ', ' + dateText(r.date) : '') + '.'));
+    item.appendChild(el('p', 'caption', r.name + (r.guest ? ' (a guest, no account)' : '') + (dateText(r.date) ? ', ' + dateText(r.date) : '') + '.'));
     const row = el('div', 'admin-actions');
     const note = el('span', 'caption');
     note.setAttribute('role', 'status');

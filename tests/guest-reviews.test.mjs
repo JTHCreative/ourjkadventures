@@ -74,7 +74,7 @@ test('guest reviews need stars, a pin, a name and an email whose domain takes ma
 test('one guest review per email per pin, and at most GUEST_PER_DAY a day from one connection', async () => {
   const w = world();
   await guest(w, good);
-  assert.equal((await guest(w, { ...good, email: 'june@example.com', text: 'again' })).status, 409);
+  assert.deepEqual(await (await guest(w, { ...good, email: 'june@example.com', text: 'again' })).json(), { error: 'already' });
   assert.equal((await guest(w, { ...good, slug: 'pug' })).status, 200); // another pin is fine
   for (let i = 2; i < GUEST_PER_DAY; i++) assert.equal((await guest(w, { ...good, email: 'p' + i + '@example.com' })).status, 200);
   assert.equal((await guest(w, { ...good, email: 'more@example.com' })).status, 429);

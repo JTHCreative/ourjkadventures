@@ -96,6 +96,7 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [x] "i'm interested" is an on/off toggle (2026-11-04): tapping again takes the vote back, one off the tally
 - [ ] Owner: switch off on `/admin` any product that isn't made yet, so it collects interest instead of reading "coming soon" or "sold out"
 - [x] "email me when it's here" (2026-11-04): sign up under "i'm interested", checked on the spot (typo hints, DNS: no confirm email, owner's call), owner presses send on `/admin` once the product is back. Through Resend's free plan (owner chose it over Cloudflare Email Sending)
+- [x] Guest reviews (2026-11-04): name and email instead of an account, owner approves as always, a tick box to make an account that then takes the guest reviews in
 - [ ] Owner: Resend account, domain records and `RESEND_API_KEY` in Cloudflare (`setup/email.md`), then try steps 7 to 11
 - [ ] Check after the first real "it's here" send: Resend accepted the per-email `List-Unsubscribe` headers in a batch (couldn't confirm from the docs), and Gmail shows its unsubscribe button
 - [ ] Owner: add `ADMIN_EMAILS` in Cloudflare and publish the updated `firestore.rules` (`setup/firebase.md`, steps 14 to 17)

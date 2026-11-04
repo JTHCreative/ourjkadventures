@@ -682,6 +682,12 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .star-input legend { padding: 0; font-size: 16px; line-height: 22px; font-weight: 500; margin-bottom: var(--space-1); }
 .star-input label { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; font-size: 30px; line-height: 1; color: var(--line-strong); cursor: pointer; border-radius: var(--radius-sm); }
 .star-input label.on { color: var(--honey-600); }
+/* a tick box with its words beside it, like "create an account with us too" */
+.tick { display: flex; align-items: flex-start; gap: var(--space-2); font-size: 16px; line-height: 22px; color: var(--ink-soft); cursor: pointer; }
+.tick input { flex: none; width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--cobalt); }
+.tick input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.guest-review { display: flex; flex-direction: column; gap: var(--space-3); }
+.guest-review .review-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
 .star-input input:focus-visible + label { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .review-actions { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-4); }
 .review-note { font-size: 15px; line-height: 22px; color: var(--ink-muted); }

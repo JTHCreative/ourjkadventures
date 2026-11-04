@@ -121,6 +121,15 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   shown are first name and last initial; the uid never leaves the server. Account deletion removes
   that person's reviews. The sign-in page honors `?next=<page>.html` (own pages only) so "sign in to
   leave a review" returns to the pup club.
+  - **Guest reviews:** `POST /api/reviews` without a ticket takes `{ slug, rating, text, name, email }` and stores
+    `reviews/{slug}_g{who}` (`who` = HMAC of the email, `guest: true`, the email kept server-side). One per email per
+    pin ("already" otherwise; a guest can't edit, they write to us), at most 5 a day per connection
+    (`review_ips/{h}`), email format plus the DNS check from `notify.js`. Shown as "first l." like accounts. The
+    "create an account with us too" tick box saves `{ firstName, email }` in sessionStorage and opens
+    `create-account.html`, which fills them in. `POST /api/account` (every sign-in and account page visit) runs
+    `claimGuestReviews`: with a confirmed email, guest reviews under that address become `reviews/{slug}_{uid}`
+    (an existing account review of the same pin wins). The account page reloads the user and refreshes the ticket
+    once the email is confirmed, so this happens on the first visit after the confirm link.
   - Checkout adds `metadata.uid` to the Square order and pre-fills the buyer's email.
 - **"i'm interested"** (`server/interest.js`, `/api/interest`): each product has an available switch on `/admin`
   (`settings/available_<square mode>`, missing means available). A product switched off is off sale whatever

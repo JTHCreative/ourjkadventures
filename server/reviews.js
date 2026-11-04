@@ -165,7 +165,7 @@ async function guestReview(request, env, fetchFn) {
   const who = await scramble(env, 'email|' + email);
   const path = 'reviews/' + encodeURIComponent(reviewId(body.slug, 'g' + who));
   // one per email per pin. a guest can't change it later (there's no sign-in to prove it's them): they write to us
-  if (await firestoreGet(env, path, fetchFn)) return json({ error: 'already' }, 409);
+  if (await firestoreGet(env, path, fetchFn)) return json({ error: 'already' });
 
   const day = new Date().toISOString().slice(0, 10);
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
