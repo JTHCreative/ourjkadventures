@@ -237,3 +237,17 @@ test('without the insights permission, reels still come back, with no share coun
   assert.ok(body.reels.every((r) => r.likes === 1 && r.comments === 1 && r.shares === undefined));
   assert.equal(meta.calls.filter((c) => c.includes('/insights?')).length, 1);
 });
+
+test('/admin is told why there are no share counts: the key\'s permissions and what meta said', async () => {
+  const media = [{ id: '1', media_type: 'VIDEO', thumbnail_url: 'https://cdn.ig/1.jpg', permalink: 'https://www.instagram.com/reel/1/', like_count: 5, comments_count: 0 }];
+  const { env, kv } = setup();
+  await reelsRoute(get('/api/reels'), env, fakeMeta({ media }).fetchFn);
+  const s = await instagramStatus(env, fakeMeta({ media }).fetchFn);
+  assert.match(s.shares_error, /#10.*permission/);
+  assert.deepEqual(s.permissions, ['instagram_basic', 'pages_show_list', 'pages_read_engagement']);
+  assert.ok(!kv.data.get('instagram:reels').includes(KEY));
+  // with shares working, no note
+  const ok = setup();
+  await reelsRoute(get('/api/reels'), ok.env, fakeMeta({ media, shares: { 1: 2 } }).fetchFn);
+  assert.equal((await instagramStatus(ok.env, fakeMeta({ media }).fetchFn)).shares_error, '');
+});

@@ -557,7 +557,14 @@ function paintInstagram(s) {
   if (s.reels_count !== null && s.reels_count !== undefined) {
     lines.push(s.reels_count === 1 ? 'one reel on the about page.' : s.reels_count + ' reels on the about page.');
   }
-  if (s.last_error) lines.push('the last fetch did not work (meta said: ' + s.last_error + '). the about page keeps the last reels it saved, and tries again within 30 minutes.');
+  if (s.last_error) lines.push('the last fetch did not work (meta said: ' + s.last_error + '). the about page keeps the last reels it saved, and tries again within 10 minutes.');
+  // share counts need one extra permission on the key (docs/setup/instagram.md, step 4)
+  if (Array.isArray(s.permissions)) {
+    lines.push(s.permissions.includes('instagram_manage_insights')
+      ? 'the key can read share counts.'
+      : 'the key can\'t read share counts yet: it needs instagram_manage_insights (it has ' + (s.permissions.join(', ') || 'none') + ').');
+  }
+  if (s.shares_error) lines.push('the last time we asked for share counts, meta said: ' + s.shares_error + '.');
   state.textContent = lines.join(' ');
 }
 
