@@ -1,4 +1,4 @@
-// Tests for "email me when it's here": sign-up, the confirm link, the stop link, and the owner's send button.
+// Tests for "email me when it's here": sign-up (with the domain check), the stop link, and the owner's send button.
 // Resend is faked: nothing leaves the machine. Run: node --test tests/*.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -7,11 +7,18 @@ import worker from '../site/_worker.js';
 import { _resetCaches } from '../server/firebase.js';
 import { _resetShopCache } from '../server/shop.js';
 import { _resetCatalogCache } from '../server/catalog.js';
-import { SIGNUPS_PER_DAY, cleanEmail } from '../server/notify.js';
+import { SIGNUPS_PER_DAY, cleanEmail, domainTakesMail } from '../server/notify.js';
 import { fakeWorld, sign, env as baseEnv } from './helpers.mjs';
 
 const products = JSON.parse(fs.readFileSync(new URL('../site/products.json', import.meta.url)));
 const OWNER = 'owner@example.com';
+// a pretend internet address book: which domains take mail
+const DNS_ZONES = {
+  'example.com': { mx: ['10 mail.example.com.'] },
+  'only-address.test': { a: true },           // no mail servers listed, but the domain has an address: mail still works
+  'no-mail.test': { mx: ['0 .'] },            // says outright it takes no mail
+  'parked.test': {}                            // exists, but no mail servers and no address
+};
 
 function setup({ open = true, unavailable = ['corgi'], resend = true, limit } = {}) {
   _resetCaches();
@@ -23,7 +30,19 @@ function setup({ open = true, unavailable = ['corgi'], resend = true, limit } = 
   // a pretend Resend: remembers every email, single or batch
   const sent = [];
   const resendCalls = [];
+  let dnsCalls = 0;
   const fetchFn = async (url, opts = {}) => {
+    if (String(url).startsWith('https://cloudflare-dns.com/dns-query')) {
+      dnsCalls++;
+      const q = new URL(String(url)).searchParams;
+      const name = q.get('name');
+      const type = q.get('type');
+      if (name === 'dns-down.test') return new Response('busy', { status: 502 });
+      const zone = DNS_ZONES[name];
+      if (!zone) return Response.json({ Status: 3 });
+      if (type === 'MX') return Response.json({ Status: 0, Answer: (zone.mx || []).map((d) => ({ type: 15, data: d })) });
+      return Response.json({ Status: 0, Answer: zone.a ? [{ type: 1, data: '192.0.2.1' }] : [] });
+    }
     if (String(url).startsWith('https://api.resend.com/')) {
       resendCalls.push({ url: String(url), headers: opts.headers, body: JSON.parse(opts.body) });
       if (opts.headers.Authorization !== 'Bearer re_test') return new Response('{"name":"validation_error"}', { status: 401 });
@@ -46,10 +65,11 @@ function setup({ open = true, unavailable = ['corgi'], resend = true, limit } = 
     else if (body !== undefined) { headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body); }
     return worker.fetch(new Request('https://x.test' + path, { method, headers, body: payload }), env);
   };
-  return { ...w, env, call, sent, resendCalls };
+  return { ...w, env, call, sent, resendCalls, dns: () => dnsCalls };
 }
 const signUp = async (s, slug, email, opts = {}) => (await s.call('POST', '/api/notify', { body: { slug, email }, ...opts })).json();
 const codeIn = (text, kind) => new RegExp('email\\.html\\?' + kind + '=([^\\s]+)').exec(text)[1];
+const waiting = async (s) => (await (await s.call('GET', '/api/admin/notify', { token: await owner() })).json()).products.map((p) => [p.slug, p.waiting]);
 const owner = () => sign({ email: OWNER });
 const flip = async (s, slug, available) => s.call('POST', '/api/admin/availability', { token: await owner(), body: { slug, available } });
 const pressSend = async (s, slug) => s.call('POST', '/api/admin/notify', { token: await owner(), body: { slug } });
@@ -64,81 +84,55 @@ test('the catalog says whether email is offered', async () => {
   assert.equal((await (await setup({ resend: false }).call('GET', '/api/catalog')).json()).email, false);
 });
 
-test('signing up sends one "is this you?" email; the address is not on the list until it is confirmed', async () => {
+test('signing up puts the address on the list at once, and sends nothing', async () => {
   const s = setup();
-  assert.deepEqual(await signUp(s, 'corgi', 'Pup@Example.com'), { status: 'sent' });
-  assert.equal(s.sent.length, 1);
-  const m = s.sent[0];
-  assert.deepEqual(m.to, ['pup@example.com']);
-  assert.equal(m.subject, 'is this you? the corgi pin.');
-  assert.equal(m.reply_to, 'support@ourjkadventures.com');
-  assert.match(m.from, /j\+k adventures/);
-  assert.ok(m.html.includes('<a href="https://x.test/email.html?confirm='));
-  assert.equal(m.text, m.text.toLowerCase());
-  assert.ok(!/!/.test(m.text + m.subject));
-
-  // asking again straight away doesn't send a second email
-  assert.deepEqual(await signUp(s, 'corgi', 'pup@example.com'), { status: 'sent' });
-  assert.equal(s.sent.length, 1);
-
-  let summary = await (await s.call('GET', '/api/admin/notify', { token: await owner() })).json();
-  assert.deepEqual(summary.products.map((p) => [p.slug, p.confirmed, p.pending]), [['corgi', 0, 1]]);
-  assert.equal(summary.sentToday, 1);
-
-  const res = await (await s.call('POST', '/api/notify/confirm', { body: { code: codeIn(m.text, 'confirm') } })).json();
-  assert.deepEqual(res, { confirmed: true, name: 'corgi pin' });
-  summary = await (await s.call('GET', '/api/admin/notify', { token: await owner() })).json();
-  assert.deepEqual(summary.products.map((p) => [p.slug, p.confirmed, p.pending]), [['corgi', 1, 0]]);
-  assert.deepEqual(await signUp(s, 'corgi', 'pup@example.com'), { status: 'already' });
-});
-
-test('a wrong or made-up confirm code confirms nothing', async () => {
-  const s = setup();
-  await signUp(s, 'corgi', 'pup@example.com');
-  const code = codeIn(s.sent[0].text, 'confirm');
-  const wrong = code.slice(0, -1) + (code.endsWith('0') ? '1' : '0');
-  assert.equal((await s.call('POST', '/api/notify/confirm', { body: { code: wrong } })).status, 404);
-  assert.equal((await s.call('POST', '/api/notify/confirm', { body: { code: 'nope' } })).status, 400);
-});
-
-test('sign-ups are refused for bad input, products in the shop, other websites, and when email is not set up', async () => {
-  const s = setup();
-  assert.equal((await s.call('POST', '/api/notify', { body: { slug: 'corgi', email: 'nope' } })).status, 400);
-  assert.equal((await s.call('POST', '/api/notify', { body: { slug: 'not-a-pin', email: 'a@b.co' } })).status, 400);
-  assert.equal((await s.call('POST', '/api/notify', { body: { slug: 'aussie', email: 'a@b.co' } })).status, 409);
-  assert.equal((await s.call('POST', '/api/notify', { body: { slug: 'corgi', email: 'a@b.co' }, origin: 'https://elsewhere.test' })).status, 403);
-  assert.equal((await setup({ resend: false }).call('POST', '/api/notify', { body: { slug: 'corgi', email: 'a@b.co' } })).status, 503);
+  assert.deepEqual(await signUp(s, 'corgi', 'Pup@Example.com'), { status: 'added' });
   assert.equal(s.sent.length, 0);
+  assert.deepEqual(await waiting(s), [['corgi', 1]]);
+  // the same address again: already there, still one on the list
+  assert.deepEqual(await signUp(s, 'corgi', 'pup@example.com'), { status: 'already' });
+  assert.deepEqual(await waiting(s), [['corgi', 1]]);
+  assert.equal((await (await s.call('GET', '/api/admin/notify', { token: await owner() })).json()).sentToday, 0);
+});
+
+test('the part after the @ has to be a real domain that takes mail', async () => {
+  const s = setup();
+  assert.deepEqual(await signUp(s, 'corgi', 'pup@gmial-typo.test'), { error: 'domain' });
+  assert.deepEqual(await signUp(s, 'corgi', 'pup@no-mail.test'), { error: 'domain' });
+  assert.deepEqual(await signUp(s, 'corgi', 'pup@parked.test'), { error: 'domain' });
+  assert.deepEqual(await signUp(s, 'corgi', 'pup@only-address.test'), { status: 'added' });
+  // if the address book can't be asked just now, nobody is turned away
+  assert.deepEqual(await signUp(s, 'corgi', 'pup@dns-down.test'), { status: 'added' });
+  assert.deepEqual(await waiting(s), [['corgi', 2]]);
+});
+
+test('domainTakesMail answers true, false, or null when it cannot tell', async () => {
+  const s = setup();
+  assert.equal(await domainTakesMail('example.com', globalThis.fetch), true);
+  assert.equal(await domainTakesMail('nowhere.test', globalThis.fetch), false);
+  assert.equal(await domainTakesMail('dns-down.test', globalThis.fetch), null);
+  assert.ok(s.dns() >= 3);
+});
+
+test('the old confirm link is gone', async () => {
+  const s = setup();
+  assert.equal((await s.call('POST', '/api/notify/confirm', { body: { code: 'x' } })).status, 404);
 });
 
 test('one connection can sign up at most SIGNUPS_PER_DAY addresses a day', async () => {
   const s = setup();
-  for (let i = 0; i < SIGNUPS_PER_DAY; i++) assert.equal((await signUp(s, 'corgi', 'p' + i + '@example.com')).status, 'sent');
+  for (let i = 0; i < SIGNUPS_PER_DAY; i++) assert.equal((await signUp(s, 'corgi', 'p' + i + '@example.com')).status, 'added');
   assert.deepEqual(await signUp(s, 'corgi', 'more@example.com'), { status: 'limit' });
-  assert.equal((await signUp(s, 'corgi', 'more@example.com', { ip: '5.6.7.8' })).status, 'sent');
+  assert.equal((await signUp(s, 'corgi', 'more@example.com', { ip: '5.6.7.8' })).status, 'added');
 });
 
-test('the site stops at its own daily limit instead of running into the post office', async () => {
-  const s = setup({ limit: 2 });
-  assert.equal((await signUp(s, 'corgi', 'a@example.com')).status, 'sent');
-  assert.equal((await signUp(s, 'corgi', 'b@example.com', { ip: '2.2.2.2' })).status, 'sent');
-  assert.deepEqual(await signUp(s, 'corgi', 'c@example.com', { ip: '3.3.3.3' }), { status: 'busy' });
-  assert.equal(s.sent.length, 2);
-});
-
-async function confirmed(s, emails) {
-  for (const [i, e] of emails.entries()) {
-    await signUp(s, 'corgi', e, { ip: '10.0.0.' + i });
-    const m = s.sent[s.sent.length - 1];
-    await s.call('POST', '/api/notify/confirm', { body: { code: codeIn(m.text, 'confirm') } });
-  }
+async function onList(s, emails, slug = 'corgi') {
+  for (const [i, e] of emails.entries()) await signUp(s, slug, e, { ip: '10.0.0.' + i });
 }
 
-test('the owner sends "it\'s here" once the pin is back: confirmed people only, once each, with a stop link', async () => {
+test('the owner sends "it\'s here" once the pin is back: everyone waiting, once each, with a stop link', async () => {
   const s = setup();
-  await confirmed(s, ['a@example.com', 'b@example.com']);
-  await signUp(s, 'corgi', 'never-confirmed@example.com', { ip: '9.9.9.9' });
-  const before = s.sent.length;
+  await onList(s, ['a@example.com', 'b@example.com']);
 
   // still not available, or the shop is closed: refused, nothing sent
   assert.equal((await pressSend(s, 'corgi')).status, 400);
@@ -146,6 +140,7 @@ test('the owner sends "it\'s here" once the pin is back: confirmed people only, 
   s.g.docs['settings/shop'] = { open: { booleanValue: false } };
   assert.deepEqual(await (await pressSend(s, 'corgi')).json(), { error: 'shop closed' });
   s.g.docs['settings/shop'] = { open: { booleanValue: true } };
+  assert.equal(s.sent.length, 0);
 
   const res = await (await pressSend(s, 'corgi')).json();
   assert.equal(res.sent, 2);
@@ -153,24 +148,25 @@ test('the owner sends "it\'s here" once the pin is back: confirmed people only, 
   const batch = s.resendCalls[s.resendCalls.length - 1];
   assert.ok(batch.url.endsWith('/emails/batch'));
   assert.match(batch.headers['Idempotency-Key'], /^its-here-corgi-/);
-  const mails = s.sent.slice(before);
-  assert.deepEqual(mails.map((m) => m.to[0]).sort(), ['a@example.com', 'b@example.com']);
-  for (const m of mails) {
+  assert.deepEqual(s.sent.map((m) => m.to[0]).sort(), ['a@example.com', 'b@example.com']);
+  for (const m of s.sent) {
     assert.equal(m.subject, 'the corgi pin is here.');
+    assert.equal(m.reply_to, 'support@ourjkadventures.com');
     assert.ok(m.text.includes('https://x.test/pup-club.html#corgi'));
+    assert.ok(m.text.includes("if you didn't ask for this"));
+    assert.equal(m.text, m.text.toLowerCase());
     assert.match(m.headers['List-Unsubscribe'], /^<https:\/\/x\.test\/api\/notify\/stop\?code=[0-9a-f]{32}\.[0-9a-f]{32}>/);
     assert.equal(m.headers['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click');
   }
-  // sent slips are thrown away: pressing again sends nothing more. the unconfirmed one stays waiting
+  // sent slips are thrown away: pressing again sends nothing more
   assert.equal((await (await pressSend(s, 'corgi')).json()).sent, 0);
-  assert.equal(s.sent.length, before + 2);
-  const summary = await (await s.call('GET', '/api/admin/notify', { token: await owner() })).json();
-  assert.deepEqual(summary.products.map((p) => [p.slug, p.confirmed, p.pending]), [['corgi', 0, 1]]);
+  assert.equal(s.sent.length, 2);
+  assert.deepEqual(await waiting(s), []);
 });
 
 test('a big list goes out over more than one day', async () => {
-  const s = setup({ limit: 5 });
-  await confirmed(s, ['a@example.com', 'b@example.com', 'c@example.com']); // uses 3 of today's 5
+  const s = setup({ limit: 2 });
+  await onList(s, ['a@example.com', 'b@example.com', 'c@example.com']);
   await flip(s, 'corgi', true);
   assert.deepEqual(await (await pressSend(s, 'corgi')).json().then((r) => [r.sent, r.left]), [2, 1]);
   assert.deepEqual(await (await pressSend(s, 'corgi')).json().then((r) => [r.sent, r.left, r.full]), [0, 1, true]);
@@ -181,10 +177,7 @@ test('the stop link takes an address off every list, from the page or a mail app
   await signUp(s, 'corgi', 'pup@example.com');
   await signUp(s, 'poodle', 'pup@example.com');
   await signUp(s, 'poodle', 'other@example.com');
-  await confirmed(s, []);
   await flip(s, 'corgi', true);
-  // confirm corgi, send it, take the stop code from the "it's here" email
-  await s.call('POST', '/api/notify/confirm', { body: { code: codeIn(s.sent[0].text, 'confirm') } });
   await pressSend(s, 'corgi');
   const stop = codeIn(s.sent[s.sent.length - 1].text, 'stop');
   assert.equal((await s.call('POST', '/api/notify/stop', { body: { code: stop.slice(0, -1) + 'x' } })).status, 400);
