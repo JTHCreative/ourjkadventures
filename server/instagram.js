@@ -123,6 +123,15 @@ async function diagnose(env, key, fetchFn) {
   return out;
 }
 
+// which permissions the key carries, per Meta (needs META_APP_ID and META_APP_SECRET); null if we can't ask
+async function keyPermissions(env, key, fetchFn) {
+  if (!env.META_APP_ID || !env.META_APP_SECRET) return null;
+  try {
+    const d = await metaJson(await fetchFn(graphUrl('/debug_token', { input_token: key, access_token: env.META_APP_ID + '|' + env.META_APP_SECRET })), 'key');
+    return d.data && Array.isArray(d.data.scopes) ? d.data.scopes.map(String) : null;
+  } catch (e) { return null; }
+}
+
 // what /admin shows: a live check that the key opens our account. never includes the key itself
 export async function instagramStatus(env, fetchFn = fetch) {
   const missing = [];
@@ -139,6 +148,8 @@ export async function instagramStatus(env, fetchFn = fetch) {
     check_error: account ? '' : notes.join('; ').slice(0, 400),
     diagnostics: account ? [] : await diagnose(env, key, fetchFn),
     last_error: reels && reels.last_error ? reels.last_error : '',
+    shares_error: reels && reels.shares_error ? reels.shares_error : '',
+    permissions: account ? await keyPermissions(env, key, fetchFn) : null,
     reels_fetched_at: reels ? reels.fetched_at : null,
     reels_count: reels ? reels.reels.length : null
   };
@@ -175,8 +186,8 @@ async function fetchReels(env, key, fetchFn) {
   if (!account) throw new Error('no account: ' + notes.join('; '));
   const data = await metaJson(await fetchFn(await keyedUrl(env, '/' + encodeURIComponent(account.id) + '/media', key, { fields: FIELDS, limit: '50' })), 'media');
   const media = (Array.isArray(data.data) ? data.data : []).filter((m) => toReel(m)).slice(0, MAX_REELS);
-  await addShares(env, key, fetchFn, media);
-  return media.map(toReel);
+  const sharesNote = await addShares(env, key, fetchFn, media);
+  return { reels: media.map(toReel), sharesNote };
 }
 
 // shares aren't a plain field: they're an insight, which needs instagram_manage_insights on the key. without it the
@@ -185,15 +196,18 @@ async function shareCount(env, key, fetchFn, id) {
   const d = await metaJson(await fetchFn(await keyedUrl(env, '/' + encodeURIComponent(id) + '/insights', key, { metric: 'shares' })), 'shares');
   const row = (Array.isArray(d.data) ? d.data : []).find((x) => x && x.name === 'shares');
   const v = row && Array.isArray(row.values) && row.values[0] ? row.values[0].value : row && row.total_value ? row.total_value.value : undefined;
-  return Number.isInteger(v) ? v : undefined;
+  if (!Number.isInteger(v)) throw new Error('shares: meta answered without a count: ' + JSON.stringify(d).slice(0, 200));
+  return v;
 }
+// what happened goes back as a note (Meta's own words), saved with the reels so /admin can say why there are no shares
 async function addShares(env, key, fetchFn, media) {
   const wanted = media.filter((m) => Number.isInteger(m.like_count));
-  if (!wanted.length) return;
-  try { wanted[0].shares = await shareCount(env, key, fetchFn, wanted[0].id); } catch (e) { return; }
+  if (!wanted.length) return '';
+  try { wanted[0].shares = await shareCount(env, key, fetchFn, wanted[0].id); } catch (e) { return e.message.slice(0, 300); }
   await Promise.all(wanted.slice(1).map(async (m) => {
     try { m.shares = await shareCount(env, key, fetchFn, m.id); } catch (e) {}
   }));
+  return '';
 }
 
 export async function reelsRoute(request, env, fetchFn = fetch, now = Date.now()) {
@@ -205,8 +219,8 @@ export async function reelsRoute(request, env, fetchFn = fetch, now = Date.now()
   const saved = await env.REEL_STORE.get(KEY_REELS, 'json');
   if (saved && now - saved.fetched_at < FRESH_MS) return json({ connected: true, reels: saved.reels }, 200, 'public, max-age=300');
   try {
-    const reels = await fetchReels(env, key, fetchFn);
-    await env.REEL_STORE.put(KEY_REELS, JSON.stringify({ fetched_at: now, reels }));
+    const { reels, sharesNote } = await fetchReels(env, key, fetchFn);
+    await env.REEL_STORE.put(KEY_REELS, JSON.stringify({ fetched_at: now, reels, ...(sharesNote ? { shares_error: sharesNote } : {}) }));
     return json({ connected: true, reels }, 200, 'public, max-age=300');
   } catch (e) {
     console.log('instagram reels failed', e.message);
