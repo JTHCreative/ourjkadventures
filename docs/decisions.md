@@ -297,3 +297,28 @@ checks together:
 - **Taking it back (added the same day).** The owner asked for a second tap to undo the vote. It removes that
   browser's vote and takes one off the tally and off the day's door count it was added to, all in one step.
   Only the ticket that cast a vote can take it back, so nobody can lower someone else's count.
+
+
+## 2026-11 "email me when it's here": Resend, confirm first, the owner presses send
+The site had no way to send email (Cloudflare Email Routing only receives). The owner chose **Resend's free
+plan** (3,000 a month, 100 a day) over Cloudflare Email Sending (beta, and needs the $5/month Workers Paid
+plan to email customers). Gmail was ruled out: about 500 a day, hard to reach from a Worker, and bulk mail
+from a personal account lands in spam. `server/email.js` is the only file that knows about Resend, so
+switching later means changing that one file.
+
+- **Confirm first (double opt-in).** An address is only emailed "it's here" after its owner clicks the link in
+  "is this you?". Otherwise anyone could sign up someone else's address. The confirm page waits for a button
+  press because some mail apps open every link in an email to check it, which would confirm on their own.
+- **Anyone, not just accounts.** No sign-in needed, since most people won't make an account for this. The
+  confirm step does the checking that an account would.
+- **The owner presses send.** Flipping a product's switch never emails anyone, so testing a switch can't
+  reach real people. Send is refused unless the product is available and the shop is open, so "it's in the
+  shop now" is true when it lands. Each person gets one email per product, then comes off that list.
+- **Our own daily count.** The site counts what it sends and stops at 100 a day, so a long list goes out over
+  several days (press send again) instead of failing partway. A batch send carries an idempotency key, so
+  pressing twice after a hiccup can't double-send.
+- **Keeping it from being misused.** 5 sign-ups a day per connection, no second confirm email within ten
+  minutes, and sign-ups only for products that aren't available.
+- **Stopping.** Every "it's here" email has a stop link and `List-Unsubscribe` headers for mail apps' own
+  button. The stop link is signed (HMAC), so it needs nothing stored, and it removes the address from every
+  list. Addresses are kept only while someone is waiting, and are explained on the privacy page.

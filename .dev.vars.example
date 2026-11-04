@@ -17,3 +17,8 @@ INSTAGRAM_ACCESS_TOKEN=
 META_APP_SECRET=
 # optional: only for the "key" line in /admin's test answers
 META_APP_ID=
+# "email me when it's here" (docs/setup/email.md). leave the key empty and the site just doesn't offer it.
+# careful: a real key sends real email, even locally
+RESEND_API_KEY=
+EMAIL_FROM=
+EMAIL_DAILY_LIMIT=

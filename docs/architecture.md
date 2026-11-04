@@ -137,6 +137,20 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   below zero and tapping on and off doesn't use up the daily limit.
   The shop page's "most asked for" card lists the top six not-available products with votes, and hides
   when there are none. `/admin` shows every tally, including for products that have since arrived.
+- **"email me when it's here"** (`server/notify.js`, `server/email.js`, `/api/notify`): sends through Resend
+  (`RESEND_API_KEY`; `/api/catalog` says `email: true` only when it's set, and the shop hides the form
+  otherwise). Under "i'm interested", a one-field form posts `{ slug, email }`. The server stores
+  `notify_<mode>/{slug}_{who}` (`who` = HMAC of the address) as `pending` with a random token and sends
+  "is this you?". The link opens `email.html?confirm=<slug>_<who>.<token>`, which posts to
+  `/api/notify/confirm` only when the button is pressed (mail scanners open links). Limits: 5 sign-ups a day per
+  connection, no second confirm email within 10 minutes, sign-ups only for products that are not available.
+  On `/admin`, "email when it's here" lists who is waiting; "send" (only when the product is available and
+  the shop is open) batch-sends "it's here" to confirmed addresses, up to 100 a press and today's
+  allowance, with an `Idempotency-Key`, then deletes those entries. Every "it's here" email has a stop link
+  (`email.html?stop=<who>.<hmac>`, no stored token needed) and `List-Unsubscribe` headers for mail apps'
+  one-click button (`POST /api/notify/stop?code=`). Stop removes the address from every list. The site
+  counts its own sends per day in `email_days/{YYYY-MM-DD}` and stops at `EMAIL_DAILY_LIMIT` (default 100,
+  Resend's free plan). Owner setup: `setup/email.md`.
 - **Pin boards:** `pin-boards.html` opens with a gallery wall in a living room (`.room` in the page;
   `room-living.webp` and `room-living-900.webp`). `.room-wall` holds six `.room-slot` spots, three across and two
   rows over the sofa, placed in percentages so they line up at any width; phones see the middle of the room,
