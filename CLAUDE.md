@@ -43,15 +43,16 @@ an everyday analogy when a concept is technical.
 - **Ask before** adding a paid service, a new third-party dependency with a runtime footprint, or changing the hosting setup.
 
 ## Voice and design (short version, full rules in `docs/brand-voice.md`)
-- All customer-facing copy is lowercase. No exclamation marks. No sales or urgency language ("hurry", "deal", "limited time", "obsessed", "cute!!").
-- Warm and sincere, like a friend who loves the thing. Short sentences that end in a period.
+- All customer-facing copy is lowercase. No sales or urgency language ("hurry", "deal", "limited time", "obsessed", "cute!!").
+- Casual, homey and conversational, like justin and kitty talking to you at a craft fair. Not cold or poetic. The about page is the reference.
+- Exclamation marks are fine in friendly text (story paragraphs, notes, thank-yous, small details), never in big headings or page titles, never stacked, never to push a sale.
 - Use the tokens in `styles.css` (`--surface`, `--ink`, `--accent`, `--space-*`, `--radius-*`). Do not hardcode new colors.
 - Font is EB Garamond. Accessible by default: labels on icon buttons, visible focus, `prefers-reduced-motion` respected, works at 360px wide.
 
 ## Product facts
 - Slugs (bag keys add `:large` for the large size): aussie, beagle, cavalier, corgi, dachshund, french-bulldog, german-shepherd, golden, husky, pit-bull, pomeranian, poodle, pug, rottweiler, shiba, yorkie, bay-area-pin-board.
 - The golden retriever pin is displayed as **"goldie"**.
-- Hover bubble text is `<breed> woof!` (an exclamation mark is allowed here, it's the dog talking). The only other places: the "i'm interested!" button and its "thank you!" line, and the "it's here!" email (casual and excited, still no urgency), at the owner's request.
+- Hover bubble text is `<breed> woof!`. The "i'm interested!" button, its "thank you!" line and the "it's here!" email keep their exclamation marks too.
 - Prices live in Square, not the repo. Today standard pins are $12 and the two large pins (aussie, pomeranian) are $15. The Bay Area board is planned at $80 but isn't in Square yet.
 - The shop is open or closed by the switch on `/admin` (Firestore `settings/shop`). It started closed.
 - Each website product and size is linked to a Square item on `/admin`. Unlinked means sold out.

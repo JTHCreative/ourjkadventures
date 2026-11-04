@@ -353,3 +353,16 @@ review waits for approval on `/admin` like every other, so nothing goes up unrea
   review stays and the guest copy is dropped.
 - **Names as typed.** Guests' names show as first name and last initial, with their capitals as typed, the same
   as account names.
+
+
+## 2026-11 A homier voice, and exclamation marks in friendly text
+The owner rewrote the about page as their own story ("we're justin and kitty, the j and k behind j+k
+adventures!") and asked for the whole brand voice to move the same way: casual, homey and conversational,
+not cold and poetic. The old voice leaned on short, moody lines ("inside. out.", "a little flag that says,
+this one is mine."), which read well but kept people at a distance. The about page now holds only the new
+story, and the pull quote is gone.
+
+- **Exclamation marks** are now allowed where a person would use one: story paragraphs, personal notes,
+  thank-yous and small details. They stay out of big headings and page titles, are never stacked, and are
+  never used for sales pressure. The no-discount and no-urgency rules are unchanged.
+- **Existing copy elsewhere** was not rewritten in this change. Pages get the new voice as they are touched.
