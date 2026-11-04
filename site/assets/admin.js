@@ -268,6 +268,41 @@ function paintInterest(data) {
 
 /* ---------- email when it's here ---------- */
 function waitingWords(r) { return (r.waiting === 1 ? '1 person' : r.waiting + ' people') + ' waiting.'; }
+// "nov 4"
+function shortDate(iso) {
+  const d = new Date(iso);
+  return isNaN(d) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toLowerCase();
+}
+
+// who's on a product's list, folded away like the email preview: each address and the day they signed up,
+// and one button to copy them all (one per line) to paste somewhere else
+function whoIsWaiting(r) {
+  const peek = el('details', 'notify-preview');
+  peek.appendChild(el('summary', 'link-btn', 'see who\'s waiting'));
+  const ul = el('ul', 'notify-people');
+  (r.people || []).forEach((p) => {
+    const li = el('li');
+    li.append(el('span', 'notify-email', p.email), el('span', 'caption', shortDate(p.at)));
+    ul.appendChild(li);
+  });
+  peek.appendChild(ul);
+  const copy = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', 'copy the addresses');
+  copy.type = 'button';
+  const said = el('span', 'caption');
+  said.setAttribute('role', 'status');
+  copy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText((r.people || []).map((p) => p.email).join('\n'));
+      said.textContent = 'copied.';
+    } catch (e) {
+      said.textContent = 'your browser wouldn\'t copy. you can select them above instead.';
+    }
+  });
+  const actions = el('div', 'admin-actions');
+  actions.append(copy, said);
+  peek.appendChild(actions);
+  return peek;
+}
 
 function paintNotify(data, done) {
   const state = $('[data-notify-state]');
@@ -317,6 +352,7 @@ function paintNotify(data, done) {
     if (done && done.slug === r.slug) note.textContent = done.words;
     actions.appendChild(note);
     row.appendChild(actions);
+    if (r.people && r.people.length) row.appendChild(whoIsWaiting(r));
     // what they'll get, word for word
     const peek = el('details', 'notify-preview');
     peek.appendChild(el('summary', 'link-btn', 'see the email'));

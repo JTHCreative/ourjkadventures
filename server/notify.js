@@ -4,7 +4,7 @@
 //
 //   POST /api/notify          { slug, email }  -> { status: "added" | "already" | "limit" } or { error: "email" | "domain" }
 //   POST /api/notify/stop     { code }         the stop link (also one-click from mail apps) -> { stopped: true }
-//   (owner, through server/admin.js) notifySummary and sendItsHere
+//   (owner, through server/admin.js) notifySummary (who's waiting, addresses included) and sendItsHere
 //
 // There's no "is this you?" email. Instead the address is checked on the spot: it has to look like an email, and
 // the part after the @ has to be a real domain that takes mail (asked of the internet's address book, DNS). That
@@ -221,15 +221,19 @@ export async function notifySummary(env, origin, fetchFn = fetch) {
   const items = await products(env, origin);
   const availability = await readAvailability(env, fetchFn);
   const rows = {};
+  // who's on each list, oldest sign-up first. only ever sent to the owner (server/admin.js checks first)
+  const people = {};
   for (const d of await firestoreQuery(env, list(env), {}, 5000, fetchFn)) {
     rows[d.slug] = (rows[d.slug] || 0) + 1;
+    (people[d.slug] = people[d.slug] || []).push({ email: d.email, at: d.createdAt || '' });
   }
+  for (const l of Object.values(people)) l.sort((a, b) => String(a.at).localeCompare(String(b.at)));
   const pics = emailImages(origin);
   const out = [];
   for (const p of items.filter((x) => rows[x.slug])) {
     const pictures = { logo: pics.logo, product: (await hasPicture(env, origin, p.slug)) ? pics.product(p.slug) : null };
     const preview = itsHereEmail(p, origin + productPath(p), origin + '/email.html?stop=...', pictures);
-    out.push({ slug: p.slug, name: productNoun(p), available: isAvailable(availability, p.slug), waiting: rows[p.slug], preview });
+    out.push({ slug: p.slug, name: productNoun(p), available: isAvailable(availability, p.slug), waiting: rows[p.slug], people: people[p.slug], preview });
   }
   out.sort((a, b) => b.waiting - a.waiting);
   return {

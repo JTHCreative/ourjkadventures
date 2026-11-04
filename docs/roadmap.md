@@ -96,6 +96,7 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [x] "i'm interested" is an on/off toggle (2026-11-04): tapping again takes the vote back, one off the tally
 - [ ] Owner: switch off on `/admin` any product that isn't made yet, so it collects interest instead of reading "coming soon" or "sold out"
 - [x] The bay area pin board uses the same "i'm interested" and "email me when it's here" as the pins (2026-11-04): its switch is under "pin boards" on `/admin`, and its page shows the button when it's off. Tests cover the whole loop for the board. Owner: switch it off on `/admin` while it isn't in Square yet
+- [x] `/admin` shows who's waiting for each "it's here" email (2026-11-04): each address and the day they signed up, folded away under "see who's waiting", with a button to copy them all. Only ever sent to the owner
 - [x] "email me when it's here" (2026-11-04): sign up under "i'm interested", checked on the spot (typo hints, DNS: no confirm email, owner's call), owner presses send on `/admin` once the product is back. Through Resend's free plan (owner chose it over Cloudflare Email Sending)
 - [x] Guest reviews (2026-11-04): name and email instead of an account, owner approves as always, a tick box to make an account that then takes the guest reviews in
 - [ ] Owner: Resend account, domain records and `RESEND_API_KEY` in Cloudflare (`setup/email.md`), then try steps 7 to 11

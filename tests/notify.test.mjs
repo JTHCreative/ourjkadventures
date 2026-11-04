@@ -249,3 +249,16 @@ test('the pin board gets "email me when it\'s here" too, sent from /admin like a
   assert.ok(m.html.includes('href="https://x.test/bay-area-pin-board.html"'));
   assert.deepEqual(await waiting(s), []);
 });
+
+test('the owner sees each address on a list, oldest first; no one else does', async () => {
+  const s = setup();
+  await signUp(s, 'corgi', 'First@Example.com');
+  await new Promise((r) => setTimeout(r, 5));
+  await signUp(s, 'corgi', 'second@example.com', { ip: '9.9.9.9' });
+  const row = (await (await s.call('GET', '/api/admin/notify', { token: await owner() })).json()).products[0];
+  assert.deepEqual(row.people.map((p) => p.email), ['first@example.com', 'second@example.com']);
+  assert.ok(row.people.every((p) => !isNaN(new Date(p.at))));
+  assert.equal((await s.call('GET', '/api/admin/notify', { token: await sign({ email: 'pup@example.com' }) })).status, 403);
+  // the public catalog never carries them
+  assert.ok(!JSON.stringify(await (await s.call('GET', '/api/catalog')).json()).includes('example.com'));
+});
