@@ -126,7 +126,9 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   (`settings/available_<square mode>`, missing means available). A product switched off is off sale whatever
   Square says: `/api/catalog` gives it no sizes and leaves it out of `byKey`, so checkout refuses it, and it
   carries `available: false` and `interest: <tally>`. Its buy area becomes "not in the shop yet." with the
-  count and an "i'm interested" button, open or closed. `POST /api/interest { slug }` counts one vote per
+  count ("N are interested.") and an "i'm interested!" button, open or closed. Once tapped, a line under the
+  button says "thank you! be notified when it's available:" with the email box (just "thank you!" when email
+  isn't set up). `POST /api/interest { slug }` counts one vote per
   browser ticket (`jka_voter`, an HttpOnly cookie on `/api/interest`) and at most 10 per pin per day per IP
   address. Ticket and IP are stored only as HMACs (the IP mixed with the day), keyed from the Firebase
   service account. The vote record, the tally (`interest_<mode>/{slug}`) and the per-IP count go in one
@@ -139,7 +141,7 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   when there are none. `/admin` shows every tally, including for products that have since arrived.
 - **"email me when it's here"** (`server/notify.js`, `server/email.js`, `/api/notify`): sends through Resend
   (`RESEND_API_KEY`; `/api/catalog` says `email: true` only when it's set, and the shop hides the form
-  otherwise). Under "i'm interested", a one-field form posts `{ slug, email }`. The server stores
+  otherwise). The email box under a tapped "i'm interested!" posts `{ slug, email }`. The server stores
   `notify_<mode>/{slug}_{who}` (`who` = HMAC of the address) as `pending` with a random token and sends
   "is this you?". The link opens `email.html?confirm=<slug>_<who>.<token>`, which posts to
   `/api/notify/confirm` only when the button is pressed (mail scanners open links). Limits: 5 sign-ups a day per

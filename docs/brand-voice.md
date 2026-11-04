@@ -5,7 +5,7 @@ The north star is `manifesto.md`. Its test applies to every page and every line 
 
 ## Copy rules
 - **Lowercase** everywhere a customer reads it: headings, buttons, errors, emails. Brand name is "j+k adventures".
-- **No exclamation marks.** (Exception: the pup board's speech bubble, `<breed> woof!`, because the dog is talking.)
+- **No exclamation marks.** Two exceptions, both the owner's call: the pup board's speech bubble, `<breed> woof!`, because the dog is talking; and the "i'm interested!" button with its "thank you!" line (owner's request, 2026-11-04).
 - **No sales or urgency language.** Never: sale, deal, % off, hurry, limited time, don't miss out, obsessed, cute!!, best seller.
 - **Warm, sincere, adult.** A friend who loves the same thing, not a brand performing excitement.
 - **Specific beats generic.** Name the breed, the place, the thing.

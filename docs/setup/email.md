@@ -5,7 +5,7 @@ Cloudflare Email Routing only *receives* mail for support@ and forwards it to Gm
 *sends* goes out through Resend. The free plan covers 3,000 emails a month, at most 100 a day. The site
 counts its own emails and stops at 100 a day by itself.
 
-Until step 6 is done, nothing changes on the site: the "email me when it's here" link simply doesn't show.
+Until step 6 is done, the line under a tapped "i'm interested!" just says "thank you!", with no email box.
 
 ## A. Make the account and add the domain (about 15 minutes)
 1. Go to resend.com and sign up with ourjkadventures@gmail.com. Choose the **Free** plan.
@@ -35,8 +35,8 @@ Until step 6 is done, nothing changes on the site: the "email me when it's here"
 ## C. Check it works
 7. Open `/admin`. The **email when it's here** card should say "today: 0 of 100 emails sent." instead of
    "email isn't set up yet".
-8. Pick a pin that is switched off (not available), open it in the shop, press **email me when it's here**
-   and enter your own email. You should get "is this you? the ... pin." within a minute. Check spam too.
+8. Pick a pin that is switched off (not available), open it in the shop and tap **i'm interested!**. Under the
+   button it says "thank you! be notified when it's available:". Enter your own email and press **notify me**. You should get "is this you? the ... pin." within a minute. Check spam too.
    If it landed in spam, mark it "not spam".
 9. Click the link in it and press **yes, email me**. On `/admin` the card should show "1 person waiting."
 10. To try the "it's here" email: switch that pin on, make sure the shop is open, and press

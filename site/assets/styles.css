@@ -231,10 +231,18 @@ h1, h2, h3 { font-weight: 500; text-transform: none; }
 .jka-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
 .jka-btn[hidden] { display: none; }
 .jka-btn--honey { --btn-bg: var(--honey); --btn-fg: var(--on-honey); }
-/* "email me when it's here", under the "i'm interested" button */
-.notify { display: flex; flex-direction: column; align-items: inherit; gap: var(--space-2); margin-top: var(--space-2); width: 100%; }
-.notify-form { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-2); width: 100%; max-width: 340px; text-align: left; }
-.notify-form .jka-btn { align-self: flex-start; }
+/* under a tapped "i'm interested": "thank you! be notified when it's available:" and one email box in a row */
+.notify { display: flex; flex-direction: column; align-items: inherit; gap: var(--space-1); width: 100%; }
+.notify-thanks { display: flex; flex-direction: column; align-items: inherit; gap: var(--space-2); width: 100%; }
+.notify-thanks[hidden] { display: none; }
+.notify-words { margin: 0; font-size: 17px; line-height: 24px; color: var(--ink-soft); }
+.notify-form { display: flex; flex-wrap: wrap; justify-content: inherit; align-items: center; gap: var(--space-2); width: 100%; max-width: 380px; }
+.notify-form[hidden] { display: none; }
+.pup-sheet .notify-form { justify-content: center; }
+.notify-form input { flex: 1 1 180px; min-width: 0; min-height: 44px; padding: var(--space-2) var(--space-3); font: inherit; font-size: 16px; color: var(--ink); background: var(--surface); border: 1.5px solid var(--line-strong); border-radius: var(--radius-sm); }
+.notify-form input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.notify-form input[aria-invalid="true"] { border-color: var(--accent-text); }
+.notify-note { margin: 0; }
 .notify-note:empty { display: none; }
 /* "i'm interested" while it's on: honey, so it reads as chosen, and tapping it again takes it back */
 .interest-btn[aria-pressed="true"] { --btn-bg: var(--honey); --btn-fg: var(--on-honey); }

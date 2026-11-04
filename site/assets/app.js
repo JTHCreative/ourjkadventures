@@ -367,9 +367,13 @@
     var a = interestedIn().filter(function (s) { return s !== slug; });
     save('jka_interest', a.length ? JSON.stringify(a) : null);
   }
-  function peopleWords(n) { return n === 1 ? '1 person is interested.' : n + ' people are interested.'; }
 
-  // same shape as buyArea (a price line, a stock line, a button) so every page places it the same way
+  // "1 is interested." / "4 are interested."
+  function interestedWords(n) { return n === 1 ? '1 is interested.' : n + ' are interested.'; }
+
+  // same shape as buyArea (a price line, a stock line, a button) so every page places it the same way.
+  // above the button only ever "not in the shop yet." and the count. below it, once tapped, a thank you and
+  // (when the site's email is set up) a box to be emailed when it arrives
   function interestArea(p, btnClass) {
     var area = el('div', 'buy');
     var price = el('p', 'price', '');
@@ -380,13 +384,21 @@
     var name = p.kind === 'board' ? p.name : pupName(p) + ' pin';
     // an on and off button, like a light switch: tap to say you're interested, tap again to take it back
     btn.setAttribute('aria-label', 'i\'m interested in the ' + name);
+    var after = el('div', 'notify');
+    var thanks = notifyBox(p);
+    var msg = el('p', 'caption notify-note');
+    msg.setAttribute('role', 'status');
+    after.appendChild(thanks);
+    after.appendChild(msg);
     var voted = interestedIn().indexOf(p.slug) >= 0;
     var sorry = 'we could not count that just now. try again in a moment.';
     function paint(note) {
-      line.textContent = 'not in the shop yet.' + (p.interest > 0 ? ' ' + peopleWords(p.interest) : '') + (note ? ' ' + note : '');
-      btn.textContent = voted ? 'you\'re interested.' : 'i\'m interested';
+      line.textContent = 'not in the shop yet.' + (p.interest > 0 ? ' ' + interestedWords(p.interest) : '');
+      btn.textContent = voted ? 'you\'re interested.' : 'i\'m interested!';
       btn.setAttribute('aria-pressed', voted ? 'true' : 'false');
       btn.disabled = false;
+      thanks.hidden = !voted;
+      msg.textContent = note || '';
     }
     function send(method) {
       return fetch('/api/interest', { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: p.slug }) })
@@ -402,7 +414,7 @@
           // "not counted" means this browser's vote was already gone (a cleared cookie, say): off either way
           voted = false;
           forgetInterest(p.slug);
-          paint('no longer counted. tap again if you change your mind.');
+          paint();
         }).catch(function () { paint(sorry); });
         return;
       }
@@ -411,7 +423,7 @@
         if (j.counted || j.reason === 'already') {
           voted = true;
           rememberInterest(p.slug);
-          paint(j.counted ? 'thank you. it helps us decide what comes next. tap again to take it back.' : 'we already have you down for this one.');
+          paint();
         } else if (j.reason === 'limit') {
           // lots of taps from one connection today (a shared wifi, say): this one wasn't added, and that's fine
           paint('we have counted plenty from this connection today. thank you all the same.');
@@ -427,51 +439,41 @@
     area.appendChild(price);
     area.appendChild(line);
     area.appendChild(btn);
-    if (catalog.email) area.appendChild(notifyBox(p, name));
+    area.appendChild(after);
     paint();
     return area;
   }
 
-  // "email me when it's here": a link that opens a one-field form. the server sends a link to check it's really them
-  function notifyBox(p, name) {
-    var box = el('div', 'notify');
-    var open = el('button', 'link-btn', 'email me when it\'s here');
-    open.type = 'button';
+  // the line under a tapped "i'm interested": "thank you!", and when the site's email is set up,
+  // "be notified when it's available:" with one email box. the server then sends a link to check it's really them
+  function notifyBox(p) {
+    var box = el('div', 'notify-thanks');
+    var words = el('p', 'notify-words', 'thank you!' + (catalog.email ? ' be notified when it\'s available:' : ''));
+    box.appendChild(words);
+    if (!catalog.email) return box;
     var form = el('form', 'notify-form');
-    form.hidden = true;
     form.noValidate = true;
     var id = 'notify-' + p.slug;
-    var field = el('div', 'field');
-    var lab = el('label', null, 'your email');
+    var lab = el('label', 'sr-only', 'your email');
     lab.htmlFor = id;
     var input = el('input');
     input.type = 'email';
     input.id = id;
     input.name = 'email';
+    input.placeholder = 'enter email';
     input.autocomplete = 'email';
     input.setAttribute('inputmode', 'email');
-    var hint = el('p', 'hint', 'one email when the ' + name + ' arrives, and nothing else. we\'ll check it\'s you first.');
-    hint.id = id + '-hint';
-    input.setAttribute('aria-describedby', hint.id);
-    field.appendChild(lab);
-    field.appendChild(input);
-    field.appendChild(hint);
-    var go = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', 'email me');
+    var go = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', 'notify me');
     go.type = 'submit';
     var note = el('p', 'caption notify-note');
     note.setAttribute('role', 'status');
-    form.appendChild(field);
+    form.appendChild(lab);
+    form.appendChild(input);
     form.appendChild(go);
-    box.appendChild(open);
     box.appendChild(form);
     box.appendChild(note);
-    open.addEventListener('click', function () {
-      open.hidden = true;
-      form.hidden = false;
-      input.focus();
-    });
-    function say(words, keepForm) {
-      note.textContent = words;
+    function say(text, keepForm) {
+      note.textContent = text;
       form.hidden = !keepForm;
       go.disabled = false;
     }
@@ -1097,7 +1099,7 @@
       }
       var words = el('span', 'set-btn-words');
       words.appendChild(el('span', 'set-btn-name', f ? f.name : p.name));
-      words.appendChild(el('span', 'set-btn-note', peopleWords(p.interest)));
+      words.appendChild(el('span', 'set-btn-note', interestedWords(p.interest)));
       a.appendChild(words);
       li.appendChild(a);
       list.appendChild(li);
