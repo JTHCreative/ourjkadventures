@@ -321,7 +321,12 @@ function paintNotify(data, done) {
     const peek = el('details', 'notify-preview');
     peek.appendChild(el('summary', 'link-btn', 'see the email'));
     peek.appendChild(el('p', 'caption', 'subject: ' + r.preview.subject));
-    peek.appendChild(el('pre', 'notify-preview-text', r.preview.text));
+    // the real email, shown in a sealed-off frame: no scripts, nothing it can reach on this page
+    const frame = el('iframe', 'notify-preview-frame');
+    frame.setAttribute('sandbox', '');
+    frame.title = 'the "it\'s here" email for the ' + r.name;
+    frame.srcdoc = r.preview.html;
+    peek.appendChild(frame);
     row.appendChild(peek);
     box.appendChild(row);
   });
@@ -458,7 +463,7 @@ function paintReviews(list) {
     stars.setAttribute('aria-label', r.rating + ' out of 5 stars');
     item.append(el('p', 'admin-review-pin', pinName(r.slug)), stars);
     item.appendChild(el('p', 'review-text', r.text || '(stars only, no words.)'));
-    item.appendChild(el('p', 'caption', r.name + (dateText(r.date) ? ', ' + dateText(r.date) : '') + '.'));
+    item.appendChild(el('p', 'caption', r.name + (r.guest ? ' (a guest, no account)' : '') + (dateText(r.date) ? ', ' + dateText(r.date) : '') + '.'));
     const row = el('div', 'admin-actions');
     const note = el('span', 'caption');
     note.setAttribute('role', 'status');

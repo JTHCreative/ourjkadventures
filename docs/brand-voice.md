@@ -23,8 +23,8 @@ The about page is the reference for this voice:
 - **Exclamation marks: fine in friendly text, not in big headings.** Use them where a person would, in
   story paragraphs, personal notes, thank-yous and small details ("we hope they do the same for you!").
   Keep them out of page titles and large display headings (`h1`, `h2`, `.display`, the `<title>`), which
-  end in a period. Don't stack them ("!!") and don't use them to push a sale. The "woof!" bubble and the
-  "i'm interested!" button stay as they are. (Owner's call, 2026-11-04.)
+  end in a period. Don't stack them ("!!") and don't use them to push a sale. The "woof!" bubble, the
+  "i'm interested!" button and the "it's here!" email stay as they are. (Owner's call, 2026-11-04.)
 - **No sales or urgency language.** Never: sale, deal, % off, hurry, limited time, don't miss out, obsessed, cute!!, best seller.
   Being excited about a pin is fine; pressuring someone to buy one is not.
 - **Buttons and short labels stay short and plain**, often as a little sentence ("in your bag.", "one moment.").
