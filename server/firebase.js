@@ -235,13 +235,15 @@ export async function firestoreDelete(env, path, fetchFn = fetch) {
 
 // Several writes that all happen or none do, like one envelope that is either posted whole or not at all.
 // Each write is { create: path, data }  (fails the whole lot if the document is already there)
+//            or { remove: path }        (fails the whole lot if the document is not there)
 //            or { add: path, field, by, data }  (adds `by` to a number field, making the document if needed)
-// Returns true when done, false when a `create` found its document already there.
+// Returns true when done, false when a `create` found its document already there or a `remove` found nothing.
 export async function firestoreCommit(env, writes, fetchFn = fetch) {
   const token = await accessToken(env, fetchFn);
   const name = (path) => 'projects/' + projectId(env) + '/databases/(default)/documents/' + path;
   const body = writes.map((w) => {
     if (w.create) return { update: { name: name(w.create), fields: toFields(w.data || {}) }, currentDocument: { exists: false } };
+    if (w.remove) return { delete: name(w.remove), currentDocument: { exists: true } };
     const data = w.data || {};
     return {
       update: { name: name(w.add), fields: toFields(data) },
@@ -256,7 +258,7 @@ export async function firestoreCommit(env, writes, fetchFn = fetch) {
   });
   if (res.ok) return true;
   const text = await res.text();
-  if (res.status === 409 || /ALREADY_EXISTS|FAILED_PRECONDITION/.test(text)) return false;
+  if (res.status === 409 || res.status === 404 || /ALREADY_EXISTS|FAILED_PRECONDITION|NOT_FOUND/.test(text)) return false;
   throw new Error('firestore commit ' + res.status);
 }
 
