@@ -4,12 +4,12 @@
 // Like a staff key cut at the front desk: a "system user" called website in our own Business settings has a key that
 // can only read, never expires, and is kept as a Cloudflare secret. Meta lets that kind of key reach an Instagram
 // account through the Facebook Page it's linked to, so the website asks for the J+K Adventures Page by ID and reads
-// the @ourjkadventures account linked to it. Every 30 minutes at most, /api/reels fetches the latest reels and keeps
+// the @ourjkadventures account linked to it. Every 10 minutes at most, /api/reels fetches the latest reels and keeps
 // a copy in Cloudflare KV, so visitors never reach Meta directly.
 //
 // Cloudflare settings:
 //   INSTAGRAM_ACCESS_TOKEN  secret, the website system user's key (instagram_basic, pages_show_list,
-//                           pages_read_engagement; never expires)
+//                           pages_read_engagement, and instagram_manage_insights for share counts; never expires)
 //   INSTAGRAM_PAGE_ID       the J+K Adventures Facebook Page's ID (not secret, in wrangler.jsonc)
 //   REEL_STORE              KV namespace binding for the saved copy (wrangler.jsonc)
 //   META_APP_SECRET         secret, the Meta app's App secret: signs every request (appsecret_proof)
@@ -17,12 +17,13 @@
 
 const GRAPH_VERSION = 'v26.0';
 const GRAPH = 'https://graph.facebook.com/' + GRAPH_VERSION;
-const FIELDS = 'id,media_type,media_url,thumbnail_url,permalink,caption,username,timestamp';
+// like_count is left out by Meta when we hid the like count on that post; comments_count only shows if comments are on
+const FIELDS = 'id,media_type,media_url,thumbnail_url,permalink,caption,username,timestamp,like_count,comments_count,is_comment_enabled';
 
 const KEY_REELS = 'instagram:reels';
-const FRESH_MS = 30 * 60 * 1000;   // serve the saved copy for this long before asking Meta again
+const FRESH_MS = 10 * 60 * 1000;   // serve the saved copy for this long before asking Meta again (counts stay fresh)
 const MAX_REELS = 12;
-const MAX_CAPTION = 300;
+const MAX_CAPTION = 2200;          // instagram's own caption limit: the full screen shows all of it
 
 function json(body, status, cache) {
   return new Response(JSON.stringify(body), {
@@ -159,6 +160,13 @@ export function toReel(m) {
   };
   // no media_url means Meta held the video back (licensed music, usually): the still shows, and links to the post
   if (typeof m.media_url === 'string' && /^https:\/\//.test(m.media_url)) reel.videoUrl = m.media_url;
+  // the counts, only the ones that are public on instagram: a hidden like count also hides shares, like instagram does
+  const count = (v) => Number.isInteger(v) && v >= 0;
+  if (count(m.like_count)) {
+    reel.likes = m.like_count;
+    if (count(m.shares)) reel.shares = m.shares;
+  }
+  if (count(m.comments_count) && m.is_comment_enabled !== false) reel.comments = m.comments_count;
   return reel;
 }
 
@@ -166,7 +174,26 @@ async function fetchReels(env, key, fetchFn) {
   const { account, notes } = await findAccount(env, key, fetchFn);
   if (!account) throw new Error('no account: ' + notes.join('; '));
   const data = await metaJson(await fetchFn(await keyedUrl(env, '/' + encodeURIComponent(account.id) + '/media', key, { fields: FIELDS, limit: '50' })), 'media');
-  return (Array.isArray(data.data) ? data.data : []).map(toReel).filter(Boolean).slice(0, MAX_REELS);
+  const media = (Array.isArray(data.data) ? data.data : []).filter((m) => toReel(m)).slice(0, MAX_REELS);
+  await addShares(env, key, fetchFn, media);
+  return media.map(toReel);
+}
+
+// shares aren't a plain field: they're an insight, which needs instagram_manage_insights on the key. without it the
+// first ask fails and the rest are skipped, so the reels still come back, just without a share count
+async function shareCount(env, key, fetchFn, id) {
+  const d = await metaJson(await fetchFn(await keyedUrl(env, '/' + encodeURIComponent(id) + '/insights', key, { metric: 'shares' })), 'shares');
+  const row = (Array.isArray(d.data) ? d.data : []).find((x) => x && x.name === 'shares');
+  const v = row && Array.isArray(row.values) && row.values[0] ? row.values[0].value : row && row.total_value ? row.total_value.value : undefined;
+  return Number.isInteger(v) ? v : undefined;
+}
+async function addShares(env, key, fetchFn, media) {
+  const wanted = media.filter((m) => Number.isInteger(m.like_count));
+  if (!wanted.length) return;
+  try { wanted[0].shares = await shareCount(env, key, fetchFn, wanted[0].id); } catch (e) { return; }
+  await Promise.all(wanted.slice(1).map(async (m) => {
+    try { m.shares = await shareCount(env, key, fetchFn, m.id); } catch (e) {}
+  }));
 }
 
 export async function reelsRoute(request, env, fetchFn = fetch, now = Date.now()) {
@@ -183,7 +210,7 @@ export async function reelsRoute(request, env, fetchFn = fetch, now = Date.now()
     return json({ connected: true, reels }, 200, 'public, max-age=300');
   } catch (e) {
     console.log('instagram reels failed', e.message);
-    // try again in 30 minutes, not on every visit, and let /admin show what went wrong
+    // try again in 10 minutes, not on every visit, and let /admin show what went wrong
     await env.REEL_STORE.put(KEY_REELS, JSON.stringify({ fetched_at: now, reels: saved ? saved.reels : [], last_error: e.message.slice(0, 300) }));
     // Meta is down or the key stopped working: the last saved copy beats an empty page
     if (saved) return json({ connected: true, reels: saved.reels, stale: true }, 200, 'public, max-age=60');

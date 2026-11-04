@@ -52,6 +52,11 @@ function fakeMeta(opts = {}) {
     if (u.pathname === '/v26.0/page-1') return Response.json({ id: 'page-1', name: 'J+K Adventures', ...linked });
     if (u.pathname === '/v26.0/me/accounts') return Response.json({ data: opts.pages || [] });
     if (u.pathname === '/v26.0/1789/media') return Response.json({ data: media });
+    const ins = /^\/v26\.0\/(\w+)\/insights$/.exec(u.pathname);
+    if (ins) {
+      if (!opts.shares) return fail(403, 10, 'Application does not have permission for this action');
+      return Response.json({ data: [{ name: 'shares', period: 'lifetime', values: [{ value: opts.shares[ins[1]] || 0 }] }] });
+    }
     return fail(404, 803, 'unknown ' + u.pathname);
   };
   return { calls, fetchFn };
@@ -115,18 +120,18 @@ test('without META_APP_SECRET, requests go unsigned and still work', async () =>
   assert.ok(calls.every((c) => !c.includes('appsecret_proof')));
 });
 
-test('reels are fetched at most every 30 minutes; visitors in between get the saved copy', async () => {
+test('reels are fetched at most every 10 minutes; visitors in between get the saved copy', async () => {
   const { env } = setup();
   const meta = fakeMeta();
   const t = Date.now();
   await reelsRoute(get('/api/reels'), env, meta.fetchFn, t);
-  for (let i = 1; i <= 20; i++) await reelsRoute(get('/api/reels'), env, meta.fetchFn, t + i * 60 * 1000);
+  for (let i = 1; i <= 9; i++) await reelsRoute(get('/api/reels'), env, meta.fetchFn, t + i * 60 * 1000);
   assert.equal(meta.calls.filter((c) => c.includes('/media?')).length, 1);
-  await reelsRoute(get('/api/reels'), env, meta.fetchFn, t + 31 * 60 * 1000);
+  await reelsRoute(get('/api/reels'), env, meta.fetchFn, t + 11 * 60 * 1000);
   assert.equal(meta.calls.filter((c) => c.includes('/media?')).length, 2);
 });
 
-test('if Meta is down, the last saved copy is served; with no copy, a calm error, retried after 30 minutes', async () => {
+test('if Meta is down, the last saved copy is served; with no copy, a calm error, retried after 10 minutes', async () => {
   const { env } = setup();
   const t = Date.now();
   await reelsRoute(get('/api/reels'), env, fakeMeta().fetchFn, t);
@@ -140,10 +145,10 @@ test('if Meta is down, the last saved copy is served; with no copy, a calm error
   const down = fakeMeta({ down: true });
   assert.equal((await reelsRoute(get('/api/reels'), fresh.env, down.fetchFn, t)).status, 502);
   const asked = down.calls.length;
-  for (let i = 1; i < 10; i++) await reelsRoute(get('/api/reels'), fresh.env, down.fetchFn, t + i * 60 * 1000);
+  for (let i = 1; i < 10; i++) await reelsRoute(get('/api/reels'), fresh.env, down.fetchFn, t + i * 59 * 1000);
   assert.equal(down.calls.length, asked);
   assert.match((await instagramStatus(fresh.env, fakeMeta().fetchFn)).last_error, /down/);
-  const back = await (await reelsRoute(get('/api/reels'), fresh.env, fakeMeta().fetchFn, t + 31 * 60 * 1000)).json();
+  const back = await (await reelsRoute(get('/api/reels'), fresh.env, fakeMeta().fetchFn, t + 11 * 60 * 1000)).json();
   assert.equal(back.reels.length, 2);
 });
 
@@ -207,4 +212,28 @@ test('/admin: when the key does not open the account, meta\'s answers to test qu
 test('/admin: says what is missing in cloudflare', async () => {
   assert.deepEqual(await instagramStatus({}, fakeMeta().fetchFn), { configured: false, missing: ['INSTAGRAM_ACCESS_TOKEN', 'REEL_STORE'] });
   assert.deepEqual(await instagramStatus({ INSTAGRAM_ACCESS_TOKEN: KEY }, fakeMeta().fetchFn), { configured: false, missing: ['REEL_STORE'] });
+});
+
+test('likes, comments and shares come along, but only the ones that are public on instagram', async () => {
+  const media = [
+    { id: '1', media_type: 'VIDEO', thumbnail_url: 'https://cdn.ig/1.jpg', permalink: 'https://www.instagram.com/reel/1/', like_count: 42, comments_count: 3, is_comment_enabled: true },
+    // like count hidden when posting: no likes and no shares, comments turned off: no comments
+    { id: '5', media_type: 'VIDEO', thumbnail_url: 'https://cdn.ig/5.jpg', permalink: 'https://www.instagram.com/reel/5/', comments_count: 0, is_comment_enabled: false }
+  ];
+  const { env } = setup();
+  const meta = fakeMeta({ media, shares: { 1: 7, 5: 9 } });
+  const body = await (await reelsRoute(get('/api/reels'), env, meta.fetchFn)).json();
+  assert.deepEqual([body.reels[0].likes, body.reels[0].comments, body.reels[0].shares], [42, 3, 7]);
+  assert.deepEqual([body.reels[1].likes, body.reels[1].comments, body.reels[1].shares], [undefined, undefined, undefined]);
+  assert.equal(meta.calls.filter((c) => c.includes('/insights?')).length, 1);   // never asked about the hidden one
+});
+
+test('without the insights permission, reels still come back, with no share count, after one try', async () => {
+  const media = ['1', '6', '7'].map((id) => ({ id, media_type: 'VIDEO', thumbnail_url: 'https://cdn.ig/' + id + '.jpg', permalink: 'https://www.instagram.com/reel/' + id + '/', like_count: 1, comments_count: 1 }));
+  const { env } = setup();
+  const meta = fakeMeta({ media });
+  const body = await (await reelsRoute(get('/api/reels'), env, meta.fetchFn)).json();
+  assert.equal(body.reels.length, 3);
+  assert.ok(body.reels.every((r) => r.likes === 1 && r.comments === 1 && r.shares === undefined));
+  assert.equal(meta.calls.filter((c) => c.includes('/insights?')).length, 1);
 });

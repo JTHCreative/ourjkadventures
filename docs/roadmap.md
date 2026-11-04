@@ -78,6 +78,7 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [x] Reel door ("out and about."): a ring of reels you drag, tap or step through (`assets/reel-door.js`, spec `reel-door-spec.md`). Built with 8 placeholder reels (2026-11-01)
 - [x] Owner changes (2026-11-01): moved to the About page; reels sized so the front one and both neighbours always fit whole; tapping the front reel opens it full screen with a close button at the top; no arrows on phones (upright or sideways)
 - [x] Reel door: real reels from our Instagram (spec, Path A). `/api/reels` (30 minute saved copy in Workers KV, last copy kept if Instagram is down), "connect instagram" on `/admin`. 1 reel sits alone; 2 reels each show twice (2026-11-01)
+- [x] Full-screen reels: caption window and real like/comment/share counts left of the card, reel numbers removed, saved copy refreshed every 10 minutes (2026-11-04)
 - [x] Switched to Meta's "Instagram API with Unified Login" (the only Instagram setup Meta offered the new app): Facebook Login for Business with a configuration, a business-owned key that doesn't expire, so no weekly renewal job (2026-11-02)
 - [x] Owner: the configuration, Instagram tester invite, `REEL_STORE` KV namespace and the three settings (`setup/instagram.md`, steps 1 to 3). KV namespace bound in `wrangler.jsonc` (2026-11-02)
 - [x] Reel door merged and live (#20 to #23)
