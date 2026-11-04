@@ -36,7 +36,7 @@ async function noteSent(env, n, fetchFn) {
 
 // (colors are --cobalt-700 and --ink-900 from styles.css: email apps can't read css variables)
 // a few short paragraphs of plain text become a matching, very plain html version, with the links made clickable
-function escapeHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+export function escapeHtml(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 export function toHtml(text) {
   const paras = text.split(/\n\n+/).map((p) => escapeHtml(p).replace(/\n/g, '<br>')
     .replace(/https?:\/\/[^\s<]+/g, (u) => '<a href="' + u + '" style="color:#10407b">' + u + '</a>'));
@@ -46,7 +46,8 @@ export function toHtml(text) {
 
 // one message: { to, subject, text, unsubscribe? }. unsubscribe is a link that stops these emails in one click
 function payload(env, m) {
-  const out = { from: env.EMAIL_FROM || DEFAULT_FROM, to: [m.to], reply_to: REPLY_TO, subject: m.subject, text: m.text, html: toHtml(m.text) };
+  // a message can bring its own designed html; otherwise its plain text is turned into simple html
+  const out = { from: env.EMAIL_FROM || DEFAULT_FROM, to: [m.to], reply_to: REPLY_TO, subject: m.subject, text: m.text, html: m.html || toHtml(m.text) };
   if (m.unsubscribe) {
     // mail apps show their own "unsubscribe" button from these two lines
     out.headers = { 'List-Unsubscribe': '<' + m.unsubscribe + '>, <mailto:' + REPLY_TO + '?subject=unsubscribe>', 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' };

@@ -326,3 +326,30 @@ switching later means changing that one file.
 - **Stopping.** Every "it's here" email has a stop link and `List-Unsubscribe` headers for mail apps' own
   button. The stop link is signed (HMAC), so it needs nothing stored, and it removes the address from every
   list. Addresses are kept only while someone is waiting, and are explained on the privacy page.
+- **The email itself (changed the same day).** The owner wanted the logo, the pin's picture, and wording that's
+  casual and excited, since it's good news. It's now "it's here!" with the pin's picture and a "go see the
+  corgi" button, exclamation marks allowed here (noted in `brand-voice.md`), still lowercase and no urgency.
+  Pictures are PNG copies (`site/assets/img/email/`, made by `scripts/email-pictures.py`) because Gmail and
+  others don't show SVG or WebP, linked by web address rather than attached: Resend doesn't allow attachments
+  in a batch, and attachments make an email heavier and more likely to be filtered.
+
+
+## 2026-11 Guest reviews
+The owner wanted people without an account to leave reviews too. A guest gives a name and an email, and the
+review waits for approval on `/admin` like every other, so nothing goes up unread.
+
+- **One per email per pin, no editing.** Without a sign-in there's no way to prove a later edit comes from the
+  same person, so a guest review can't be changed or removed from the page. They write to support@, and
+  making an account (below) gives them the usual edit and remove.
+- **The email is private.** It's kept with the review, never shown, and used only to reach them about it and to
+  move it into their account later. Same on-the-spot checks as the "email me" list (typo hint, the domain
+  must take mail), at most 5 guest reviews a day from one connection, and no email is sent.
+- **"create an account with us too".** Ticking it saves the review, then opens the create-account page with the
+  name and email filled in (handed over in sessionStorage, which stays in that tab and out of the address
+  bar and history). Firebase sends its usual confirm link.
+- **Joining the account only with a confirmed email.** Guest reviews move into an account the first time it
+  signs in with that email confirmed. Before confirming, anyone could type someone else's address into the
+  create form, so an unconfirmed account takes nothing. If the account already reviewed that pin, the account's
+  review stays and the guest copy is dropped.
+- **Names as typed.** Guests' names show as first name and last initial, with their capitals as typed, the same
+  as account names.

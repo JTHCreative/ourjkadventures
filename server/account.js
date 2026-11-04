@@ -8,7 +8,7 @@ import {
   configured, userFromRequest, firestoreGet, firestoreCreate, firestoreUpdate, firestoreList, firestoreDelete, deleteAuthUser
 } from './firebase.js';
 import { paidOrders } from './orders.js';
-import { deleteReviewsBy } from './reviews.js';
+import { deleteReviewsBy, claimGuestReviews } from './reviews.js';
 import { isAdmin } from './admin.js';
 
 const RECENT_SIGN_IN = 5 * 60; // seconds
@@ -128,6 +128,8 @@ export async function account(request, env, fetchFn = fetch) {
       await firestoreUpdate(env, path, { email: user.email }, fetchFn);
       doc.email = user.email;
     }
+    // reviews they left as a guest with this (confirmed) email join the account. never blocks signing in
+    try { await claimGuestReviews(env, user, fetchFn); } catch (e) { console.log('claim reviews failed', e.message); }
     return json(publicView(user, doc, env));
   } catch (e) {
     console.log('account error', e.message);

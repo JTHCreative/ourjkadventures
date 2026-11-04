@@ -924,15 +924,7 @@
     }
     function paintForm(token, mine) {
       form.textContent = '';
-      if (!token) {
-        var line = el('p', 'muted');
-        var a = el('a', null, 'sign in');
-        a.href = 'sign-in.html?next=pup-club.html';
-        line.appendChild(a);
-        line.appendChild(document.createTextNode(' to leave a review.'));
-        form.appendChild(line);
-        return;
-      }
+      if (!token) { paintGuestForm(); return; }
       var f = el('form');
       f.noValidate = true;
       var fs = el('fieldset', 'star-input');
@@ -1015,6 +1007,139 @@
           send.disabled = false;
           send.textContent = mine ? 'update your review.' : 'share your review.';
           note.textContent = 'we could not save your review. try again, or write to us at support@ourjkadventures.com.';
+        });
+      });
+      form.appendChild(f);
+    }
+
+    // the stars, as radio buttons that light up to the one picked. used by both forms
+    function starPicker(legend, picked, onPick) {
+      var fs = el('fieldset', 'star-input');
+      fs.appendChild(el('legend', null, legend));
+      var labels = [];
+      for (var i = 1; i <= 5; i++) {
+        var radio = el('input');
+        radio.type = 'radio';
+        radio.name = 'rating';
+        radio.value = String(i);
+        radio.id = 'rating-' + p.slug + '-' + i;
+        radio.className = 'sr-only';
+        if (i === picked) radio.checked = true;
+        var lab = el('label', null, '\u2605');
+        lab.htmlFor = radio.id;
+        lab.appendChild(el('span', 'sr-only', i === 1 ? '1 star' : i + ' stars'));
+        fs.appendChild(radio);
+        fs.appendChild(lab);
+        labels.push(lab);
+      }
+      function light(n) { labels.forEach(function (l, k) { l.classList.toggle('on', k < n); }); }
+      light(picked);
+      fs.addEventListener('change', function (e) { var n = Number(e.target.value); light(n); onPick(n); });
+      return fs;
+    }
+    function textField(id, label, type, hint) {
+      var field = el('div', 'field');
+      var lab = el('label', null, label);
+      lab.htmlFor = id;
+      var input = el(type === 'textarea' ? 'textarea' : 'input');
+      input.id = id;
+      if (type === 'textarea') { input.rows = 3; input.maxLength = 600; } else { input.type = type; input.maxLength = type === 'email' ? 254 : 40; }
+      field.appendChild(lab);
+      field.appendChild(input);
+      if (hint) {
+        var h = el('span', 'hint', hint);
+        h.id = id + '-hint';
+        input.setAttribute('aria-describedby', h.id);
+        field.appendChild(h);
+      }
+      return { field: field, input: input };
+    }
+
+    // no account: stars, words, a name and an email, and a tick box to make an account too. the server keeps the
+    // email private and the review waits for us like any other (see server/reviews.js)
+    function paintGuestForm() {
+      var f = el('form', 'guest-review');
+      f.noValidate = true;
+      var picked = 0;
+      f.appendChild(starPicker('leave a review', 0, function (n) { picked = n; }));
+      var words = textField('review-text-' + p.slug, 'a few words, if you like.', 'textarea');
+      var who = textField('review-name-' + p.slug, 'your name', 'text', 'we show your first name and last initial.');
+      who.input.autocomplete = 'name';
+      var mail = textField('review-email-' + p.slug, 'your email', 'email', 'never shown. it lets us reach you about your review.');
+      mail.input.autocomplete = 'email';
+      mail.input.setAttribute('inputmode', 'email');
+      f.appendChild(words.field);
+      f.appendChild(who.field);
+      f.appendChild(mail.field);
+      var tick = el('label', 'tick');
+      var box = el('input');
+      box.type = 'checkbox';
+      box.id = 'review-account-' + p.slug;
+      tick.appendChild(box);
+      tick.appendChild(el('span', null, 'create an account with us too. it keeps your reviews and orders in one place.'));
+      f.appendChild(tick);
+      var note = el('p', 'review-note');
+      note.setAttribute('role', 'status');
+      var row = el('div', 'review-actions');
+      var send = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', 'share your review.');
+      send.type = 'submit';
+      row.appendChild(send);
+      var signIn = el('a', 'caption', 'have an account? sign in.');
+      signIn.href = 'sign-in.html?next=pup-club.html';
+      row.appendChild(signIn);
+      f.appendChild(row);
+      f.appendChild(note);
+      var offered = null;
+      function wrong(input, words) {
+        input.setAttribute('aria-invalid', 'true');
+        input.focus();
+        note.textContent = words;
+      }
+      f.addEventListener('submit', function (e) {
+        e.preventDefault();
+        [who.input, mail.input].forEach(function (i) { i.removeAttribute('aria-invalid'); });
+        var name = who.input.value.trim();
+        var email = mail.input.value.trim();
+        if (!picked) { note.textContent = 'pick from one to five stars first.'; return; }
+        if (!name) { wrong(who.input, 'please add your name.'); return; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { wrong(mail.input, 'that email doesn\'t look quite right.'); return; }
+        var fix = email !== offered && suggestEmail(email);
+        if (fix) {
+          offered = email;
+          note.textContent = 'did you mean ' + fix + '? ';
+          var use = el('button', 'link-btn', 'yes, use that');
+          use.type = 'button';
+          use.addEventListener('click', function () { mail.input.value = fix; offered = fix; note.textContent = ''; });
+          note.appendChild(use);
+          note.appendChild(document.createTextNode(' or press share again to keep it.'));
+          return;
+        }
+        send.disabled = true;
+        send.textContent = 'one moment.';
+        reviewRequest('POST', '', null, { slug: p.slug, rating: picked, text: words.input.value, name: name, email: email }).then(function (r) {
+          send.disabled = false;
+          send.textContent = 'share your review.';
+          if (r.saved) {
+            if (box.checked) {
+              // the create page fills these in. kept for this tab only, and never in the page address
+              try { sessionStorage.setItem('jka_signup', JSON.stringify({ firstName: name.split(' ')[0], email: email, from: 'review' })); } catch (err) {}
+              location.href = 'create-account.html';
+              return;
+            }
+            form.textContent = '';
+            form.appendChild(el('p', 'review-note', 'thank you. we read every review before it shows up here.'));
+            return;
+          }
+          if (r.error === 'already') note.textContent = 'we already have a review of this pin from that email. to change it, write to us at ' + CONTACT_EMAIL + '.';
+          else if (r.error === 'limit') note.textContent = 'we have had a lot of reviews from this connection today. try again tomorrow.';
+          else if (r.error === 'domain') wrong(mail.input, 'we couldn\'t find mail at "' + email.slice(email.lastIndexOf('@') + 1) + '". check the part after the @.');
+          else if (r.error === 'email') wrong(mail.input, 'that email doesn\'t look quite right.');
+          else if (r.error === 'name') wrong(who.input, 'please add your name.');
+          else note.textContent = 'we could not save your review. try again, or write to us at ' + CONTACT_EMAIL + '.';
+        }).catch(function () {
+          send.disabled = false;
+          send.textContent = 'share your review.';
+          note.textContent = 'we could not save your review. try again, or write to us at ' + CONTACT_EMAIL + '.';
         });
       });
       form.appendChild(f);

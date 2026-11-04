@@ -2,14 +2,23 @@
 //   GET    /api/reviews?slug=corgi   approved reviews for one pin and their average. With a ticket, also your own.
 //   GET    /api/reviews?featured=1   approved 4 and 5 star reviews with words, newest first, for the home page
 //   POST   /api/reviews              { slug, rating, text }: leave or replace your review. Needs a confirmed email.
+//                                    Without a ticket, a guest review: { slug, rating, text, name, email }
 //   DELETE /api/reviews?slug=corgi   remove your review
-// One review per person per pin, stored as reviews/{slug}_{uid}. Every new or changed review is "pending"
+// One review per person per pin, stored as reviews/{slug}_{uid}.
+// Guests (no account): one review per email per pin, stored as reviews/{slug}_g{who} (who = the email scrambled),
+// with the email kept so the review can join their account later. Never shown: only "first l." is. The email has
+// to look right and its domain has to take mail; at most GUEST_PER_DAY guest reviews a day from one connection.
+// When someone signs in with a confirmed email (POST /api/account), any guest reviews left with that email move
+// into their account (claimGuestReviews), so a guest who ticked "create an account" finds them there. Every new or changed review is "pending"
 // until the owner approves it on /admin (or hides it: kept, never shown). See docs/setup/reviews.md.
 // The ratings shown are never filtered by stars: only the home page picks out the 4 and 5 star ones.
 
-import { configured, userFromRequest, firestoreGet, firestoreSet, firestoreUpdate, firestoreQuery, firestoreDelete } from './firebase.js';
+import { configured, userFromRequest, firestoreGet, firestoreSet, firestoreUpdate, firestoreQuery, firestoreDelete, firestoreCommit } from './firebase.js';
+import { scramble } from './interest.js';
+import { cleanEmail, domainTakesMail } from './notify.js';
 
 const MAX_TEXT = 600;
+export const GUEST_PER_DAY = 5;
 const FEATURED = 6;
 const CACHE_MS = 10 * 60 * 1000; // approved reviews are re-read at most every 10 minutes per server
 
@@ -93,6 +102,8 @@ export async function reviews(request, env, fetchFn = fetch) {
       return json(body);
     }
 
+    // no ticket at all: a guest leaving a review
+    if (!user && request.method === 'POST') return guestReview(request, env, fetchFn);
     if (!user) return json({ error: 'signed out' }, 401);
 
     if (request.method === 'DELETE') {
@@ -134,6 +145,72 @@ export async function reviews(request, env, fetchFn = fetch) {
   }
 }
 
+// a guest's name, as typed ("juniper hsu"), becomes "juniper h." like an account's
+export function guestName(s) {
+  const words = String(s || '').replace(/[\u0000-\u001f\u007f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40).split(' ').filter(Boolean);
+  return displayName({ firstName: words[0] || '', lastName: words.slice(1).join(' ') });
+}
+
+async function guestReview(request, env, fetchFn) {
+  let body = {};
+  try { body = (await request.json()) || {}; } catch (e) {}
+  const rating = body.rating;
+  if (typeof rating !== 'number' || !Number.isInteger(rating) || rating < 1 || rating > 5) return json({ error: 'rating' }, 400);
+  if (typeof body.slug !== 'string' || !(await pinSlugs(request, env)).includes(body.slug)) return json({ error: 'slug' }, 400);
+  const name = guestName(body.name);
+  if (name === 'a collector') return json({ error: 'name' }, 400);
+  const email = cleanEmail(body.email);
+  if (!email) return json({ error: 'email' }, 400);
+
+  const who = await scramble(env, 'email|' + email);
+  const path = 'reviews/' + encodeURIComponent(reviewId(body.slug, 'g' + who));
+  // one per email per pin. a guest can't change it later (there's no sign-in to prove it's them): they write to us
+  if (await firestoreGet(env, path, fetchFn)) return json({ error: 'already' });
+
+  const day = new Date().toISOString().slice(0, 10);
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  const ipPath = 'review_ips/' + (await scramble(env, 'review-ip|' + day + '|' + ip));
+  const fromHere = await firestoreGet(env, ipPath, fetchFn);
+  if (fromHere && fromHere.count >= GUEST_PER_DAY) return json({ error: 'limit' }, 429);
+  // a mistyped domain gets a plain answer, not an error status: it isn't a broken request
+  if ((await domainTakesMail(email.split('@')[1], fetchFn)) === false) return json({ error: 'domain' });
+
+  const now = new Date();
+  await firestoreSet(env, path, {
+    slug: body.slug, guest: true, who, email, rating, text: cleanText(body.text), name,
+    status: 'pending', createdAt: now, updatedAt: now
+  }, fetchFn);
+  await firestoreCommit(env, [{ add: ipPath, field: 'count', data: { day } }], fetchFn);
+  return json({ saved: true, status: 'pending' });
+}
+
+// Someone signed in with a confirmed email: guest reviews left with that address move into their account, as if
+// they had written them signed in. Only a confirmed email counts, so nobody can claim reviews with someone else's
+// address. If they already have a review of that pin from their account, theirs stays and the guest one goes.
+export async function claimGuestReviews(env, user, fetchFn = fetch) {
+  if (!user || user.email_verified !== true || typeof user.email !== 'string') return 0;
+  const email = cleanEmail(user.email);
+  if (!email) return 0;
+  const who = await scramble(env, 'email|' + email);
+  const left = await firestoreQuery(env, 'reviews', { who }, 100, fetchFn);
+  let moved = 0;
+  for (const r of left) {
+    if (r.guest !== true) continue;
+    const from = 'reviews/' + encodeURIComponent(r.id);
+    const to = 'reviews/' + encodeURIComponent(reviewId(r.slug, user.sub));
+    if (!(await firestoreGet(env, to, fetchFn))) {
+      await firestoreSet(env, to, {
+        slug: r.slug, uid: user.sub, rating: r.rating, text: r.text || '', name: r.name, status: r.status,
+        createdAt: new Date(r.createdAt), updatedAt: new Date()
+      }, fetchFn);
+      moved++;
+    }
+    await firestoreDelete(env, from, fetchFn);
+  }
+  if (moved) approvedCache = { list: null, until: 0 };
+  return moved;
+}
+
 // account deletion: remove everything this person wrote
 export async function deleteReviewsBy(env, uid, fetchFn = fetch) {
   const mine = await firestoreQuery(env, 'reviews', { uid }, 100, fetchFn);
@@ -148,7 +225,7 @@ export const REVIEW_STATUSES = ['approved', 'hidden'];
 export async function pendingReviews(env, fetchFn = fetch) {
   const list = await firestoreQuery(env, 'reviews', { status: 'pending' }, 500, fetchFn);
   return list.sort((a, b) => String(a.updatedAt || a.createdAt).localeCompare(String(b.updatedAt || b.createdAt)))
-    .map((r) => ({ id: r.id, ...publicView(r) }));
+    .map((r) => ({ id: r.id, ...publicView(r), guest: r.guest === true }));
 }
 
 // returns false if there is no such review

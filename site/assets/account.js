@@ -180,6 +180,16 @@ async function createPage() {
   const kit = formKit(form);
   wireGoogle(kit);
   if (await ready) { location.replace('account.html'); return; }
+  // came from a guest review with "create an account" ticked: their name and email are filled in already
+  let fromReview = null;
+  try { fromReview = JSON.parse(sessionStorage.getItem('jka_signup') || 'null'); sessionStorage.removeItem('jka_signup'); } catch (e) {}
+  if (fromReview && fromReview.from === 'review') {
+    if (typeof fromReview.firstName === 'string') form.firstName.value = fromReview.firstName.slice(0, 40);
+    if (typeof fromReview.email === 'string') form.email.value = fromReview.email.slice(0, 254);
+    const note = $('[data-create-note]');
+    if (note) note.hidden = false;
+    form.password.focus();
+  }
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
     kit.say('');
@@ -247,6 +257,12 @@ function sendVerify(user) {
 async function accountPage() {
   const user = await signedIn();
   if (!user) return;
+  // fresh from the confirm link, the browser may still hold the old "not confirmed" answer: ask again, and get a
+  // new ticket that says so (the server moves reviews left as a guest with this email once it's confirmed)
+  try {
+    await user.reload();
+    if (user.emailVerified) await user.getIdToken(true);
+  } catch (e) {}
   const view = $('#account-view');
   const notice = $('#account-notice');
 

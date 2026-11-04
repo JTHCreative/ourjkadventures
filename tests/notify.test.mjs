@@ -53,7 +53,13 @@ function setup({ open = true, unavailable = ['corgi'], resend = true, limit } = 
     return w.fetchFn(url, opts);
   };
   globalThis.fetch = fetchFn;
-  const env = { ...baseEnv, ADMIN_EMAILS: OWNER, ASSETS: { fetch: async () => Response.json(products) } };
+  // the site's files: products.json, and an email picture for every product except the poodle
+  const ASSETS = { fetch: async (req) => {
+    const path = new URL(req.url).pathname;
+    if (path.startsWith('/assets/img/email/')) return new Response(path.endsWith('/poodle.png') ? 'no' : 'png', { status: path.endsWith('/poodle.png') ? 404 : 200 });
+    return Response.json(products);
+  } };
+  const env = { ...baseEnv, ADMIN_EMAILS: OWNER, ASSETS };
   if (resend) env.RESEND_API_KEY = 're_test';
   if (limit) env.EMAIL_DAILY_LIMIT = String(limit);
   const call = async (method, path, { token, body, ip = '1.2.3.4', origin, form } = {}) => {
@@ -150,11 +156,19 @@ test('the owner sends "it\'s here" once the pin is back: everyone waiting, once 
   assert.match(batch.headers['Idempotency-Key'], /^its-here-corgi-/);
   assert.deepEqual(s.sent.map((m) => m.to[0]).sort(), ['a@example.com', 'b@example.com']);
   for (const m of s.sent) {
-    assert.equal(m.subject, 'the corgi pin is here.');
+    assert.equal(m.subject, 'the corgi pin is here!');
     assert.equal(m.reply_to, 'support@ourjkadventures.com');
     assert.ok(m.text.includes('https://x.test/pup-club.html#corgi'));
-    assert.ok(m.text.includes("if you didn't ask for this"));
+    assert.ok(m.text.includes("didn't ask, or want no more of these?"));
     assert.equal(m.text, m.text.toLowerCase());
+    // the designed version: logo, the pin's picture, a button to it, and the stop link
+    assert.ok(m.html.includes('<img src="https://x.test/assets/img/email/logo.png"'));
+    assert.ok(m.html.includes('<img src="https://x.test/assets/img/email/corgi.png"'));
+    assert.ok(m.html.includes('alt="the corgi pin"'));
+    assert.ok(m.html.includes('href="https://x.test/pup-club.html#corgi"'));
+    assert.ok(m.html.includes('>go see the corgi</a>'));
+    assert.match(m.html, /href="https:\/\/x\.test\/email\.html\?stop=[0-9a-f]{32}\.[0-9a-f]{32}"/);
+    assert.ok(!m.html.includes('<script'));
     assert.match(m.headers['List-Unsubscribe'], /^<https:\/\/x\.test\/api\/notify\/stop\?code=[0-9a-f]{32}\.[0-9a-f]{32}>/);
     assert.equal(m.headers['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click');
   }
@@ -187,6 +201,31 @@ test('the stop link takes an address off every list, from the page or a mail app
   const left = Object.entries(s.g.docs).filter(([k]) => k.startsWith('notify_sandbox/'));
   assert.equal(left.length, 1);
   assert.equal(left[0][1].email.stringValue, 'other@example.com');
+});
+
+test('a product without an email picture still gets its email, just without the picture', async () => {
+  const s = setup({ unavailable: ['poodle'] });
+  await signUp(s, 'poodle', 'pup@example.com');
+  await flip(s, 'poodle', true);
+  assert.equal((await (await pressSend(s, 'poodle')).json()).sent, 1);
+  const m = s.sent[0];
+  assert.equal(m.subject, 'the poodle pin is here!');
+  assert.ok(m.html.includes('email/logo.png'));
+  assert.ok(!m.html.includes('email/poodle.png'));
+});
+
+test('the owner\'s preview is the real email, with a goldie by that name', async () => {
+  const s = setup({ unavailable: ['golden'] });
+  await signUp(s, 'golden', 'pup@example.com');
+  const r = (await (await s.call('GET', '/api/admin/notify', { token: await owner() })).json()).products[0];
+  assert.equal(r.preview.subject, 'the goldie pin is here!');
+  assert.ok(r.preview.html.includes('>go see the goldie</a>'));
+  assert.ok(r.preview.html.includes('email/golden.png'));
+});
+
+test('every product has an email picture, and there is a logo', () => {
+  for (const p of products.items) assert.ok(fs.existsSync(new URL('../site/assets/img/email/' + p.slug + '.png', import.meta.url)), p.slug);
+  assert.ok(fs.existsSync(new URL('../site/assets/img/email/logo.png', import.meta.url)));
 });
 
 test('only the owner sees or sends', async () => {
