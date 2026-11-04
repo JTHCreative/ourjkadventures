@@ -235,3 +235,17 @@ test('only the owner sees or sends', async () => {
   assert.equal((await s.call('POST', '/api/admin/notify', { token: pup, body: { slug: 'corgi' } })).status, 403);
   assert.equal((await s.call('GET', '/api/admin/notify')).status, 401);
 });
+
+test('the pin board gets "email me when it\'s here" too, sent from /admin like a pin', async () => {
+  const slug = 'bay-area-pin-board';
+  const s = setup({ unavailable: [slug] });
+  assert.equal((await signUp(s, slug, 'a@example.com')).status, 'added');
+  assert.deepEqual(await waiting(s), [[slug, 1]]);
+  await flip(s, slug, true);
+  assert.equal((await (await pressSend(s, slug)).json()).sent, 1);
+  const m = s.sent[0];
+  assert.equal(m.subject, 'the bay area pin board is here!');
+  assert.ok(m.html.includes('<img src="https://x.test/assets/img/email/bay-area-pin-board.png"'));
+  assert.ok(m.html.includes('href="https://x.test/bay-area-pin-board.html"'));
+  assert.deepEqual(await waiting(s), []);
+});
