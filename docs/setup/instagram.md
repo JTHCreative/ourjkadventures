@@ -19,7 +19,7 @@ account linked to it. Every 10 minutes at most it fetches the latest reels, keep
 |---|---|---|
 | Meta | the app `j+k adventures website`, owned by J+K Adventures | the key is made for this app |
 | Meta | the Facebook Page **J+K Adventures** (ID `1209633565574678`), linked to @ourjkadventures | it's the key's way in. It can stay empty |
-| Meta | the system user **website** (Employee), assigned @ourjkadventures (Content on), the Page and the app | it owns the key |
+| Meta | the system user **website** (Employee), assigned @ourjkadventures (Content and Insights on), the Page and the app | it owns the key |
 | Cloudflare secret | `INSTAGRAM_ACCESS_TOKEN` | the key |
 | Cloudflare secret | `META_APP_SECRET` | signs every request to Meta |
 | Cloudflare | `META_APP_ID` (optional) | only for the "key" line in `/admin`'s test answers |
@@ -38,7 +38,9 @@ Meta changes its labels now and then, so the names below may be slightly differe
    **Accounts** > **Instagram accounts** > **ourjkadventures** > **Connected assets** shows the Page.
 3. **The system user.** **Users** > **System users** > **Add**, named `website`, role **Employee**. Then
    **Assign assets**:
-   - **Instagram accounts** > **ourjkadventures**, with **Content** on.
+   - **Instagram accounts** > **ourjkadventures**, with **Content** and **Insights** on (Insights is for the share
+     counts: without it Meta says "(#10) Application does not have permission for this action" even when the key
+     has instagram_manage_insights).
    - **Pages** > **J+K Adventures** (its switches may be greyed out, set "on the Instagram side": that's fine).
    - **Apps** > **j+k adventures website**.
 4. **The key.** On `website`, **Generate new token**: app **j+k adventures website**, expiration **Never**,
