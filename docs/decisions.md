@@ -267,3 +267,30 @@ slugs never hold commas. Rules:
   skipped by the keyboard and screen readers. (First version stood one or two picks still, side by side,
   which read as a banner rather than a carousel.)
 - Its own file, `assets/featured.js`, like the reel door, rather than growing `app.js`.
+
+
+## 2026-11 "i'm interested": one vote each, without asking people to sign in
+Products the owner switches to not available on `/admin` show an "i'm interested" button, and the counts are
+public. The owner asked whether votes could be held to one per person by IP address. An IP address alone
+doesn't work well: a household, an office, or a craft fair's wifi all share one, so "one vote per IP" would
+let only one person at a booth vote. And a phone moving between wifi and mobile data gets a new one. So two
+checks together:
+
+- **A ticket per browser.** The first tap sets `jka_voter`, a random id in an HttpOnly cookie that's only sent
+  to `/api/interest`. One vote per pin per ticket, enforced by a vote record the server creates with a
+  "must not exist yet" condition, in the same Firestore commit as the tally. Clearing cookies or a private
+  window gets a new ticket, which is where the second check comes in.
+- **A daily cap per connection.** At most 10 votes per pin per day from one IP address. That's enough for a
+  family or a booth crowd, and it stops one person from clearing cookies 200 times. Taps over the cap are
+  told calmly that they weren't added.
+- **Nothing stored as it is.** Both the ticket and the IP are scrambled with an HMAC keyed from the Firebase
+  service account, and the IP is mixed with the day, so records can't be matched across days or turned back
+  into an address. Explained on the privacy page.
+- **Considered and left out:** requiring sign-in (one vote per account is airtight, but most people won't make
+  an account to say "i'd like a corgi pin"), and Cloudflare Turnstile, a bot check (a new third-party script;
+  worth adding if the counts ever look gamed). The counts are a guide for what to make next, not money, so
+  "good enough to be honest" beats "impossible to cheat".
+- **Practice stays separate.** Switches and tallies follow the Square mode, like the featured picks, so taps
+  in the sandbox never touch the real counts.
+- **Not a reservation.** Nothing is held or charged. It's a show of hands. A product switched off is off sale
+  even if it's linked and in stock, so a pin can be stocked in Square before it's announced.

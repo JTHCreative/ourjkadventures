@@ -122,6 +122,17 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   that person's reviews. The sign-in page honors `?next=<page>.html` (own pages only) so "sign in to
   leave a review" returns to the pup club.
   - Checkout adds `metadata.uid` to the Square order and pre-fills the buyer's email.
+- **"i'm interested"** (`server/interest.js`, `/api/interest`): each product has an available switch on `/admin`
+  (`settings/available_<square mode>`, missing means available). A product switched off is off sale whatever
+  Square says: `/api/catalog` gives it no sizes and leaves it out of `byKey`, so checkout refuses it, and it
+  carries `available: false` and `interest: <tally>`. Its buy area becomes "not in the shop yet." with the
+  count and an "i'm interested" button, open or closed. `POST /api/interest { slug }` counts one vote per
+  browser ticket (`jka_voter`, an HttpOnly cookie on `/api/interest`) and at most 10 per pin per day per IP
+  address. Ticket and IP are stored only as HMACs (the IP mixed with the day), keyed from the Firebase
+  service account. The vote record, the tally (`interest_<mode>/{slug}`) and the per-IP count go in one
+  Firestore `:commit` with a "must not exist yet" check on the vote, so a double tap can't count twice.
+  The shop page's "most asked for" card lists the top six not-available products with votes, and hides
+  when there are none. `/admin` shows every tally, including for products that have since arrived.
 - **Pin boards:** `pin-boards.html` opens with a gallery wall in a living room (`.room` in the page;
   `room-living.webp` and `room-living-900.webp`). `.room-wall` holds six `.room-slot` spots, three across and two
   rows over the sofa, placed in percentages so they line up at any width; phones see the middle of the room,
