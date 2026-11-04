@@ -16,6 +16,7 @@ import { configured, firestoreGet, firestoreSet } from './firebase.js';
 import { isShopOpen } from './shop.js';
 import { squareConfigured, squareMode, getVariations, stockCounts } from './square.js';
 import { readAvailability, isAvailable, readInterest } from './interest.js';
+import { emailConfigured } from './email.js';
 
 const CACHE_MS = 60 * 1000;
 const RETRY_MS = 10 * 1000;
@@ -179,7 +180,8 @@ export async function catalogRoute(request, env, fetchFn = fetch) {
   if (request.method !== 'GET') return new Response('{"error":"method"}', { status: 405 });
   try {
     const c = await getCatalog(env, request.url, fetchFn);
-    return new Response(JSON.stringify(publicCatalog(c)), {
+    // email: whether "email me when it's here" can be offered (server/notify.js)
+    return new Response(JSON.stringify({ ...publicCatalog(c), email: emailConfigured(env) }), {
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
     });
   } catch (e) {
