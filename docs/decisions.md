@@ -366,3 +366,19 @@ story, and the pull quote is gone.
   thank-yous and small details. They stay out of big headings and page titles, are never stacked, and are
   never used for sales pressure. The no-discount and no-urgency rules are unchanged.
 - **Existing copy elsewhere** was not rewritten in this change. Pages get the new voice as they are touched.
+
+
+## 2026-11 Pin models made from the artwork SVG
+The owner sent new german shepherd art as a PNG and an SVG, with the gold drawn in red: red fills (the rim, eye rings,
+mouth line) and red outlines (around ears, face, mask and nose). `scripts/svg-to-pin.py` turns that SVG into a model
+built like the existing ones: gold back plate and plating, one glossy enamel layer per coloured shape in drawing
+order, raised gold lines, a taller gold rim, and the post and rubber clutch copied from the corgi model. The pin is
+38.33 mm tall like every other one.
+
+- **Red means gold.** It's the owner's convention for marking metal in the artwork, so any SVG drawn the same way
+  can become a model without hand work.
+- **Small steps between layers.** Each enamel sits 0.008 mm above the one before, so overlapping colours (the nose
+  shine on the nose) don't flicker in the viewer. 0.003 mm was tried first and speckled from a distance.
+- **The tools (shapely, mapbox-earcut, svgelements) run only on our side**, like gltf-transform. Nothing new loads
+  on the site. After the usual two slimming steps the new model is 874 KB, down from 2.2 MB.
+- `?v=` in `MODEL_3D` went to 3 so browsers fetch the new file.
