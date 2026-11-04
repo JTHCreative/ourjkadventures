@@ -35,6 +35,8 @@
       catalog.byKey = {};
       // the owner's picks for the carousel at the top of the shop: slugs, already only ones in stock
       catalog.featured = Array.isArray(j.featured) ? j.featured : [];
+      // whether "email me when it's here" is offered (the site's email is set up)
+      catalog.email = j.email === true;
       (j.items || []).forEach(function (p) {
         p.sizes = p.sizes || [];
         catalog.items[p.slug] = p;
@@ -425,8 +427,129 @@
     area.appendChild(price);
     area.appendChild(line);
     area.appendChild(btn);
+    if (catalog.email) area.appendChild(notifyBox(p, name));
     paint();
     return area;
+  }
+
+  // "email me when it's here": a link that opens a one-field form. the server sends a link to check it's really them
+  function notifyBox(p, name) {
+    var box = el('div', 'notify');
+    var open = el('button', 'link-btn', 'email me when it\'s here');
+    open.type = 'button';
+    var form = el('form', 'notify-form');
+    form.hidden = true;
+    form.noValidate = true;
+    var id = 'notify-' + p.slug;
+    var field = el('div', 'field');
+    var lab = el('label', null, 'your email');
+    lab.htmlFor = id;
+    var input = el('input');
+    input.type = 'email';
+    input.id = id;
+    input.name = 'email';
+    input.autocomplete = 'email';
+    input.setAttribute('inputmode', 'email');
+    var hint = el('p', 'hint', 'one email when the ' + name + ' arrives, and nothing else. we\'ll check it\'s you first.');
+    hint.id = id + '-hint';
+    input.setAttribute('aria-describedby', hint.id);
+    field.appendChild(lab);
+    field.appendChild(input);
+    field.appendChild(hint);
+    var go = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', 'email me');
+    go.type = 'submit';
+    var note = el('p', 'caption notify-note');
+    note.setAttribute('role', 'status');
+    form.appendChild(field);
+    form.appendChild(go);
+    box.appendChild(open);
+    box.appendChild(form);
+    box.appendChild(note);
+    open.addEventListener('click', function () {
+      open.hidden = true;
+      form.hidden = false;
+      input.focus();
+    });
+    function say(words, keepForm) {
+      note.textContent = words;
+      form.hidden = !keepForm;
+      go.disabled = false;
+    }
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var email = input.value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        input.setAttribute('aria-invalid', 'true');
+        say('that email doesn\'t look quite right.', true);
+        input.focus();
+        return;
+      }
+      input.removeAttribute('aria-invalid');
+      go.disabled = true;
+      note.textContent = 'one moment.';
+      fetch('/api/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: p.slug, email: email }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j.status_code = r.status; return j; }); })
+        .then(function (j) {
+          if (j.status === 'sent') say('check your inbox. we sent a link to make sure it\'s you.');
+          else if (j.status === 'already') say('you\'re already on the list for this one.');
+          else if (j.status === 'limit') say('we have had a lot of sign-ups from this connection today. try again tomorrow.');
+          else if (j.status === 'busy') say('we can\'t send email just now. try again tomorrow, or write to us at ' + CONTACT_EMAIL + '.');
+          else if (j.error === 'email') { input.setAttribute('aria-invalid', 'true'); say('that email doesn\'t look quite right.', true); }
+          else if (j.status_code === 409) say('this one just arrived in the shop. refresh the page to see it.');
+          else say('we could not do that just now. try again in a moment, or write to us at ' + CONTACT_EMAIL + '.', true);
+        }).catch(function () { say('we could not do that just now. try again in a moment, or write to us at ' + CONTACT_EMAIL + '.', true); });
+    });
+    return box;
+  }
+
+  /* ---------- email.html: the confirm and stop links from our emails land here ---------- */
+  // nothing happens until the button is pressed, because some mail apps open every link in an email to check it
+  function initEmailPage() {
+    var page = document.querySelector('[data-email-page]');
+    if (!page) return;
+    var q = new URLSearchParams(location.search);
+    var confirmCode = q.get('confirm');
+    var stopCode = q.get('stop');
+    var title = page.querySelector('[data-email-title]');
+    var words = page.querySelector('[data-email-words]');
+    var go = page.querySelector('[data-email-go]');
+    var status = page.querySelector('[data-email-status]');
+    if (!confirmCode && !stopCode) {
+      title.textContent = 'nothing to do here.';
+      words.textContent = 'this page is for the links in our emails.';
+      return;
+    }
+    title.textContent = confirmCode ? 'is this you?' : 'stop these emails?';
+    words.textContent = confirmCode
+      ? 'say yes and we\'ll write once, when the pin you asked about is in the shop.'
+      : 'we\'ll take this address off every list. you won\'t hear from us about new pins.';
+    go.textContent = confirmCode ? 'yes, email me' : 'stop emailing me';
+    go.hidden = false;
+    go.addEventListener('click', function () {
+      go.disabled = true;
+      status.textContent = 'one moment.';
+      fetch('/api/notify/' + (confirmCode ? 'confirm' : 'stop'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: confirmCode || stopCode })
+      }).then(function (r) { return r.json().catch(function () { return {}; }); }).then(function (j) {
+        status.textContent = '';
+        if (confirmCode && j.confirmed) {
+          title.textContent = 'thank you.';
+          words.textContent = 'we\'ll write once, when the ' + j.name + ' is in the shop.';
+        } else if (stopCode && j.stopped) {
+          title.textContent = 'done.';
+          words.textContent = 'this address is off every list. you won\'t hear from us again unless you ask.';
+        } else {
+          title.textContent = 'that link didn\'t work.';
+          words.textContent = 'it may be old or cut short. you can ask again on the pin\'s page, or write to us at ' + CONTACT_EMAIL + '.';
+        }
+        go.hidden = true;
+        // the code has done its job: keep it out of the address bar and history
+        try { history.replaceState(null, '', location.pathname); } catch (e) {}
+      }).catch(function () {
+        go.disabled = false;
+        status.textContent = 'we could not reach the server. try again in a moment.';
+      });
+    });
   }
 
   // the buy button, the price and the stock line for one size, kept in step when the size changes
@@ -1220,6 +1343,7 @@
     initReel();
     initKindWords();
     loadShop();
+    initEmailPage();
     initRoom();
     initZoom();
   }

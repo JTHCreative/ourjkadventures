@@ -231,6 +231,11 @@ h1, h2, h3 { font-weight: 500; text-transform: none; }
 .jka-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
 .jka-btn[hidden] { display: none; }
 .jka-btn--honey { --btn-bg: var(--honey); --btn-fg: var(--on-honey); }
+/* "email me when it's here", under the "i'm interested" button */
+.notify { display: flex; flex-direction: column; align-items: inherit; gap: var(--space-2); margin-top: var(--space-2); width: 100%; }
+.notify-form { display: flex; flex-direction: column; align-items: stretch; gap: var(--space-2); width: 100%; max-width: 340px; text-align: left; }
+.notify-form .jka-btn { align-self: flex-start; }
+.notify-note:empty { display: none; }
 /* "i'm interested" while it's on: honey, so it reads as chosen, and tapping it again takes it back */
 .interest-btn[aria-pressed="true"] { --btn-bg: var(--honey); --btn-fg: var(--on-honey); }
 .jka-btn--quiet { --btn-bg: transparent; --btn-fg: var(--ink); --btn-line: var(--line-strong); }
@@ -943,6 +948,10 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .switch--sm { width: 48px; height: 28px; }
 .switch--sm .switch-knob { width: 19px; height: 19px; }
 .switch--sm[aria-checked="true"] .switch-knob { transform: translateX(20px); }
+.notify-preview { margin-top: var(--space-2); }
+.notify-preview > summary { list-style: none; }
+.notify-preview > summary::-webkit-details-marker { display: none; }
+.notify-preview-text { margin: var(--space-2) 0 0; padding: var(--space-3); white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; font-size: 15px; line-height: 22px; background: var(--surface-sunken); border-radius: var(--radius-sm); }
 .interest-admin { margin: 0; padding-left: var(--space-5); }
 .interest-admin li { padding: var(--space-2) 0; border-bottom: 1.5px solid var(--line); }
 .interest-admin li .caption { margin-left: var(--space-3); }
