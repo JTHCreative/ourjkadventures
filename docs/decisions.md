@@ -382,3 +382,20 @@ order, raised gold lines, a taller gold rim, and the post and rubber clutch copi
 - **The tools (shapely, mapbox-earcut, svgelements) run only on our side**, like gltf-transform. Nothing new loads
   on the site. After the usual two slimming steps the new model is 874 KB, down from 2.2 MB.
 - `?v=` in `MODEL_3D` went to 3 so browsers fetch the new file.
+
+
+## 2026-11 Reels on backing cards
+The owner updated the reel door spec (`docs/reel-door-spec.md`): each reel now hangs on a card like the pin
+backing cards (parchment, 3px ink border, a hang slot, the video in an inset window, the handle and caption
+printed underneath, like/comment/share circles on the video) with a warm shadow that grows as a card lifts or
+swaps. The motion, controls and Instagram parts didn't change.
+
+- **Laid out at its printed size, then scaled.** The card is built at the spec's 212 x 436 px, with every
+  measurement straight from the spec, and `reel-door.js` scales the whole card to the stage (and up to fill the
+  screen in full-screen view). That keeps the card's proportions exact at any width. The cost: on a 360px phone the
+  card is about 160px wide, so its printed text is drawn smaller than 14px there, the same as a real card in a photo.
+- **Like, comment and share are printed on, not buttons.** We can't like or comment from our site, so they're
+  decoration; a tap on them opens the reel like the rest of the picture. Play and sound stay real buttons.
+- **The shadow is worked out each frame** (`cardShadow` in `reel-door.js`, tested), from a light up and to the
+  left, so it falls slightly right, grows with lift and swap, and fades toward the back.
+
