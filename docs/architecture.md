@@ -149,7 +149,11 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   email. Limits: 5 sign-ups a day per connection, sign-ups only for products that are not available.
   On `/admin`, "email when it's here" lists who is waiting; "send" (only when the product is available and
   the shop is open) batch-sends "it's here" to everyone waiting, up to 100 a press and today's
-  allowance, with an `Idempotency-Key`, then deletes those entries. Every "it's here" email has a stop link
+  allowance, with an `Idempotency-Key`, then deletes those entries. The "it's here!" email is designed html (table layout, inline styles, the site's colors written out): the logo,
+  "it's here!", the product's picture, a "go see the <name>" button, a thank you, and the stop link in small
+  print, plus a plain-text version. Pictures are PNG copies in `site/assets/img/email/` (Gmail and others don't
+  show SVG or WebP), linked by address rather than attached; a product without one is sent without its picture.
+  `/admin` previews the real email in a sandboxed iframe. Every "it's here" email has a stop link
   (`email.html?stop=<who>.<hmac>`, no stored token needed) and `List-Unsubscribe` headers for mail apps'
   one-click button (`POST /api/notify/stop?code=`). Stop removes the address from every list. The site
   counts its own sends per day in `email_days/{YYYY-MM-DD}` and stops at `EMAIL_DAILY_LIMIT` (default 100,

@@ -326,3 +326,9 @@ switching later means changing that one file.
 - **Stopping.** Every "it's here" email has a stop link and `List-Unsubscribe` headers for mail apps' own
   button. The stop link is signed (HMAC), so it needs nothing stored, and it removes the address from every
   list. Addresses are kept only while someone is waiting, and are explained on the privacy page.
+- **The email itself (changed the same day).** The owner wanted the logo, the pin's picture, and wording that's
+  casual and excited, since it's good news. It's now "it's here!" with the pin's picture and a "go see the
+  corgi" button, exclamation marks allowed here (noted in `brand-voice.md`), still lowercase and no urgency.
+  Pictures are PNG copies (`site/assets/img/email/`, made by `scripts/email-pictures.py`) because Gmail and
+  others don't show SVG or WebP, linked by web address rather than attached: Resend doesn't allow attachments
+  in a batch, and attachments make an email heavier and more likely to be filtered.

@@ -321,7 +321,12 @@ function paintNotify(data, done) {
     const peek = el('details', 'notify-preview');
     peek.appendChild(el('summary', 'link-btn', 'see the email'));
     peek.appendChild(el('p', 'caption', 'subject: ' + r.preview.subject));
-    peek.appendChild(el('pre', 'notify-preview-text', r.preview.text));
+    // the real email, shown in a sealed-off frame: no scripts, nothing it can reach on this page
+    const frame = el('iframe', 'notify-preview-frame');
+    frame.setAttribute('sandbox', '');
+    frame.title = 'the "it\'s here" email for the ' + r.name;
+    frame.srcdoc = r.preview.html;
+    peek.appendChild(frame);
     row.appendChild(peek);
     box.appendChild(row);
   });

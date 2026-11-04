@@ -959,7 +959,7 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .notify-preview { margin-top: var(--space-2); }
 .notify-preview > summary { list-style: none; }
 .notify-preview > summary::-webkit-details-marker { display: none; }
-.notify-preview-text { margin: var(--space-2) 0 0; padding: var(--space-3); white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; font-size: 15px; line-height: 22px; background: var(--surface-sunken); border-radius: var(--radius-sm); }
+.notify-preview-frame { display: block; width: 100%; height: 860px; margin-top: var(--space-2); border: 1.5px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
 .interest-admin { margin: 0; padding-left: var(--space-5); }
 .interest-admin li { padding: var(--space-2) 0; border-bottom: 1.5px solid var(--line); }
 .interest-admin li .caption { margin-left: var(--space-3); }

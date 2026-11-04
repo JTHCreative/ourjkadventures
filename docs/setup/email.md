@@ -41,7 +41,7 @@ Until step 6 is done, the line under a tapped "i'm interested!" just says "thank
    - Try `you@gmial.com` first: it should ask "did you mean you@gmail.com?".
 9. On `/admin` the card should show "1 person waiting."
 10. To try the "it's here" email: switch that pin on, make sure the shop is open, and press
-    **send "it's here" to 1**. You should get "the ... pin is here." within a minute. Check spam too, and
+    **send "it's here" to 1**. You should get "the ... pin is here!" within a minute, with the logo and the pin's picture. Check spam too, and
     if it landed there, mark it "not spam". Then switch the pin back off if it isn't really here yet.
     - If your shop is still closed: send only works while it's open, and opening it makes every linked,
       in-stock pin buyable. You can stop at step 9 and let the first real arrival be the test.
