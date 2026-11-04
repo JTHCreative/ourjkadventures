@@ -38,9 +38,9 @@ test('the note is cleaned: no tags or control characters, short, at most one bla
   assert.equal(cleanText(42), '');
 });
 
-test('only signed-in people with a confirmed email can leave a review', async () => {
+test('signed-in reviews need a confirmed email; without a ticket it is a guest review, which needs a name and email', async () => {
   const g = fresh();
-  assert.equal((await post(g, null, { slug: 'corgi', rating: 5 })).status, 401);
+  assert.deepEqual(await (await post(g, null, { slug: 'corgi', rating: 5 })).json(), { error: 'name' });
   assert.equal((await post(g, 'garbage', { slug: 'corgi', rating: 5 })).status, 401);
   assert.equal((await post(g, await sign({ email_verified: false }), { slug: 'corgi', rating: 5 })).status, 403);
   assert.equal(Object.keys(g.docs).filter((k) => k.startsWith('reviews/')).length, 0);
