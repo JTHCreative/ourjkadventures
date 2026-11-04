@@ -35,6 +35,8 @@
       catalog.byKey = {};
       // the owner's picks for the carousel at the top of the shop: slugs, already only ones in stock
       catalog.featured = Array.isArray(j.featured) ? j.featured : [];
+      // whether "email me when it's here" is offered (the site's email is set up)
+      catalog.email = j.email === true;
       (j.items || []).forEach(function (p) {
         p.sizes = p.sizes || [];
         catalog.items[p.slug] = p;
@@ -365,9 +367,13 @@
     var a = interestedIn().filter(function (s) { return s !== slug; });
     save('jka_interest', a.length ? JSON.stringify(a) : null);
   }
-  function peopleWords(n) { return n === 1 ? '1 person is interested.' : n + ' people are interested.'; }
 
-  // same shape as buyArea (a price line, a stock line, a button) so every page places it the same way
+  // "1 is interested." / "4 are interested."
+  function interestedWords(n) { return n === 1 ? '1 is interested.' : n + ' are interested.'; }
+
+  // same shape as buyArea (a price line, a stock line, a button) so every page places it the same way.
+  // above the button only ever "not in the shop yet." and the count. below it, once tapped, a thank you and
+  // (when the site's email is set up) a box to be emailed when it arrives
   function interestArea(p, btnClass) {
     var area = el('div', 'buy');
     var price = el('p', 'price', '');
@@ -378,13 +384,21 @@
     var name = p.kind === 'board' ? p.name : pupName(p) + ' pin';
     // an on and off button, like a light switch: tap to say you're interested, tap again to take it back
     btn.setAttribute('aria-label', 'i\'m interested in the ' + name);
+    var after = el('div', 'notify');
+    var thanks = notifyBox(p);
+    var msg = el('p', 'caption notify-note');
+    msg.setAttribute('role', 'status');
+    after.appendChild(thanks);
+    after.appendChild(msg);
     var voted = interestedIn().indexOf(p.slug) >= 0;
     var sorry = 'we could not count that just now. try again in a moment.';
     function paint(note) {
-      line.textContent = 'not in the shop yet.' + (p.interest > 0 ? ' ' + peopleWords(p.interest) : '') + (note ? ' ' + note : '');
-      btn.textContent = voted ? 'you\'re interested.' : 'i\'m interested';
+      line.textContent = 'not in the shop yet.' + (p.interest > 0 ? ' ' + interestedWords(p.interest) : '');
+      btn.textContent = voted ? 'you\'re interested.' : 'i\'m interested!';
       btn.setAttribute('aria-pressed', voted ? 'true' : 'false');
       btn.disabled = false;
+      thanks.hidden = !voted;
+      msg.textContent = note || '';
     }
     function send(method) {
       return fetch('/api/interest', { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: p.slug }) })
@@ -400,7 +414,7 @@
           // "not counted" means this browser's vote was already gone (a cleared cookie, say): off either way
           voted = false;
           forgetInterest(p.slug);
-          paint('no longer counted. tap again if you change your mind.');
+          paint();
         }).catch(function () { paint(sorry); });
         return;
       }
@@ -409,7 +423,7 @@
         if (j.counted || j.reason === 'already') {
           voted = true;
           rememberInterest(p.slug);
-          paint(j.counted ? 'thank you. it helps us decide what comes next. tap again to take it back.' : 'we already have you down for this one.');
+          paint();
         } else if (j.reason === 'limit') {
           // lots of taps from one connection today (a shared wifi, say): this one wasn't added, and that's fine
           paint('we have counted plenty from this connection today. thank you all the same.');
@@ -425,8 +439,119 @@
     area.appendChild(price);
     area.appendChild(line);
     area.appendChild(btn);
+    area.appendChild(after);
     paint();
     return area;
+  }
+
+  // the line under a tapped "i'm interested": "thank you!", and when the site's email is set up,
+  // "be notified when it's available:" with one email box. the server then sends a link to check it's really them
+  function notifyBox(p) {
+    var box = el('div', 'notify-thanks');
+    var words = el('p', 'notify-words', 'thank you!' + (catalog.email ? ' be notified when it\'s available:' : ''));
+    box.appendChild(words);
+    if (!catalog.email) return box;
+    var form = el('form', 'notify-form');
+    form.noValidate = true;
+    var id = 'notify-' + p.slug;
+    var lab = el('label', 'sr-only', 'your email');
+    lab.htmlFor = id;
+    var input = el('input');
+    input.type = 'email';
+    input.id = id;
+    input.name = 'email';
+    input.placeholder = 'enter email';
+    input.autocomplete = 'email';
+    input.setAttribute('inputmode', 'email');
+    var go = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', 'notify me');
+    go.type = 'submit';
+    var note = el('p', 'caption notify-note');
+    note.setAttribute('role', 'status');
+    form.appendChild(lab);
+    form.appendChild(input);
+    form.appendChild(go);
+    box.appendChild(form);
+    box.appendChild(note);
+    function say(text, keepForm) {
+      note.textContent = text;
+      form.hidden = !keepForm;
+      go.disabled = false;
+    }
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var email = input.value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        input.setAttribute('aria-invalid', 'true');
+        say('that email doesn\'t look quite right.', true);
+        input.focus();
+        return;
+      }
+      input.removeAttribute('aria-invalid');
+      go.disabled = true;
+      note.textContent = 'one moment.';
+      fetch('/api/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: p.slug, email: email }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j.status_code = r.status; return j; }); })
+        .then(function (j) {
+          if (j.status === 'sent') say('check your inbox. we sent a link to make sure it\'s you.');
+          else if (j.status === 'already') say('you\'re already on the list for this one.');
+          else if (j.status === 'limit') say('we have had a lot of sign-ups from this connection today. try again tomorrow.');
+          else if (j.status === 'busy') say('we can\'t send email just now. try again tomorrow, or write to us at ' + CONTACT_EMAIL + '.');
+          else if (j.error === 'email') { input.setAttribute('aria-invalid', 'true'); say('that email doesn\'t look quite right.', true); }
+          else if (j.status_code === 409) say('this one just arrived in the shop. refresh the page to see it.');
+          else say('we could not do that just now. try again in a moment, or write to us at ' + CONTACT_EMAIL + '.', true);
+        }).catch(function () { say('we could not do that just now. try again in a moment, or write to us at ' + CONTACT_EMAIL + '.', true); });
+    });
+    return box;
+  }
+
+  /* ---------- email.html: the confirm and stop links from our emails land here ---------- */
+  // nothing happens until the button is pressed, because some mail apps open every link in an email to check it
+  function initEmailPage() {
+    var page = document.querySelector('[data-email-page]');
+    if (!page) return;
+    var q = new URLSearchParams(location.search);
+    var confirmCode = q.get('confirm');
+    var stopCode = q.get('stop');
+    var title = page.querySelector('[data-email-title]');
+    var words = page.querySelector('[data-email-words]');
+    var go = page.querySelector('[data-email-go]');
+    var status = page.querySelector('[data-email-status]');
+    if (!confirmCode && !stopCode) {
+      title.textContent = 'nothing to do here.';
+      words.textContent = 'this page is for the links in our emails.';
+      return;
+    }
+    title.textContent = confirmCode ? 'is this you?' : 'stop these emails?';
+    words.textContent = confirmCode
+      ? 'say yes and we\'ll write once, when the pin you asked about is in the shop.'
+      : 'we\'ll take this address off every list. you won\'t hear from us about new pins.';
+    go.textContent = confirmCode ? 'yes, email me' : 'stop emailing me';
+    go.hidden = false;
+    go.addEventListener('click', function () {
+      go.disabled = true;
+      status.textContent = 'one moment.';
+      fetch('/api/notify/' + (confirmCode ? 'confirm' : 'stop'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: confirmCode || stopCode })
+      }).then(function (r) { return r.json().catch(function () { return {}; }); }).then(function (j) {
+        status.textContent = '';
+        if (confirmCode && j.confirmed) {
+          title.textContent = 'thank you.';
+          words.textContent = 'we\'ll write once, when the ' + j.name + ' is in the shop.';
+        } else if (stopCode && j.stopped) {
+          title.textContent = 'done.';
+          words.textContent = 'this address is off every list. you won\'t hear from us again unless you ask.';
+        } else {
+          title.textContent = 'that link didn\'t work.';
+          words.textContent = 'it may be old or cut short. you can ask again on the pin\'s page, or write to us at ' + CONTACT_EMAIL + '.';
+        }
+        go.hidden = true;
+        // the code has done its job: keep it out of the address bar and history
+        try { history.replaceState(null, '', location.pathname); } catch (e) {}
+      }).catch(function () {
+        go.disabled = false;
+        status.textContent = 'we could not reach the server. try again in a moment.';
+      });
+    });
   }
 
   // the buy button, the price and the stock line for one size, kept in step when the size changes
@@ -974,7 +1099,7 @@
       }
       var words = el('span', 'set-btn-words');
       words.appendChild(el('span', 'set-btn-name', f ? f.name : p.name));
-      words.appendChild(el('span', 'set-btn-note', peopleWords(p.interest)));
+      words.appendChild(el('span', 'set-btn-note', interestedWords(p.interest)));
       a.appendChild(words);
       li.appendChild(a);
       list.appendChild(li);
@@ -1220,6 +1345,7 @@
     initReel();
     initKindWords();
     loadShop();
+    initEmailPage();
     initRoom();
     initZoom();
   }

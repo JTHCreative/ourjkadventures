@@ -160,8 +160,9 @@ function paintProducts(data) {
         available[p.slug] = want;
         show('saved.');
         paintInterest(data);
-        // in or out of the shop changes what can be featured
+        // in or out of the shop changes what can be featured, and what can be emailed about
         loadFeatured();
+        loadNotify();
       } catch (e) {
         show("that didn't save. try again in a moment.");
       }
@@ -263,6 +264,75 @@ function paintInterest(data) {
     list.appendChild(li);
   });
   box.appendChild(list);
+}
+
+/* ---------- email when it's here ---------- */
+function waitingWords(r) {
+  const bits = [r.confirmed === 1 ? '1 person waiting' : r.confirmed + ' people waiting'];
+  if (r.pending) bits.push(r.pending + ' not confirmed yet');
+  return bits.join(', ') + '.';
+}
+
+function paintNotify(data, done) {
+  const state = $('[data-notify-state]');
+  const box = $('[data-notify-list]');
+  box.textContent = '';
+  if (!data.configured) {
+    state.textContent = 'email isn\'t set up yet, so the shop doesn\'t offer it. see docs/setup/email.md.';
+    return;
+  }
+  state.textContent = 'today: ' + data.sentToday + ' of ' + data.limit + ' emails sent. the count starts again at midnight (utc).';
+  // a send that emptied its list: say so, since that product's row is gone now
+  if (done && !data.products.some((r) => r.slug === done.slug)) box.appendChild(el('p', 'body-sm', done.words));
+  if (!data.products.length) {
+    box.appendChild(el('p', 'body-sm muted', 'no one is waiting for an email yet.'));
+    return;
+  }
+  data.products.forEach((r) => {
+    const row = el('div', 'link-product');
+    row.appendChild(el('p', 'link-product-name', r.name));
+    row.appendChild(el('p', 'caption', waitingWords(r)));
+    const actions = el('div', 'admin-actions');
+    const note = el('span', 'caption');
+    note.setAttribute('role', 'status');
+    if (!r.available) {
+      note.textContent = 'switch it on above when it\'s here, then send.';
+    } else if (r.confirmed) {
+      const send = el('button', 'jka-btn jka-btn--sm', 'send "it\'s here" to ' + r.confirmed);
+      send.type = 'button';
+      send.addEventListener('click', async () => {
+        if (!confirm('send "' + r.preview.subject + '" to ' + r.confirmed + (r.confirmed === 1 ? ' person' : ' people') + '?')) return;
+        send.disabled = true;
+        note.textContent = 'sending.';
+        try {
+          const res = await api('POST', '/api/admin/notify', { slug: r.slug });
+          paintNotify(res, { slug: r.slug, words: res.left
+            ? 'sent to ' + res.sent + '. ' + res.left + ' still waiting: that\'s today\'s emails used up, so press send again tomorrow.'
+            : 'sent to ' + res.sent + '.' });
+        } catch (e) {
+          const why = e.data && e.data.error;
+          note.textContent = why === 'shop closed' ? 'the shop is closed. open it first, so the link leads somewhere.'
+            : why === 'not available' ? 'switch it on above first.' : "that didn't send. nothing went out. try again in a moment.";
+          send.disabled = false;
+        }
+      });
+      actions.appendChild(send);
+    }
+    if (done && done.slug === r.slug) note.textContent = done.words;
+    actions.appendChild(note);
+    row.appendChild(actions);
+    // what they'll get, word for word
+    const peek = el('details', 'notify-preview');
+    peek.appendChild(el('summary', 'link-btn', 'see the email'));
+    peek.appendChild(el('p', 'caption', 'subject: ' + r.preview.subject));
+    peek.appendChild(el('pre', 'notify-preview-text', r.preview.text));
+    row.appendChild(peek);
+    box.appendChild(row);
+  });
+}
+
+async function loadNotify() {
+  try { paintNotify(await api('GET', '/api/admin/notify')); } catch (e) { $('[data-notify-state]').textContent = RESTING; }
 }
 
 /* ---------- featured: what turns in the carousel at the top of the shop ---------- */
@@ -495,6 +565,7 @@ async function open() {
   loadProducts();
   wireFeatured();
   loadFeatured();
+  loadNotify();
   loadReviews();
   loadInstagram();
 }

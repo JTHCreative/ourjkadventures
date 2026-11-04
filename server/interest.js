@@ -73,7 +73,7 @@ async function hmacKey(env) {
   keyCache = { key, from: env.FIREBASE_SERVICE_ACCOUNT };
   return key;
 }
-async function scramble(env, text) {
+export async function scramble(env, text) {
   const sig = new Uint8Array(await crypto.subtle.sign('HMAC', await hmacKey(env), new TextEncoder().encode(text)));
   return [...sig.slice(0, 16)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }

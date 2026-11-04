@@ -231,6 +231,19 @@ h1, h2, h3 { font-weight: 500; text-transform: none; }
 .jka-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
 .jka-btn[hidden] { display: none; }
 .jka-btn--honey { --btn-bg: var(--honey); --btn-fg: var(--on-honey); }
+/* under a tapped "i'm interested": "thank you! be notified when it's available:" and one email box in a row */
+.notify { display: flex; flex-direction: column; align-items: inherit; gap: var(--space-1); width: 100%; }
+.notify-thanks { display: flex; flex-direction: column; align-items: inherit; gap: var(--space-2); width: 100%; }
+.notify-thanks[hidden] { display: none; }
+.notify-words { margin: 0; font-size: 17px; line-height: 24px; color: var(--ink-soft); }
+.notify-form { display: flex; flex-wrap: wrap; justify-content: inherit; align-items: center; gap: var(--space-2); width: 100%; max-width: 380px; }
+.notify-form[hidden] { display: none; }
+.pup-sheet .notify-form { justify-content: center; }
+.notify-form input { flex: 1 1 180px; min-width: 0; min-height: 44px; padding: var(--space-2) var(--space-3); font: inherit; font-size: 16px; color: var(--ink); background: var(--surface); border: 1.5px solid var(--line-strong); border-radius: var(--radius-sm); }
+.notify-form input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.notify-form input[aria-invalid="true"] { border-color: var(--accent-text); }
+.notify-note { margin: 0; }
+.notify-note:empty { display: none; }
 /* "i'm interested" while it's on: honey, so it reads as chosen, and tapping it again takes it back */
 .interest-btn[aria-pressed="true"] { --btn-bg: var(--honey); --btn-fg: var(--on-honey); }
 .jka-btn--quiet { --btn-bg: transparent; --btn-fg: var(--ink); --btn-line: var(--line-strong); }
@@ -943,6 +956,10 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .switch--sm { width: 48px; height: 28px; }
 .switch--sm .switch-knob { width: 19px; height: 19px; }
 .switch--sm[aria-checked="true"] .switch-knob { transform: translateX(20px); }
+.notify-preview { margin-top: var(--space-2); }
+.notify-preview > summary { list-style: none; }
+.notify-preview > summary::-webkit-details-marker { display: none; }
+.notify-preview-text { margin: var(--space-2) 0 0; padding: var(--space-3); white-space: pre-wrap; overflow-wrap: anywhere; font-family: inherit; font-size: 15px; line-height: 22px; background: var(--surface-sunken); border-radius: var(--radius-sm); }
 .interest-admin { margin: 0; padding-left: var(--space-5); }
 .interest-admin li { padding: var(--space-2) 0; border-bottom: 1.5px solid var(--line); }
 .interest-admin li .caption { margin-left: var(--space-3); }

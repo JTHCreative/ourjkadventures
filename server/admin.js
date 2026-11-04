@@ -13,6 +13,8 @@
 //   GET  /api/admin/featured  products that could go in the shop's featured carousel, their stock, and the picks
 //   POST /api/admin/featured  { slugs: ["corgi", "aussie", ...] }  at most eight; a new pick must be in stock
 //   POST /api/admin/availability  { slug, available: true|false }  not available: off sale, shows "i'm interested"
+//   GET  /api/admin/notify   who is waiting for an "it's here" email, per product, and today's email count
+//   POST /api/admin/notify   { slug }  send "it's here" to everyone confirmed for it (up to today's allowance)
 //   GET  /api/admin/instagram  does the key in cloudflare open @ourjkadventures, and how many reels (never the key)
 //
 // Cloudflare setting (Settings > Variables and secrets):
@@ -25,6 +27,7 @@ import { siteProducts, siteKeys, readLinks, saveLinks, freshCatalog, readFeature
 import { squareConfigured, squareMode, listVariations, stockCounts } from './square.js';
 import { instagramStatus } from './instagram.js';
 import { readAvailability, setAvailable, readInterest } from './interest.js';
+import { notifySummary, sendItsHere } from './notify.js';
 
 function json(body, status) {
   return new Response(JSON.stringify(body), {
@@ -111,6 +114,16 @@ export async function admin(request, env, fetchFn = fetch) {
       await setAvailable(env, body.slug, body.available, fetchFn);
       forgetCatalog();
       return json({ slug: body.slug, available: body.available });
+    }
+
+    if (route === 'notify') {
+      const origin = new URL(request.url).origin;
+      if (request.method === 'GET') return json(await notifySummary(env, origin, fetchFn));
+      if (request.method !== 'POST') return json({ error: 'method' }, 405);
+      const body = await readJson(request);
+      const result = await sendItsHere(env, origin, body.slug, fetchFn);
+      if (result.error) return json(result, result.status || 400);
+      return json({ ...result, ...(await notifySummary(env, origin, fetchFn)) });
     }
 
     if (route === 'instagram') {
