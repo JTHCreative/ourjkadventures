@@ -7,7 +7,10 @@
   var CONTACT_EMAIL = 'support@ourjkadventures.com';
   var PIN_IMG = {};
   ['aussie', 'beagle', 'cavalier', 'corgi', 'dachshund', 'french-bulldog', 'german-shepherd', 'golden', 'husky', 'pit-bull',
-    'pomeranian', 'poodle', 'pug', 'rottweiler', 'shiba', 'yorkie'].forEach(function (s) { PIN_IMG[s] = 'assets/img/pins/' + s + '.webp'; });
+    'pomeranian', 'poodle', 'pug', 'rottweiler', 'shiba', 'yorkie'].forEach(function (s) {
+    // ?v= changes whenever pin pictures are redone, so browsers don't keep showing an old one for a week (see _headers)
+    PIN_IMG[s] = 'assets/img/pins/' + s + '.webp?v=2';
+  });
 
   /* ---------- storage that survives a blocked localStorage ---------- */
   var mem = {};
