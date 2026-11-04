@@ -233,6 +233,33 @@ export async function firestoreDelete(env, path, fetchFn = fetch) {
   if (!res.ok && res.status !== 404) throw new Error('firestore delete ' + res.status);
 }
 
+// Several writes that all happen or none do, like one envelope that is either posted whole or not at all.
+// Each write is { create: path, data }  (fails the whole lot if the document is already there)
+//            or { add: path, field, by, data }  (adds `by` to a number field, making the document if needed)
+// Returns true when done, false when a `create` found its document already there.
+export async function firestoreCommit(env, writes, fetchFn = fetch) {
+  const token = await accessToken(env, fetchFn);
+  const name = (path) => 'projects/' + projectId(env) + '/databases/(default)/documents/' + path;
+  const body = writes.map((w) => {
+    if (w.create) return { update: { name: name(w.create), fields: toFields(w.data || {}) }, currentDocument: { exists: false } };
+    const data = w.data || {};
+    return {
+      update: { name: name(w.add), fields: toFields(data) },
+      updateMask: { fieldPaths: Object.keys(data) },
+      updateTransforms: [{ fieldPath: w.field, increment: { integerValue: String(w.by || 1) } }]
+    };
+  });
+  const res = await fetchFn(docsBase(env) + ':commit', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ writes: body })
+  });
+  if (res.ok) return true;
+  const text = await res.text();
+  if (res.status === 409 || /ALREADY_EXISTS|FAILED_PRECONDITION/.test(text)) return false;
+  throw new Error('firestore commit ' + res.status);
+}
+
 /* ---------- Firebase Authentication (admin) ---------- */
 export async function deleteAuthUser(env, uid, fetchFn = fetch) {
   const token = await accessToken(env, fetchFn);

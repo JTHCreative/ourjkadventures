@@ -352,8 +352,67 @@
   // a plain count, the same calm words whether there are 2 or 200
   function stockText(sz) { return catalog.open && sz && sz.stock > 0 ? sz.stock + ' in stock.' : ''; }
 
+  /* ---------- "i'm interested": products the owner marked not available yet (see server/interest.js) ---------- */
+  // the server is what counts one vote each; this only remembers which buttons this browser already tapped
+  function interestedIn() {
+    try { var a = JSON.parse(read('jka_interest') || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+  }
+  function rememberInterest(slug) {
+    var a = interestedIn();
+    if (a.indexOf(slug) < 0) { a.push(slug); save('jka_interest', JSON.stringify(a)); }
+  }
+  function peopleWords(n) { return n === 1 ? '1 person is interested.' : n + ' people are interested.'; }
+
+  // same shape as buyArea (a price line, a stock line, a button) so every page places it the same way
+  function interestArea(p, btnClass) {
+    var area = el('div', 'buy');
+    var price = el('p', 'price', '');
+    var line = el('p', 'caption stock-line', '');
+    line.setAttribute('aria-live', 'polite');
+    var btn = el('button', btnClass, '');
+    btn.type = 'button';
+    var name = p.kind === 'board' ? p.name : pupName(p) + ' pin';
+    var voted = interestedIn().indexOf(p.slug) >= 0;
+    function paint(note) {
+      line.textContent = 'not in the shop yet.' + (p.interest > 0 ? ' ' + peopleWords(p.interest) : '') + (note ? ' ' + note : '');
+      btn.textContent = voted ? 'you\'re interested.' : 'i\'m interested';
+      btn.setAttribute('aria-label', voted ? 'you said you\'re interested in the ' + name : 'i\'m interested in the ' + name);
+      btn.disabled = voted;
+    }
+    btn.addEventListener('click', function () {
+      if (voted) return;
+      btn.disabled = true;
+      btn.textContent = 'one moment.';
+      fetch('/api/interest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: p.slug }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j.status_code = r.status; return j; }); })
+        .then(function (j) {
+          if (typeof j.count === 'number') p.interest = j.count;
+          if (j.counted || j.reason === 'already') {
+            voted = true;
+            rememberInterest(p.slug);
+            paint(j.counted ? 'thank you. it helps us decide what comes next.' : 'we already have you down for this one.');
+          } else if (j.reason === 'limit') {
+            // lots of taps from one connection today (a shared wifi, say): this one wasn't added, and that's fine
+            paint('we have counted plenty from this connection today. thank you all the same.');
+            btn.disabled = true;
+          } else if (j.status_code === 409) {
+            paint('this one just arrived in the shop. refresh the page to see it.');
+            btn.disabled = true;
+          } else {
+            paint('we could not count that just now. try again in a moment.');
+          }
+        }).catch(function () { paint('we could not count that just now. try again in a moment.'); });
+    });
+    area.appendChild(price);
+    area.appendChild(line);
+    area.appendChild(btn);
+    paint();
+    return area;
+  }
+
   // the buy button, the price and the stock line for one size, kept in step when the size changes
   function buyArea(p, btnClass) {
+    if (p.available === false) return interestArea(p, btnClass);
     var area = el('div', 'buy');
     var price = el('p', 'price', '');
     var stock = el('p', 'caption stock-line', '');
@@ -871,14 +930,49 @@
     window.Featured.mount(ring, items);
   }
 
+  // "most asked for": products not in the shop yet, by how many said "i'm interested". hidden until someone has
+  var WANTED_MAX = 6;
+  function buildWanted(box) {
+    var list = box.querySelector('[data-wanted-list]');
+    var rows = Object.keys(catalog.items).map(function (s) { return catalog.items[s]; })
+      .filter(function (p) { return p.available === false && p.interest > 0; })
+      .sort(function (a, b) { return b.interest - a.interest; }).slice(0, WANTED_MAX);
+    if (!list || !rows.length) { box.hidden = true; return; }
+    list.textContent = '';
+    rows.forEach(function (p) {
+      var f = featuredItem(p);
+      var li = el('li', 'wanted-row');
+      var a = el('a', 'wanted-link');
+      a.href = f ? f.href : 'shop.html';
+      if (f && f.img) {
+        var img = el('img');
+        img.src = f.img;
+        img.alt = '';
+        img.width = 48;
+        img.height = 48;
+        img.loading = 'lazy';
+        a.appendChild(img);
+      }
+      var words = el('span', 'set-btn-words');
+      words.appendChild(el('span', 'set-btn-name', f ? f.name : p.name));
+      words.appendChild(el('span', 'set-btn-note', peopleWords(p.interest)));
+      a.appendChild(words);
+      li.appendChild(a);
+      list.appendChild(li);
+    });
+    box.hidden = false;
+  }
+
   function loadShop() {
     var pupGrid = document.getElementById('pup-grid');
     var boardSlot = document.getElementById('board-slot');
     var boardBuy = document.getElementById('board-buy');
     var featured = document.querySelector('[data-featured]');
-    if (!pupGrid && !boardSlot && !boardBuy && !featured) return;
+    var wanted = document.querySelector('[data-wanted]');
+    if (!pupGrid && !boardSlot && !boardBuy && !featured && !wanted) return;
     loadCatalog().then(function () {
       if (featured) buildFeatured(featured);
+      if (wanted) buildWanted(wanted);
       if (boardBuy) {
         boardBuy.textContent = '';
         var bb = catalog.items['bay-area-pin-board'];

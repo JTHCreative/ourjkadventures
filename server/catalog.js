@@ -3,6 +3,8 @@
 //   2. Firestore       which Square item each of those is, chosen by the owner on /admin
 //                      (settings/square_production, or settings/square_sandbox while testing)
 //   3. Square          the price and how many are on the shelf
+//   4. Firestore again whether the owner marked each product available (server/interest.js). One that isn't is
+//                      never for sale here; it carries its "i'm interested" tally instead
 // The result is kept for a minute, like reading the stock list once a minute instead of on every visit.
 //
 //   GET /api/catalog   for the website: products, sizes, prices, stock, whether the shop is open, and which
@@ -13,6 +15,7 @@
 import { configured, firestoreGet, firestoreSet } from './firebase.js';
 import { isShopOpen } from './shop.js';
 import { squareConfigured, squareMode, getVariations, stockCounts } from './square.js';
+import { readAvailability, isAvailable, readInterest } from './interest.js';
 
 const CACHE_MS = 60 * 1000;
 const RETRY_MS = 10 * 1000;
@@ -75,9 +78,13 @@ async function build(env, origin, fetchFn) {
   let links = {};
   let variations = {};
   let counts = {};
+  let availability = {};
   let ok = true;
   try {
-    if (configured(env)) links = await readLinks(env, fetchFn);
+    if (configured(env)) {
+      links = await readLinks(env, fetchFn);
+      availability = await readAvailability(env, fetchFn);
+    }
     const ids = [...new Set(Object.values(links))];
     if (ids.length && squareConfigured(env)) {
       variations = await getVariations(env, ids, fetchFn);
@@ -90,17 +97,28 @@ async function build(env, origin, fetchFn) {
     links = {};
   }
 
+  // the tallies are only a nice-to-have: if they can't be read, the buttons still work and the counts read 0
+  let interest = {};
+  if (configured(env)) {
+    try { interest = await readInterest(env, fetchFn); } catch (e) { console.log('interest: ' + e.message); }
+  }
+
   const byKey = {};
   const items = (products.items || []).map((p) => {
     const sizes = [];
-    for (const k of siteKeys({ items: [p] })) {
+    const available = isAvailable(availability, p.slug);
+    // not available: no sizes, no price and nothing in byKey, so checkout can't sell it either
+    for (const k of available ? siteKeys({ items: [p] }) : []) {
       const v = variations[links[k.key]];
       if (!v || !v.sellable || v.price_cents === null) continue;
       const stock = v.marked_sold_out ? 0 : (counts[v.id] || 0);
       byKey[k.key] = { variation_id: v.id, price_cents: v.price_cents, currency: v.currency, stock, marked_sold_out: v.marked_sold_out, slug: p.slug, size: k.size };
       sizes.push({ size: k.size, key: k.key, price_cents: v.price_cents, stock });
     }
-    return { slug: p.slug, name: p.name, kind: p.kind, series: p.series || '', description: p.description || '', sizes };
+    return {
+      slug: p.slug, name: p.name, kind: p.kind, series: p.series || '', description: p.description || '', sizes,
+      available, interest: available ? 0 : interest[p.slug] || 0
+    };
   });
 
   // featured: the owner's picks that are on the shelf right now. a pick that sells out steps out of the carousel
@@ -168,6 +186,15 @@ export async function catalogRoute(request, env, fetchFn = fetch) {
     console.log('catalog error', e.message);
     return new Response('{"error":"unavailable"}', { status: 503, headers: { 'Content-Type': 'application/json' } });
   }
+}
+
+// the owner changed something (an available switch): read everything fresh on the next visit
+export function forgetCatalog() { cache = { value: null, until: 0, mode: null }; }
+
+// a vote just landed: the shop's one-minute memory shows the new tally at once instead of a minute later
+export function noteInterest(slug, count) {
+  const item = cache.value && cache.value.items.find((p) => p.slug === slug);
+  if (item && !item.available) item.interest = count;
 }
 
 // for tests

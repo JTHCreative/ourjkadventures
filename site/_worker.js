@@ -1,5 +1,5 @@
 // j+k adventures: serves the static site, the catalog (Square prices and stock), Square checkout links,
-// accounts, reviews and the owner's /admin.
+// accounts, reviews, "i'm interested" votes for products not in the shop yet, and the owner's /admin.
 // Secrets live in Cloudflare (Settings > Variables and secrets), never in the page:
 //   SQUARE_ACCESS_TOKEN  (secret)  your Square access token
 //   SQUARE_LOCATION_ID             the Square location that takes the sale
@@ -16,7 +16,8 @@ import { account, noteOrder } from '../server/account.js';
 import { reviews } from '../server/reviews.js';
 import { configured as firebaseConfigured, userFromRequest } from '../server/firebase.js';
 import { admin } from '../server/admin.js';
-import { getCatalog, catalogRoute } from '../server/catalog.js';
+import { getCatalog, catalogRoute, noteInterest } from '../server/catalog.js';
+import { interestRoute } from '../server/interest.js';
 import { stockCounts, squareHost, SQUARE_VERSION } from '../server/square.js';
 import { reelsRoute } from '../server/instagram.js';
 
@@ -31,6 +32,7 @@ export default {
     if (url.pathname === '/api/account' || url.pathname === '/api/account/orders') return account(request, env);
     if (url.pathname === '/api/reviews') return reviews(request, env);
     if (url.pathname === '/api/reels') return reelsRoute(request, env);
+    if (url.pathname === '/api/interest') return interestRoute(request, env, fetch, noteInterest);
     if (url.pathname === '/api/admin' || url.pathname.startsWith('/api/admin/')) return admin(request, env);
     return env.ASSETS.fetch(request);
   }

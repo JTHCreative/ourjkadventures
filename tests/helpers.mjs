@@ -34,6 +34,25 @@ export function fakeGoogle() {
       return Response.json({ orders: ids.map((id) => squareOrders[id]).filter(Boolean) });
     }
     if (opts.headers && opts.headers.Authorization !== 'Bearer server-token') return new Response('no', { status: 401 });
+    if (url.endsWith('/documents:commit')) {
+      // all or nothing, like the real one: check every create first, then apply
+      const writes = JSON.parse(opts.body).writes;
+      const path = (n) => n.split('/documents/')[1];
+      for (const w of writes) {
+        if (w.currentDocument && w.currentDocument.exists === false && docs[path(w.update.name)]) {
+          return Response.json({ error: { status: 'ALREADY_EXISTS' } }, { status: 409 });
+        }
+      }
+      for (const w of writes) {
+        const p = path(w.update.name);
+        docs[p] = w.updateMask ? Object.assign(docs[p] || {}, w.update.fields) : w.update.fields;
+        for (const t of w.updateTransforms || []) {
+          const had = docs[p][t.fieldPath] ? Number(docs[p][t.fieldPath].integerValue) : 0;
+          docs[p][t.fieldPath] = { integerValue: String(had + Number(t.increment.integerValue)) };
+        }
+      }
+      return Response.json({ writeResults: [] });
+    }
     if (url.endsWith('/documents:runQuery')) {
       // top-level collection, equality filters only (all the server uses)
       const sq = JSON.parse(opts.body).structuredQuery;

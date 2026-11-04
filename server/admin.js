@@ -7,10 +7,12 @@
 //   POST /api/admin/shop     { open: true|false }
 //   GET  /api/admin/reviews  reviews waiting for a look
 //   POST /api/admin/reviews  { id, status: "approved" | "hidden" }
-//   GET  /api/admin/products  website products, the Square items they could be, and the links chosen
+//   GET  /api/admin/products  website products, the Square items they could be, the links chosen,
+//                             and each product's available switch and "i'm interested" tally
 //   POST /api/admin/products  { links: { "aussie": "<square variation id>", "aussie:large": "", ... } }
 //   GET  /api/admin/featured  products that could go in the shop's featured carousel, their stock, and the picks
 //   POST /api/admin/featured  { slugs: ["corgi", "aussie", ...] }  at most eight; a new pick must be in stock
+//   POST /api/admin/availability  { slug, available: true|false }  not available: off sale, shows "i'm interested"
 //   GET  /api/admin/instagram  does the key in cloudflare open @ourjkadventures, and how many reels (never the key)
 //
 // Cloudflare setting (Settings > Variables and secrets):
@@ -19,9 +21,10 @@
 import { configured, userFromRequest } from './firebase.js';
 import { readShopSwitch, setShopOpen } from './shop.js';
 import { pendingReviews, setReviewStatus, REVIEW_STATUSES } from './reviews.js';
-import { siteProducts, siteKeys, readLinks, saveLinks, freshCatalog, readFeatured, saveFeatured, stockOf, MAX_FEATURED } from './catalog.js';
+import { siteProducts, siteKeys, readLinks, saveLinks, freshCatalog, readFeatured, saveFeatured, stockOf, MAX_FEATURED, forgetCatalog } from './catalog.js';
 import { squareConfigured, squareMode, listVariations, stockCounts } from './square.js';
 import { instagramStatus } from './instagram.js';
+import { readAvailability, setAvailable, readInterest } from './interest.js';
 
 function json(body, status) {
   return new Response(JSON.stringify(body), {
@@ -99,6 +102,17 @@ export async function admin(request, env, fetchFn = fetch) {
       return json(await featuredChoices(request, env, fetchFn));
     }
 
+    if (route === 'availability') {
+      if (request.method !== 'POST') return json({ error: 'method' }, 405);
+      const body = await readJson(request);
+      if (typeof body.available !== 'boolean') return json({ error: 'available must be true or false' }, 400);
+      const slugs = new Set((await siteProducts(env, request.url)).items.map((p) => p.slug));
+      if (typeof body.slug !== 'string' || !slugs.has(body.slug)) return json({ error: 'unknown product' }, 400);
+      await setAvailable(env, body.slug, body.available, fetchFn);
+      forgetCatalog();
+      return json({ slug: body.slug, available: body.available });
+    }
+
     if (route === 'instagram') {
       if (request.method !== 'GET') return json({ error: 'method' }, 405);
       return json(await instagramStatus(env, fetchFn));
@@ -131,7 +145,10 @@ async function productLinks(request, env, fetchFn) {
       squareError = /401|403|UNAUTHORIZED|FORBIDDEN|SCOPE/i.test(e.message) ? 'permission' : 'unreachable';
     }
   }
-  return { mode: squareMode(env), products: keys, links, square, squareError };
+  // every product's switch and tally, available or not, so the owner sees what people asked for even after it arrives
+  const availability = await readAvailability(env, fetchFn);
+  const available = Object.fromEntries([...new Set(keys.map((k) => k.slug))].map((s) => [s, availability[s] !== false]));
+  return { mode: squareMode(env), products: keys, links, square, squareError, available, interest: await readInterest(env, fetchFn) };
 }
 
 async function changeLinks(request, env, wanted, fetchFn) {
@@ -163,7 +180,7 @@ async function featuredChoices(request, env, fetchFn) {
     // false when Square or Firestore didn't answer, so every stock number below would read 0
     stockKnown: ok && squareConfigured(env),
     featured,
-    products: value.items.map((p) => ({ slug: p.slug, name: p.name, kind: p.kind, series: p.series, linked: p.sizes.length > 0, stock: stockOf(p) }))
+    products: value.items.map((p) => ({ slug: p.slug, name: p.name, kind: p.kind, series: p.series, available: p.available, linked: p.sizes.length > 0, stock: stockOf(p) }))
   };
 }
 

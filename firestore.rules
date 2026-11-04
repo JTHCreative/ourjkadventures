@@ -12,6 +12,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // the available switches (settings/available_<mode>) live here too. the "i'm interested" tallies and
+    // their scrambled vote records (interest_<mode>, interest_votes_<mode>, interest_ips_<mode>) fall under
+    // the rule below: only the server counts votes, so nobody can add to a tally from a browser.
+
     // customers, their order notes, reviews and everything else: server only
     match /{document=**} {
       allow read, write: if false;

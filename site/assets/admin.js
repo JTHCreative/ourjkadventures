@@ -65,10 +65,13 @@ const SERIES = [
   { id: 'hometown', title: 'hometown series' },
   { id: 'zodiac', title: 'chinese zodiac' }
 ];
-function sizeLabel(p) {
-  const name = p.slug === 'golden' ? 'goldie' : p.name;
-  if (p.kind === 'board') return name;
-  return name + ', ' + p.size;
+function shownName(p) { return p.slug === 'golden' ? 'goldie' : p.name; }
+// "1 person is interested." / "4 people are interested."
+function peopleWords(n) { return !n ? 'no one has asked yet.' : n === 1 ? '1 person is interested.' : n + ' people are interested.'; }
+// the line under each product's name: what the switch means for it right now, and its tally
+function availableWords(on, n) {
+  if (on) return n ? 'in the shop. ' + (n === 1 ? '1 person' : n + ' people') + ' asked for it before it arrived.' : 'in the shop.';
+  return 'not in the shop. shows "i\'m interested". ' + peopleWords(n || 0);
 }
 function optionLabel(s) {
   const bits = [s.label, s.price_cents === null ? 'no fixed price' : money(s.price_cents)];
@@ -80,27 +83,32 @@ function paintProducts(data) {
   const mode = $('[data-products-mode]');
   const note = $('[data-products-note]');
   const form = $('[data-products-form]');
+  const available = data.available || {};
+  const interest = data.interest || {};
+  paintInterest(data);
   mode.textContent = data.mode === 'sandbox' ? 'connected to square sandbox, the practice account.' : 'connected to your square account.';
-  if (!data.square) {
-    form.hidden = true;
+  // without square there is nothing to link, but the available switches still work
+  const linking = !!data.square;
+  form.querySelector('.admin-actions').hidden = !linking;
+  if (!linking) {
     note.textContent = data.squareError === 'permission'
       ? 'square said no. the access token in cloudflare needs permission to read items and inventory. see docs/setup/square.md.'
       : data.squareError === 'not configured'
         ? 'square is not set up yet. see docs/setup/square.md.'
         : 'we could not reach square just now. try again in a moment.';
-    return;
-  }
-  note.textContent = data.square.length
+  } else note.textContent = data.square.length
     ? 'pick the square item for each one. anything left unlinked shows as sold out.'
     : 'square has no items at this location yet. add them in your square item library, then come back.';
   const list = $('[data-link-list]');
   // keep whichever groups were open, so saving doesn't fold everything shut
   const wasOpen = new Set([...list.querySelectorAll('details[open]')].map((d) => d.dataset.group));
   list.textContent = '';
-  const linkRow = (p) => {
+  const linkRow = (p, only) => {
     const row = el('div', 'link-row');
     const id = 'link-' + p.key.replace(':', '-');
-    const lab = el('label', 'link-name', sizeLabel(p));
+    // the name is said to screen readers, the size (or "square item") is what shows
+    const lab = el('label', 'link-name');
+    lab.append(el('span', 'sr-only', shownName(p) + ', '), only ? 'square item' : p.size);
     lab.htmlFor = id;
     const sel = el('select');
     sel.id = id;
@@ -113,6 +121,61 @@ function paintProducts(data) {
     row.append(lab, sel);
     return row;
   };
+  // one product: its name, the available switch, what that means right now, then a square link per size
+  const productBlock = (keys) => {
+    const p = keys[0];
+    const box = el('div', 'link-product');
+    const head = el('div', 'link-product-head');
+    const name = el('span', 'link-product-name', shownName(p));
+    const sw = el('button', 'switch switch--sm');
+    sw.type = 'button';
+    sw.setAttribute('role', 'switch');
+    sw.setAttribute('aria-label', shownName(p) + ' available');
+    sw.appendChild(el('span', 'switch-knob'));
+    sw.firstChild.setAttribute('aria-hidden', 'true');
+    const swWord = el('span', 'caption', 'available');
+    swWord.setAttribute('aria-hidden', 'true');
+    const swWrap = el('span', 'link-product-switch');
+    swWrap.append(swWord, sw);
+    head.append(name, swWrap);
+    const words = el('p', 'caption link-product-note');
+    words.setAttribute('role', 'status');
+    let on = available[p.slug] !== false;
+    const show = (extra) => {
+      sw.setAttribute('aria-checked', on ? 'true' : 'false');
+      box.classList.toggle('is-unavailable', !on);
+      words.textContent = availableWords(on, interest[p.slug] || 0) + (extra ? ' ' + extra : '');
+      // the heading's "n not available" count listens for this
+      box.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    show();
+    // saves at once, like the shop switch, and leaves any square picks not yet saved alone
+    sw.addEventListener('click', async () => {
+      const want = !on;
+      sw.disabled = true;
+      words.textContent = 'saving.';
+      try {
+        await api('POST', '/api/admin/availability', { slug: p.slug, available: want });
+        on = want;
+        available[p.slug] = want;
+        show('saved.');
+        paintInterest(data);
+        // in or out of the shop changes what can be featured
+        loadFeatured();
+      } catch (e) {
+        show("that didn't save. try again in a moment.");
+      }
+      sw.disabled = false;
+    });
+    box.append(head, words);
+    if (linking) keys.forEach((k) => box.appendChild(linkRow(k, keys.length === 1)));
+    return box;
+  };
+  const productBlocks = (rows, body) => {
+    const bySlug = new Map();
+    rows.forEach((k) => { if (!bySlug.has(k.slug)) bySlug.set(k.slug, []); bySlug.get(k.slug).push(k); });
+    bySlug.forEach((keys) => body.appendChild(productBlock(keys)));
+  };
   // a fold-out box: click its heading to open or close it. the heading says how many are linked
   const group = (id, cls, title, rows, empty) => {
     const box = el('details', cls);
@@ -123,12 +186,16 @@ function paintProducts(data) {
     sum.append(el('span', null, title), count);
     box.appendChild(sum);
     const body = el('div', 'link-body');
-    if (rows.length) rows.forEach((p) => body.appendChild(linkRow(p)));
+    if (rows.length) productBlocks(rows, body);
     else body.appendChild(el('p', 'caption', empty));
     box.appendChild(body);
     const recount = () => {
       const sels = [...body.querySelectorAll('select')];
-      count.textContent = sels.length ? sels.filter((s) => s.value).length + ' of ' + sels.length + ' linked' : '';
+      const off = body.querySelectorAll('.link-product.is-unavailable').length;
+      const bits = [];
+      if (sels.length) bits.push(sels.filter((s) => s.value).length + ' of ' + sels.length + ' linked');
+      if (off) bits.push(off + ' not available');
+      count.textContent = bits.join(' · ');
     };
     body.addEventListener('change', recount);
     recount();
@@ -177,12 +244,34 @@ function wireProducts() {
   });
 }
 
+/* ---------- interest: what people asked for with "i'm interested" ---------- */
+// every product with at least one vote, most asked for first. products in the shop keep their old tally here
+function paintInterest(data) {
+  const box = $('[data-interest-list]');
+  const names = {};
+  data.products.forEach((p) => { names[p.slug] = shownName(p); });
+  const rows = Object.entries(data.interest || {}).filter(([slug, n]) => names[slug] && n > 0).sort((a, b) => b[1] - a[1]);
+  box.textContent = '';
+  if (!rows.length) {
+    box.appendChild(el('p', 'body-sm muted', 'no one has asked for anything yet. switch a product to not available and its "i\'m interested" button appears in the shop.'));
+    return;
+  }
+  const list = el('ol', 'interest-admin');
+  rows.forEach(([slug, n]) => {
+    const li = el('li', null);
+    li.append(el('span', 'feature-name', names[slug]), el('span', 'caption', peopleWords(n) + ((data.available || {})[slug] === false ? '' : ' in the shop now.')));
+    list.appendChild(li);
+  });
+  box.appendChild(list);
+}
+
 /* ---------- featured: what turns in the carousel at the top of the shop ---------- */
 // picks keep the order they were ticked in, which is the order they stand on the ring
 let picks = [];
 let featuredMax = 8;
 
 function stockWords(p, picked) {
+  if (p.available === false) return 'not available';
   if (!p.linked) return 'not linked to square';
   if (p.stock > 0) return p.stock + ' in stock';
   return picked ? "sold out, hidden from the carousel until it's back" : 'sold out';
