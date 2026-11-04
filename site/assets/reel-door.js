@@ -596,7 +596,8 @@
       close.appendChild(el('span', null, 'close'));
       close.addEventListener('click', function () { f.dialog.close(); });
       top.appendChild(close);
-      // the body: a window with who and the whole caption, the counts, then the card, side by side
+      // the body: the card in the middle of the screen, and to its right the counts at the top and a window
+      // with who and the whole caption at the bottom
       var body = el('div', 'reel-door__full-body');
       f.about = el('section', 'reel-door__about');
       f.about.setAttribute('aria-label', 'about this reel');
@@ -657,9 +658,11 @@
       c.win.appendChild(f.tools);
       f.bar = c.bar;
       frame.appendChild(f.card);
-      body.appendChild(f.about);
-      body.appendChild(f.counts);
+      var side = el('div', 'reel-door__full-side');
+      side.appendChild(f.counts);
+      side.appendChild(f.about);
       body.appendChild(frame);
+      body.appendChild(side);
       f.dialog.appendChild(top);
       f.dialog.appendChild(body);
       f.dialog.addEventListener('close', closeFull);
