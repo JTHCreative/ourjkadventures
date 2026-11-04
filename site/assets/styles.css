@@ -231,6 +231,8 @@ h1, h2, h3 { font-weight: 500; text-transform: none; }
 .jka-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
 .jka-btn[hidden] { display: none; }
 .jka-btn--honey { --btn-bg: var(--honey); --btn-fg: var(--on-honey); }
+/* "i'm interested" while it's on: honey, so it reads as chosen, and tapping it again takes it back */
+.interest-btn[aria-pressed="true"] { --btn-bg: var(--honey); --btn-fg: var(--on-honey); }
 .jka-btn--quiet { --btn-bg: transparent; --btn-fg: var(--ink); --btn-line: var(--line-strong); }
 .jka-btn--sm { min-height: 36px; padding: var(--space-2) var(--space-4); font-size: 16px; }
 

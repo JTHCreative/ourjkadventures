@@ -361,6 +361,10 @@
     var a = interestedIn();
     if (a.indexOf(slug) < 0) { a.push(slug); save('jka_interest', JSON.stringify(a)); }
   }
+  function forgetInterest(slug) {
+    var a = interestedIn().filter(function (s) { return s !== slug; });
+    save('jka_interest', a.length ? JSON.stringify(a) : null);
+  }
   function peopleWords(n) { return n === 1 ? '1 person is interested.' : n + ' people are interested.'; }
 
   // same shape as buyArea (a price line, a stock line, a button) so every page places it the same way
@@ -369,39 +373,54 @@
     var price = el('p', 'price', '');
     var line = el('p', 'caption stock-line', '');
     line.setAttribute('aria-live', 'polite');
-    var btn = el('button', btnClass, '');
+    var btn = el('button', btnClass + ' interest-btn', '');
     btn.type = 'button';
     var name = p.kind === 'board' ? p.name : pupName(p) + ' pin';
+    // an on and off button, like a light switch: tap to say you're interested, tap again to take it back
+    btn.setAttribute('aria-label', 'i\'m interested in the ' + name);
     var voted = interestedIn().indexOf(p.slug) >= 0;
+    var sorry = 'we could not count that just now. try again in a moment.';
     function paint(note) {
       line.textContent = 'not in the shop yet.' + (p.interest > 0 ? ' ' + peopleWords(p.interest) : '') + (note ? ' ' + note : '');
       btn.textContent = voted ? 'you\'re interested.' : 'i\'m interested';
-      btn.setAttribute('aria-label', voted ? 'you said you\'re interested in the ' + name : 'i\'m interested in the ' + name);
-      btn.disabled = voted;
+      btn.setAttribute('aria-pressed', voted ? 'true' : 'false');
+      btn.disabled = false;
+    }
+    function send(method) {
+      return fetch('/api/interest', { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: p.slug }) })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j.status_code = r.status; return j; }); });
     }
     btn.addEventListener('click', function () {
-      if (voted) return;
       btn.disabled = true;
       btn.textContent = 'one moment.';
-      fetch('/api/interest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: p.slug }) })
-        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j.status_code = r.status; return j; }); })
-        .then(function (j) {
+      if (voted) {
+        send('DELETE').then(function (j) {
+          if (j.status_code !== 200) { paint(sorry); return; }
           if (typeof j.count === 'number') p.interest = j.count;
-          if (j.counted || j.reason === 'already') {
-            voted = true;
-            rememberInterest(p.slug);
-            paint(j.counted ? 'thank you. it helps us decide what comes next.' : 'we already have you down for this one.');
-          } else if (j.reason === 'limit') {
-            // lots of taps from one connection today (a shared wifi, say): this one wasn't added, and that's fine
-            paint('we have counted plenty from this connection today. thank you all the same.');
-            btn.disabled = true;
-          } else if (j.status_code === 409) {
-            paint('this one just arrived in the shop. refresh the page to see it.');
-            btn.disabled = true;
-          } else {
-            paint('we could not count that just now. try again in a moment.');
-          }
-        }).catch(function () { paint('we could not count that just now. try again in a moment.'); });
+          // "not counted" means this browser's vote was already gone (a cleared cookie, say): off either way
+          voted = false;
+          forgetInterest(p.slug);
+          paint('no longer counted. tap again if you change your mind.');
+        }).catch(function () { paint(sorry); });
+        return;
+      }
+      send('POST').then(function (j) {
+        if (typeof j.count === 'number') p.interest = j.count;
+        if (j.counted || j.reason === 'already') {
+          voted = true;
+          rememberInterest(p.slug);
+          paint(j.counted ? 'thank you. it helps us decide what comes next. tap again to take it back.' : 'we already have you down for this one.');
+        } else if (j.reason === 'limit') {
+          // lots of taps from one connection today (a shared wifi, say): this one wasn't added, and that's fine
+          paint('we have counted plenty from this connection today. thank you all the same.');
+          btn.disabled = true;
+        } else if (j.status_code === 409) {
+          paint('this one just arrived in the shop. refresh the page to see it.');
+          btn.disabled = true;
+        } else {
+          paint(sorry);
+        }
+      }).catch(function () { paint(sorry); });
     });
     area.appendChild(price);
     area.appendChild(line);
