@@ -306,19 +306,23 @@ plan to email customers). Gmail was ruled out: about 500 a day, hard to reach fr
 from a personal account lands in spam. `server/email.js` is the only file that knows about Resend, so
 switching later means changing that one file.
 
-- **Confirm first (double opt-in).** An address is only emailed "it's here" after its owner clicks the link in
-  "is this you?". Otherwise anyone could sign up someone else's address. The confirm page waits for a button
-  press because some mail apps open every link in an email to check it, which would confirm on their own.
-- **Anyone, not just accounts.** No sign-in needed, since most people won't make an account for this. The
-  confirm step does the checking that an account would.
+- **No confirm email (changed the same day).** The first version sent "is this you?" with a link to click
+  first. The owner found that one step too many, so an address now goes on the list at once and nothing is
+  sent until the pin arrives. A website can't prove an address belongs to the person typing it without sending
+  something, so instead it checks what it can on the spot: it looks like an email, the browser offers
+  "did you mean ...@gmail.com?" for common slips, and the server asks Cloudflare's public DNS whether the domain
+  takes mail (if DNS can't be asked, the sign-up goes through). What's left: someone could put down a friend's
+  address. The friend gets one "it's here" email, which says "if you didn't ask for this" beside the stop
+  link. Catching typos upfront also keeps the bounce rate low, which keeps the Resend account in good standing.
+- **Anyone, not just accounts.** No sign-in needed, since most people won't make an account for this.
 - **The owner presses send.** Flipping a product's switch never emails anyone, so testing a switch can't
   reach real people. Send is refused unless the product is available and the shop is open, so "it's in the
   shop now" is true when it lands. Each person gets one email per product, then comes off that list.
 - **Our own daily count.** The site counts what it sends and stops at 100 a day, so a long list goes out over
   several days (press send again) instead of failing partway. A batch send carries an idempotency key, so
   pressing twice after a hiccup can't double-send.
-- **Keeping it from being misused.** 5 sign-ups a day per connection, no second confirm email within ten
-  minutes, and sign-ups only for products that aren't available.
+- **Keeping it from being misused.** 5 sign-ups a day per connection, sign-ups only for products that aren't
+  available, and nothing sent at sign-up, so the form can't be used to send email to anyone.
 - **Stopping.** Every "it's here" email has a stop link and `List-Unsubscribe` headers for mail apps' own
   button. The stop link is signed (HMAC), so it needs nothing stored, and it removes the address from every
   list. Addresses are kept only while someone is waiting, and are explained on the privacy page.

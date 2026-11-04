@@ -36,22 +36,24 @@ Until step 6 is done, the line under a tapped "i'm interested!" just says "thank
 7. Open `/admin`. The **email when it's here** card should say "today: 0 of 100 emails sent." instead of
    "email isn't set up yet".
 8. Pick a pin that is switched off (not available), open it in the shop and tap **i'm interested!**. Under the
-   button it says "thank you! be notified when it's available:". Enter your own email and press **notify me**. You should get "is this you? the ... pin." within a minute. Check spam too.
-   If it landed in spam, mark it "not spam".
-9. Click the link in it and press **yes, email me**. On `/admin` the card should show "1 person waiting."
+   button it says "thank you! be notified when it's available:". Enter your own email and press **notify me**.
+   It should say "you're on the list. we'll email ... when it's here." Nothing is emailed yet.
+   - Try `you@gmial.com` first: it should ask "did you mean you@gmail.com?".
+9. On `/admin` the card should show "1 person waiting."
 10. To try the "it's here" email: switch that pin on, make sure the shop is open, and press
-    **send "it's here" to 1**. You should get "the ... pin is here." Then switch the pin back off if it
-    isn't really here yet.
+    **send "it's here" to 1**. You should get "the ... pin is here." within a minute. Check spam too, and
+    if it landed there, mark it "not spam". Then switch the pin back off if it isn't really here yet.
+    - If your shop is still closed: send only works while it's open, and opening it makes every linked,
+      in-stock pin buyable. You can stop at step 9 and let the first real arrival be the test.
 11. In that email, try the stop link at the bottom: it should say "done." Tell Claude Code if your mail app
     also showed its own **unsubscribe** button at the top of the email (it should, from the email's
     unsubscribe headers).
 
 ## Day to day
 - When a pin arrives: on `/admin`, switch it on, open the shop if it's closed, then in **email when it's here**
-  press **send**. You'll be asked to confirm first. Everyone confirmed gets one email and comes off the list.
+  press **send**. You'll be asked to confirm first. Everyone waiting gets one email and comes off the list.
 - More than 100 waiting: the first press sends what today allows. Press send again the next day for the rest.
   The day's count starts again at midnight UTC (4 or 5 pm in California).
-- People who never clicked their confirm link are never emailed. They show as "not confirmed yet".
 - Someone asks to be taken off: their stop link does it. Or ask Claude Code to remove the address.
 
 ## If something goes wrong

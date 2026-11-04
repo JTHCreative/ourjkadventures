@@ -267,11 +267,7 @@ function paintInterest(data) {
 }
 
 /* ---------- email when it's here ---------- */
-function waitingWords(r) {
-  const bits = [r.confirmed === 1 ? '1 person waiting' : r.confirmed + ' people waiting'];
-  if (r.pending) bits.push(r.pending + ' not confirmed yet');
-  return bits.join(', ') + '.';
-}
+function waitingWords(r) { return (r.waiting === 1 ? '1 person' : r.waiting + ' people') + ' waiting.'; }
 
 function paintNotify(data, done) {
   const state = $('[data-notify-state]');
@@ -297,11 +293,11 @@ function paintNotify(data, done) {
     note.setAttribute('role', 'status');
     if (!r.available) {
       note.textContent = 'switch it on above when it\'s here, then send.';
-    } else if (r.confirmed) {
-      const send = el('button', 'jka-btn jka-btn--sm', 'send "it\'s here" to ' + r.confirmed);
+    } else if (r.waiting) {
+      const send = el('button', 'jka-btn jka-btn--sm', 'send "it\'s here" to ' + r.waiting);
       send.type = 'button';
       send.addEventListener('click', async () => {
-        if (!confirm('send "' + r.preview.subject + '" to ' + r.confirmed + (r.confirmed === 1 ? ' person' : ' people') + '?')) return;
+        if (!confirm('send "' + r.preview.subject + '" to ' + r.waiting + (r.waiting === 1 ? ' person' : ' people') + '?')) return;
         send.disabled = true;
         note.textContent = 'sending.';
         try {

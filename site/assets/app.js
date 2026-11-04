@@ -444,8 +444,38 @@
     return area;
   }
 
+  /* ---------- "did you mean ...@gmail.com?": the slips people make most, caught before anything is sent ---------- */
+  var MAIL_DOMAINS = ['gmail.com', 'googlemail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'live.com', 'msn.com', 'icloud.com',
+    'me.com', 'mac.com', 'aol.com', 'comcast.net', 'att.net', 'sbcglobal.net', 'verizon.net', 'proton.me', 'protonmail.com',
+    'ymail.com', 'mail.com', 'gmx.com'];
+  // how many single-letter fixes apart two words are (a swapped pair of letters counts as one)
+  function editsApart(a, b) {
+    var d = [];
+    for (var i = 0; i <= a.length; i++) { d[i] = [i]; }
+    for (var j = 0; j <= b.length; j++) { d[0][j] = j; }
+    for (i = 1; i <= a.length; i++) {
+      for (j = 1; j <= b.length; j++) {
+        var cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+        if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+      }
+    }
+    return d[a.length][b.length];
+  }
+  // "pup@gmial.com" -> "pup@gmail.com". nothing for a domain that's fine as it is, or not close to a common one
+  function suggestEmail(email) {
+    var at = email.lastIndexOf('@');
+    var domain = email.slice(at + 1).toLowerCase();
+    if (MAIL_DOMAINS.indexOf(domain) >= 0) return null;
+    for (var k = 0; k < MAIL_DOMAINS.length; k++) {
+      if (editsApart(domain, MAIL_DOMAINS[k]) === 1) return email.slice(0, at + 1) + MAIL_DOMAINS[k];
+    }
+    return null;
+  }
+
   // the line under a tapped "i'm interested": "thank you!", and when the site's email is set up,
-  // "be notified when it's available:" with one email box. the server then sends a link to check it's really them
+  // "be notified when it's available:" with one email box. checked on the spot (looks like an email, a common
+  // typo, a domain that takes mail), then on the list. nothing is sent until the pin arrives
   function notifyBox(p) {
     var box = el('div', 'notify-thanks');
     var words = el('p', 'notify-words', 'thank you!' + (catalog.email ? ' be notified when it\'s available:' : ''));
@@ -475,8 +505,12 @@
     function say(text, keepForm) {
       note.textContent = text;
       form.hidden = !keepForm;
+      // the box is done with: "be notified when it's available:" would point at nothing
+      if (!keepForm) words.textContent = 'thank you!';
       go.disabled = false;
     }
+    // the address we already offered a fix for: pressing notify me again keeps it as typed
+    var offered = null;
     form.addEventListener('submit', function (e) {
       e.preventDefault();
       var email = input.value.trim();
@@ -486,17 +520,37 @@
         input.focus();
         return;
       }
+      var fix = email !== offered && suggestEmail(email);
+      if (fix) {
+        offered = email;
+        note.textContent = 'did you mean ' + fix + '? ';
+        var use = el('button', 'link-btn', 'yes, use that');
+        use.type = 'button';
+        use.addEventListener('click', function () {
+          input.value = fix;
+          offered = fix;
+          note.textContent = '';
+          if (form.requestSubmit) form.requestSubmit(); else form.dispatchEvent(new Event('submit', { cancelable: true }));
+        });
+        note.appendChild(use);
+        note.appendChild(document.createTextNode(' or press notify me to keep it.'));
+        return;
+      }
       input.removeAttribute('aria-invalid');
       go.disabled = true;
       note.textContent = 'one moment.';
       fetch('/api/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug: p.slug, email: email }) })
         .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j.status_code = r.status; return j; }); })
         .then(function (j) {
-          if (j.status === 'sent') say('check your inbox. we sent a link to make sure it\'s you.');
+          if (j.status === 'added') say('you\'re on the list. we\'ll email ' + email.toLowerCase() + ' when it\'s here.');
           else if (j.status === 'already') say('you\'re already on the list for this one.');
           else if (j.status === 'limit') say('we have had a lot of sign-ups from this connection today. try again tomorrow.');
-          else if (j.status === 'busy') say('we can\'t send email just now. try again tomorrow, or write to us at ' + CONTACT_EMAIL + '.');
           else if (j.error === 'email') { input.setAttribute('aria-invalid', 'true'); say('that email doesn\'t look quite right.', true); }
+          else if (j.error === 'domain') {
+            input.setAttribute('aria-invalid', 'true');
+            say('we couldn\'t find mail at "' + email.slice(email.lastIndexOf('@') + 1) + '". check the part after the @.', true);
+            input.focus();
+          }
           else if (j.status_code === 409) say('this one just arrived in the shop. refresh the page to see it.');
           else say('we could not do that just now. try again in a moment, or write to us at ' + CONTACT_EMAIL + '.', true);
         }).catch(function () { say('we could not do that just now. try again in a moment, or write to us at ' + CONTACT_EMAIL + '.', true); });
@@ -504,45 +558,38 @@
     return box;
   }
 
-  /* ---------- email.html: the confirm and stop links from our emails land here ---------- */
+  /* ---------- email.html: the stop link from our emails lands here ---------- */
   // nothing happens until the button is pressed, because some mail apps open every link in an email to check it
   function initEmailPage() {
     var page = document.querySelector('[data-email-page]');
     if (!page) return;
-    var q = new URLSearchParams(location.search);
-    var confirmCode = q.get('confirm');
-    var stopCode = q.get('stop');
+    var stopCode = new URLSearchParams(location.search).get('stop');
     var title = page.querySelector('[data-email-title]');
     var words = page.querySelector('[data-email-words]');
     var go = page.querySelector('[data-email-go]');
     var status = page.querySelector('[data-email-status]');
-    if (!confirmCode && !stopCode) {
+    if (!stopCode) {
       title.textContent = 'nothing to do here.';
       words.textContent = 'this page is for the links in our emails.';
       return;
     }
-    title.textContent = confirmCode ? 'is this you?' : 'stop these emails?';
-    words.textContent = confirmCode
-      ? 'say yes and we\'ll write once, when the pin you asked about is in the shop.'
-      : 'we\'ll take this address off every list. you won\'t hear from us about new pins.';
-    go.textContent = confirmCode ? 'yes, email me' : 'stop emailing me';
+    title.textContent = 'stop these emails?';
+    words.textContent = 'we\'ll take this address off every list. you won\'t hear from us about new pins.';
+    go.textContent = 'stop emailing me';
     go.hidden = false;
     go.addEventListener('click', function () {
       go.disabled = true;
       status.textContent = 'one moment.';
-      fetch('/api/notify/' + (confirmCode ? 'confirm' : 'stop'), {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: confirmCode || stopCode })
+      fetch('/api/notify/stop', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: stopCode })
       }).then(function (r) { return r.json().catch(function () { return {}; }); }).then(function (j) {
         status.textContent = '';
-        if (confirmCode && j.confirmed) {
-          title.textContent = 'thank you.';
-          words.textContent = 'we\'ll write once, when the ' + j.name + ' is in the shop.';
-        } else if (stopCode && j.stopped) {
+        if (j.stopped) {
           title.textContent = 'done.';
           words.textContent = 'this address is off every list. you won\'t hear from us again unless you ask.';
         } else {
           title.textContent = 'that link didn\'t work.';
-          words.textContent = 'it may be old or cut short. you can ask again on the pin\'s page, or write to us at ' + CONTACT_EMAIL + '.';
+          words.textContent = 'it may be cut short. write to us at ' + CONTACT_EMAIL + ' and we\'ll take you off.';
         }
         go.hidden = true;
         // the code has done its job: keep it out of the address bar and history

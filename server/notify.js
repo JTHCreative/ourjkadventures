@@ -144,7 +144,8 @@ async function signUp(env, request, body, fetchFn) {
   const fromHere = await firestoreGet(env, ipPath, fetchFn);
   if (fromHere && fromHere.count >= SIGNUPS_PER_DAY) return [{ status: 'limit' }];
 
-  if ((await domainTakesMail(email.split('@')[1], fetchFn)) === false) return [{ error: 'domain' }, 400];
+  // an ordinary answer, not an error: a mistyped email isn't a broken request
+  if ((await domainTakesMail(email.split('@')[1], fetchFn)) === false) return [{ error: 'domain' }];
 
   await firestoreSet(env, path, { slug: p.slug, email, who, createdAt: new Date() }, fetchFn);
   await firestoreCommit(env, [{ add: ipPath, field: 'count', data: { day } }], fetchFn);
