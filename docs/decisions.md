@@ -415,5 +415,7 @@ and the whole caption (instead of one cut-off line under the window). The reel-n
   visitors still never reach Meta directly, the saved copy just refreshes every 10 minutes now instead of 30. That's
   about 6 media calls and a few dozen share asks an hour, well inside Meta's limits.
 - **Whole captions.** The saved copy keeps up to 2,200 characters (Instagram's own limit), up from 300.
-- **Phones.** There's no room beside the card under 760px wide, so the counts sit in a row under the card and the
+- **Moved to the right, card centred (owner's drawing, same day).** The counts sit top right of the card and the
+  caption window bottom right; an empty column on the left keeps the card in the middle of the screen.
+- **Phones.** There's no room beside the card under 980px wide, so the counts sit in a row under the card and the
   caption window under that; the screen scrolls to them.
