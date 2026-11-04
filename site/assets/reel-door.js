@@ -26,7 +26,7 @@
   };
   var PHONE_WIDTH = 480;      // below this the stage spreads reels closer
   var PHONE_SPREAD = 0.72;
-  var MIN_W = 120, MAX_W = 200, EDGE_ROOM = 12;   // reel width in px, and the room kept beside the neighbours
+  var MIN_W = 120, MAX_W = 212, EDGE_ROOM = 12;   // reel width in px, and the room kept beside the neighbours
 
   // eight stand-ins until the real reels come from instagram. one is our own hero video, so playback can be tested
   var PLACEHOLDER_REELS = [
@@ -68,8 +68,28 @@
       y: -o.arc * back * scale,
       scale: scale,
       rotY: side * o.swing * bump,
+      z: z,
+      ease: ease,
+      bump: bump,
       zIndex: 1000 - Math.round(ad * 10),
       haze: Math.min(0.78, (ad / s) * 0.22)
+    };
+  }
+
+  // the card's shadow: warm brown, two layers close to the card. it grows as a card lifts or swaps, fades
+  // toward the back, and falls a little to the right, away from a light up and to the left
+  var LIGHT = { x: -700, y: -520, z: 600 };
+  function cardShadow(p) {
+    var k = Math.min(1.4, p.ease + 0.6 * p.bump);
+    var fade = 1 - 0.8 * p.haze;
+    var vx = LIGHT.x - p.x, vy = LIGHT.y - p.y, vz = LIGHT.z - p.z;
+    var lx = vx / (Math.sqrt(vx * vx + vy * vy + vz * vz) || 1);
+    var sx = -lx * (2 + 4 * k);
+    function n(v) { return v.toFixed(2); }
+    return {
+      k: k, fade: fade, sx: sx,
+      css: n(0.4 * sx) + 'px ' + n(2 + 3 * k) + 'px ' + n(4 + 5 * k) + 'px rgba(58,53,50,' + ((0.14 + 0.10 * k) * fade).toFixed(3) + '),' +
+        n(sx) + 'px ' + n(6 + 10 * k) + 'px ' + n(14 + 18 * k) + 'px rgba(58,53,50,' + ((0.22 + 0.18 * k) * fade).toFixed(3) + ')'
     };
   }
 
@@ -129,8 +149,15 @@
     pause: ['M9 5.5v13', 'M15 5.5v13'],
     soundOff: ['M4 9.5h3.5L12 5.5v13l-4.5-4H4z', 'M16 9.5l5 5', 'M21 9.5l-5 5'],
     soundOn: ['M4 9.5h3.5L12 5.5v13l-4.5-4H4z', 'M16 9a4 4 0 0 1 0 6', 'M18.5 6.5a7.5 7.5 0 0 1 0 11'],
-    close: ['M6 6l12 12', 'M18 6L6 18']
+    close: ['M6 6l12 12', 'M18 6L6 18'],
+    like: ['M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z'],
+    comment: ['M20 11.5a8 8 0 0 1-11.6 7.1L4 20l1.4-4.2A8 8 0 1 1 20 11.5z'],
+    share: ['M21 3L3 10.5l7 3 3 7z', 'M21 3l-11 10.5']
   };
+
+  // the backing card, at its printed size: everything inside is laid out in these px, and the whole card is
+  // scaled to fit (CARD_W is the W in the reach formula)
+  var CARD_W = 212, CARD_H = 436;
 
   function mount(rootEl, options) {
     options = options || {};
@@ -208,13 +235,67 @@
       return b;
     }
 
+    // the backing card, like the ones our pins come on: a hang slot at the top, the reel in a window, and
+    // the handle, caption and progress bar printed underneath. used by the ring and by full screen
+    function backingCard() {
+      var c = {};
+      c.card = el('div', 'reel-door__card');
+      var slot = el('span', 'reel-door__slot');
+      slot.setAttribute('aria-hidden', 'true');
+      c.card.appendChild(slot);
+      c.win = el('div', 'reel-door__window');
+      c.card.appendChild(c.win);
+      // on the video: the reel's number top left, and like, comment and share bottom right (just printed on,
+      // like the instagram ones; tapping them opens the reel like the rest of the picture)
+      c.num = el('span', 'reel-door__num');
+      c.num.setAttribute('aria-hidden', 'true');
+      c.social = el('div', 'reel-door__social');
+      c.social.setAttribute('aria-hidden', 'true');
+      [ICON.like, ICON.comment, ICON.share].forEach(function (paths) {
+        var dot = el('span', 'reel-door__social-icon');
+        dot.appendChild(icon(paths));
+        c.social.appendChild(dot);
+      });
+      c.printed = el('div', 'reel-door__printed');
+      var who = el('div', 'reel-door__who');
+      var avatar = el('img', 'reel-door__avatar');
+      avatar.src = 'assets/img/logo.svg';
+      avatar.alt = '';
+      avatar.draggable = false;
+      c.handle = el('a', 'reel-door__handle');
+      c.handle.target = '_blank';
+      c.handle.rel = 'noopener';
+      c.handle.setAttribute('aria-label', 'see this reel on instagram');
+      c.handle.draggable = false;
+      who.appendChild(avatar);
+      who.appendChild(c.handle);
+      c.caption = el('p', 'reel-door__caption');
+      var track = el('div', 'reel-door__progress');
+      track.setAttribute('aria-hidden', 'true');
+      c.bar = el('div', 'reel-door__bar');
+      track.appendChild(c.bar);
+      c.printed.appendChild(who);
+      c.printed.appendChild(c.caption);
+      c.printed.appendChild(track);
+      c.card.appendChild(c.printed);
+      // the window's own layers go on once the picture is in, so they sit above it
+      c.finish = function () {
+        c.win.appendChild(c.num);
+        c.win.appendChild(c.social);
+      };
+      return c;
+    }
+
     function buildReel(r, i) {
       var node = el('div', 'reel-door__reel');
       node.setAttribute('role', 'group');
       node.setAttribute('aria-roledescription', 'slide');
       node.setAttribute('aria-label', (i % real + 1) + ' of ' + real);
       node.setAttribute('data-index', String(i));
-      var card = el('div', 'reel-door__card' + (r.placeholder ? ' reel-door__card--placeholder' : ''));
+      var c = backingCard();
+      var card = c.card;
+      if (r.placeholder) card.classList.add('reel-door__card--placeholder');
+      c.num.textContent = String(i % real + 1);
       // the whole picture is one button: on the front reel it opens the reel full screen
       var media = el('button', 'reel-door__media');
       media.type = 'button';
@@ -256,7 +337,8 @@
           media.appendChild(mark);
         }
       }
-      card.appendChild(media);
+      c.win.appendChild(media);
+      c.finish();
 
       var tools = null, playBtn = null, soundBtn = null;
       if (video) {
@@ -276,31 +358,15 @@
         });
         tools.appendChild(playBtn);
         tools.appendChild(soundBtn);
-        card.appendChild(tools);
+        c.win.appendChild(tools);
       }
 
-      var panel = el('div', 'reel-door__panel');
-      var who = el('div', 'reel-door__who');
-      var avatar = el('img', 'reel-door__avatar');
-      avatar.src = 'assets/img/logo.svg';
-      avatar.alt = '';
-      avatar.draggable = false;
-      var handle = el('a', 'reel-door__handle', '@' + username);
+      var handle = c.handle;
+      handle.textContent = '@' + username;
       handle.href = permalink;
-      handle.target = '_blank';
-      handle.rel = 'noopener';
-      handle.setAttribute('aria-label', 'see this reel on instagram');
-      handle.draggable = false;
-      who.appendChild(avatar);
-      who.appendChild(handle);
-      panel.appendChild(who);
-      if (caption) panel.appendChild(el('p', 'reel-door__caption', caption));
-      var track = el('div', 'reel-door__progress');
-      track.setAttribute('aria-hidden', 'true');
-      var bar = el('div', 'reel-door__bar');
-      track.appendChild(bar);
-      panel.appendChild(track);
-      card.appendChild(panel);
+      c.caption.textContent = caption;
+      c.caption.hidden = !caption;
+      var bar = c.bar;
 
       var haze = el('div', 'reel-door__haze');
       card.appendChild(haze);
@@ -368,12 +434,14 @@
     }
     function render() {
       shapeNow();
+      var fit = W / CARD_W;      // the card is laid out at its printed size, then scaled to the ring's width
       for (var i = 0; i < N; i++) {
         var p = place(i, N, angle, Rx, shape);
         var st = items[i].node.style;
-        st.transform = 'translate(' + p.x.toFixed(2) + 'px,' + p.y.toFixed(2) + 'px) scale(' + p.scale.toFixed(4) +
+        st.transform = 'translate(' + p.x.toFixed(2) + 'px,' + p.y.toFixed(2) + 'px) scale(' + (p.scale * fit).toFixed(4) +
           ') perspective(900px) rotateY(' + p.rotY.toFixed(2) + 'deg)';
         st.zIndex = p.zIndex;
+        st.boxShadow = cardShadow(p).css;
         items[i].haze.style.opacity = p.haze.toFixed(3);
       }
       var f = mod(Math.round(angle / s), N);
@@ -517,9 +585,13 @@
       top.appendChild(close);
       var frame = el('div', 'reel-door__full-frame');
       f.frame = frame;
-      f.card = el('div', 'reel-door__card');
+      var c = backingCard();
+      f.card = c.card;
+      f.num = c.num;
       f.media = el('div', 'reel-door__media');
-      f.tools = el('div', 'reel-door__full-tools');
+      c.win.appendChild(f.media);
+      c.finish();
+      f.tools = el('div', 'reel-door__tools');
       f.playBtn = el('button', 'reel-door__tool');
       f.playBtn.type = 'button';
       f.playBtn.addEventListener('click', function () {
@@ -537,34 +609,23 @@
       });
       f.tools.appendChild(f.playBtn);
       f.tools.appendChild(f.soundBtn);
-      var panel = el('div', 'reel-door__panel');
-      var who = el('div', 'reel-door__who');
-      var avatar = el('img', 'reel-door__avatar');
-      avatar.src = 'assets/img/logo.svg';
-      avatar.alt = '';
-      f.handle = el('a', 'reel-door__handle');
-      f.handle.target = '_blank';
-      f.handle.rel = 'noopener';
-      f.handle.setAttribute('aria-label', 'see this reel on instagram');
-      who.appendChild(avatar);
-      who.appendChild(f.handle);
-      f.caption = el('p', 'reel-door__caption');
-      var track = el('div', 'reel-door__progress');
-      track.setAttribute('aria-hidden', 'true');
-      f.bar = el('div', 'reel-door__bar');
-      track.appendChild(f.bar);
-      panel.appendChild(who);
-      panel.appendChild(f.caption);
-      panel.appendChild(track);
-      f.card.appendChild(f.media);
-      f.card.appendChild(f.tools);
-      f.card.appendChild(panel);
+      c.win.appendChild(f.tools);
+      f.handle = c.handle;
+      f.caption = c.caption;
+      f.bar = c.bar;
       frame.appendChild(f.card);
       f.dialog.appendChild(top);
       f.dialog.appendChild(frame);
       f.dialog.addEventListener('close', closeFull);
       document.body.appendChild(f.dialog);
       return f;
+    }
+
+    // the full-screen card is the same printed card, scaled up to fill the frame
+    function fitFull() {
+      if (!full) return;
+      var h = full.frame.clientHeight;
+      if (h) full.card.style.transform = 'scale(' + (h / CARD_H).toFixed(4) + ')';
     }
 
     function paintFull() {
@@ -588,6 +649,7 @@
       full.video = null;
       full.dialog.setAttribute('aria-label', single ? 'a reel from our instagram' : 'reel ' + (i % real + 1) + ' of ' + real);
       full.card.classList.toggle('reel-door__card--placeholder', it.placeholder);
+      full.num.textContent = String(i % real + 1);
       full.handle.href = it.permalink;
       full.handle.textContent = '@' + it.username;
       full.caption.textContent = it.caption;
@@ -626,11 +688,14 @@
       }
       document.documentElement.classList.add('reel-door-locked');
       if (full.dialog.showModal) full.dialog.showModal(); else full.dialog.setAttribute('open', '');
+      fitFull();
+      window.addEventListener('resize', fitFull);
     }
 
     // closing hands the moment back to the card, so the reel carries on where it was
     function closeFull() {
       document.documentElement.classList.remove('reel-door-locked');
+      window.removeEventListener('resize', fitFull);
       var it = items[full.index];
       if (full.video) {
         var t = full.video.currentTime;
@@ -844,7 +909,7 @@
     });
   }
 
-  root.ReelDoor = { mount: mount, place: place, reach: reach, settleAngle: settleAngle, instagramLink: instagramLink, DEFAULTS: DEFAULTS, PLACEHOLDER_REELS: PLACEHOLDER_REELS };
+  root.ReelDoor = { mount: mount, place: place, reach: reach, settleAngle: settleAngle, cardShadow: cardShadow, CARD_W: CARD_W, CARD_H: CARD_H, instagramLink: instagramLink, DEFAULTS: DEFAULTS, PLACEHOLDER_REELS: PLACEHOLDER_REELS };
 
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
