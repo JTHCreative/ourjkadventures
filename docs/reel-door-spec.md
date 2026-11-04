@@ -67,17 +67,17 @@ Drag mapping: `angle = startAngle - dx × (180 / π) / Rx × 1.1`. Expose the tu
 | swing | 14° | 0–35 | Turn away from centre mid-swap |
 | autoAdvance | false | — | Step to the next reel when the current one ends |
 
-Reel size in the prototype is 208 × 370 px (9:16); scale it with the container rather than hard-coding it.
+Each card is 212 × 436px in the prototype (W = 212 in the reach formula), holding a 185 × 330px video window; scale it with the container rather than hard-coding it.
 
 ## Visual design
 
-Style it with the j+k adventures design system: cream paper, EB Garamond, lowercase copy, a 1.5px ink pen outline and one balloon red element per view. If the repo already has these tokens, use them by name; otherwise define them as CSS variables.
+Style it with the j+k adventures design system: cream paper, EB Garamond, lowercase copy, ink pen outlines and one balloon red element per view. Outlines are deliberately thicker than the system's 1.5px (2–3px, whole pixels) so they stay crisp while cards scale and tilt. If the repo already has these tokens, use them by name; otherwise define them as CSS variables.
 
 | Token | Value | Used for |
 | --- | --- | --- |
 | surface | #f9f9f7 | Page ground; also the haze overlay on rear reels |
 | surface-raised | #f4f3ef | Arrow buttons, reel caption panel, chips |
-| ink | #3a3532 | Text, 1.5px outlines, icon strokes, active dot |
+| ink | #3a3532 | Text, 2–3px outlines, icon strokes, active dot |
 | ink-muted | #6a645e | Captions, counter, subtitle |
 | honey-text | #8a5a1c | Eyebrow label |
 | line-strong | #86807a | Arrow button border, inactive dots |
@@ -86,9 +86,15 @@ Style it with the j+k adventures design system: cream paper, EB Garamond, lowerc
 | focus-ring | #10407b | 2px focus outline, 2px offset |
 
 - **Type.** EB Garamond for everything. Eyebrow 15/18 weight 600, tracked 0.12em; title 40/44 weight 500; body 18/28; captions 14/20 weight 500. Nothing below 14px; everything lowercase.
-- **Reel card.** 9:16, radius 20px, 1.5px ink border, shadow `0 2px 4px rgba(58,53,50,.06), 0 12px 28px rgba(58,53,50,.10)`. Inside: the video or thumbnail filling the card; a reel-number pill top-left; a caption panel at the bottom on surface-raised with a 1.5px ink top border holding avatar, handle, caption and (front only) the progress bar.
-- **Controls.** Arrow buttons are 56px circles on surface-raised with a 1.5px line-strong border and a 24px chevron drawn with a 1.5px round ink stroke. Dots are 44 × 44 buttons with an 8px dot; the active one widens to a 24px ink pill.
-- **Never.** Gradients, pure white or black, uppercase, bold for emphasis, emoji, or a second red element.
+- **Backing card.** Each reel is mounted on a card like the pin backing cards: 212 × 436px, parchment card stock (`#efe6dd`), radius 20px, 3px ink border. Plain colour only: no texture, gradient or lighting overlay.
+  - Hang slot: a 36 × 10px pill centred 10px from the top, 2px ink border, filled with surface (`#f9f9f7`).
+  - Video window: 12px from the left, 30px from the top, 185 × 330px (about 9:16), radius 10px, 3px ink border, overflow hidden. The video or thumbnail fills it (`object-fit: cover`).
+  - On the video: a reel-number pill top-left (2px ink border, surface-raised fill, caption type) and like, comment and share icons bottom-right in 36px circles with 2px ink borders.
+  - Printed area below the window (from 370px down, 14px side margins): a 28px avatar with a 2px ink border and the handle (16/24 ink), the caption (14/20 ink-muted), and on the front card only a 4px progress bar (track `#f9f9f7`, fill accent).
+- **Shadow.** Warm brown, never black, two layers tight to the card. It grows as a card lifts or swaps and fades for cards at the back. With `k = min(1.4, ease + 0.6 × bump)`, `fade = 1 − 0.8 × haze` and `sx = −lx × (2 + 4k)` (lx = horizontal part of the unit vector from the card toward a light at x −700, y −520, z 600, so the shadow falls slightly right): `box-shadow: (0.4·sx)px (2+3k)px (4+5k)px rgba(58,53,50, (0.14+0.10k)·fade), sx px (6+10k)px (14+18k)px rgba(58,53,50, (0.22+0.18k)·fade)`.
+- **Smooth edges.** Give every card `will-change: transform; backface-visibility: hidden; outline: 1px solid transparent` so tilted edges stay smooth, and keep border widths in whole pixels.
+- **Controls.** Arrow buttons are 56px circles on surface-raised with a 2px line-strong border and a 24px chevron drawn with a 1.5px round ink stroke. Dots are 44 × 44 buttons with an 8px dot; the active one widens to a 24px ink pill.
+- **Never.** Textures, gradients, pure white or black, uppercase, bold for emphasis, emoji, or a second red element.
 
 ## Implementation plan
 
@@ -153,7 +159,7 @@ Either way, show only reels you have the right to show, and link each one back t
 - [ ] Holds 60 fps on a mid-range phone; no component re-render per animation frame
 - [ ] Screen reader hears "reel 3 of 8" on change; all controls reachable by keyboard with a visible focus ring
 - [ ] With reduced motion on, changes jump without animation and nothing autoplays
-- [ ] Matches the j+k adventures tokens: cream, EB Garamond, lowercase, 1.5px ink outlines, one red element
+- [ ] Matches the j+k adventures tokens: cream, EB Garamond, lowercase, backing-card frame with 2–3px ink outlines, close warm shadow, one red element
 
 ## Open questions
 
