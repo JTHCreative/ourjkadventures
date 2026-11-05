@@ -80,9 +80,9 @@ export function productNoun(p) {
 }
 // where a product lives on the site
 export function productPath(p) {
-  if (p.kind === 'board') return p.slug === 'bay-area-pin-board' ? '/bay-area-pin-board.html' : '/pin-boards.html';
+  if (p.kind === 'board') return p.slug === 'bay-area-pin-board' ? '/bay-area-pin-board' : '/pin-boards';
   if (p.series === 'pup-club') return '/pup-club/' + encodeURIComponent(p.slug);
-  return { hometown: '/hometown-series.html', zodiac: '/chinese-zodiac.html' }[p.series] || '/shop.html';
+  return { hometown: '/hometown-series', zodiac: '/chinese-zodiac' }[p.series] || '/shop';
 }
 
 /* ---------- the words, and how the email looks ---------- */
