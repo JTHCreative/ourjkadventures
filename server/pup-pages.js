@@ -20,6 +20,7 @@
 
 import { siteProducts, getCatalog } from './catalog.js';
 import { pinReviews } from './reviews.js';
+import { staticOrNotFound } from './not-found.js';
 
 export const SITE = 'https://ourjkadventures.com';
 const BRAND = 'j+k adventures';
@@ -146,13 +147,13 @@ export function fillPupPage(html, p, catalog, rv) {
     .replace(SPOTS.data, () => '<script type="application/ld+json">' + ld + '</script>');
 }
 
-// GET /pup-club/<slug>. anything that isn't one of our pups falls through to the static files (a 404)
+// GET /pup-club/<slug>. anything that isn't one of our pups gets the "page not found" page (a 404)
 export async function pupPageRoute(request, env, slug, fetchFn = fetch) {
   const url = new URL(request.url);
   let products;
-  try { products = await siteProducts(env, url); } catch (e) { return env.ASSETS.fetch(request); }
+  try { products = await siteProducts(env, url); } catch (e) { return staticOrNotFound(request, env); }
   const p = (products.items || []).find((x) => x.slug === slug && x.kind === 'pin' && x.series === 'pup-club');
-  if (!p) return env.ASSETS.fetch(request);
+  if (!p) return staticOrNotFound(request, env);
 
   const page = await env.ASSETS.fetch(new Request(new URL('/pup-club', url)));
   if (!page.ok) return page;

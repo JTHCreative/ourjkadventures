@@ -24,6 +24,7 @@ import { notifyRoute } from '../server/notify.js';
 import { stockCounts, squareHost, SQUARE_VERSION } from '../server/square.js';
 import { reelsRoute } from '../server/instagram.js';
 import { pupPageRoute } from '../server/pup-pages.js';
+import { staticOrNotFound } from '../server/not-found.js';
 
 const MAX_LINES = 30;
 const MAX_QTY = 20;
@@ -45,7 +46,7 @@ export default {
       if (pup[2]) return Response.redirect(url.origin + '/pup-club/' + pup[1] + url.search, 301);
       return pupPageRoute(request, env, pup[1]);
     }
-    return env.ASSETS.fetch(request);
+    return staticOrNotFound(request, env);
   }
 };
 
