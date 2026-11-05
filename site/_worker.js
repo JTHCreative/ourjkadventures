@@ -1,4 +1,4 @@
-// j+k adventures: serves the static site, the catalog (Square prices and stock), Square checkout links,
+// j+k adventures: serves the static site, each pup club pin's own page, the catalog (Square prices and stock), Square checkout links,
 // accounts, reviews, "i'm interested" votes for products not in the shop yet, and the owner's /admin.
 // Secrets live in Cloudflare (Settings > Variables and secrets), never in the page:
 //   SQUARE_ACCESS_TOKEN  (secret)  your Square access token
@@ -23,6 +23,7 @@ import { interestRoute } from '../server/interest.js';
 import { notifyRoute } from '../server/notify.js';
 import { stockCounts, squareHost, SQUARE_VERSION } from '../server/square.js';
 import { reelsRoute } from '../server/instagram.js';
+import { pupPageRoute } from '../server/pup-pages.js';
 
 const MAX_LINES = 30;
 const MAX_QTY = 20;
@@ -38,6 +39,12 @@ export default {
     if (url.pathname === '/api/interest') return interestRoute(request, env, fetch, noteInterest);
     if (url.pathname === '/api/notify' || url.pathname.startsWith('/api/notify/')) return notifyRoute(request, env);
     if (url.pathname === '/api/admin' || url.pathname.startsWith('/api/admin/')) return admin(request, env);
+    // a pup club pin's own page, e.g. /pup-club/corgi (server/pup-pages.js)
+    const pup = /^\/pup-club\/([a-z0-9-]+)(\/?)$/.exec(url.pathname);
+    if (pup && (request.method === 'GET' || request.method === 'HEAD')) {
+      if (pup[2]) return Response.redirect(url.origin + '/pup-club/' + pup[1] + url.search, 301);
+      return pupPageRoute(request, env, pup[1]);
+    }
     return env.ASSETS.fetch(request);
   }
 };

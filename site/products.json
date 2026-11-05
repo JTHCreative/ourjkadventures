@@ -8,112 +8,160 @@
       "name": "aussie",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard", "large"]
+      "sizes": ["standard", "large"],
+      "breed": "australian shepherd",
+      "about": "an australian shepherd with a merle coat and eyes that never quite match. happiest with a job to do, even if the job is following you from room to room.",
+      "summary": "our aussie enamel pin: an australian shepherd with a merle coat and eyes that never quite match. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
       "slug": "beagle",
       "name": "beagle",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard"]
+      "sizes": ["standard"],
+      "breed": "beagle",
+      "about": "a beagle, led by the nose and a little by the heart. the one who hears a snack bag from three rooms away and sings about it.",
+      "summary": "our beagle enamel pin, led by the nose and a little by the heart. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
       "slug": "cavalier",
       "name": "cavalier",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard"]
+      "sizes": ["standard"],
+      "breed": "cavalier king charles spaniel",
+      "about": "a cavalier king charles spaniel, soft-eared and built for laps. a gentle shadow who is never more than one cushion away.",
+      "summary": "our cavalier king charles spaniel enamel pin, soft-eared and built for laps. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
       "slug": "corgi",
       "name": "corgi",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard"]
+      "sizes": ["standard"],
+      "breed": "corgi",
+      "about": "a corgi, all fluff and short legs. the loaf-shaped one who trots instead of walks and is certain the whole yard belongs to them.",
+      "summary": "our corgi enamel pin, all fluff and short legs, trotting instead of walking. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
       "slug": "dachshund",
       "name": "dachshund",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard"]
+      "sizes": ["standard"],
+      "breed": "dachshund",
+      "about": "a dachshund, long and low and entirely sure of themselves. brave enough to bark at a dog ten times their size from behind the couch.",
+      "summary": "our dachshund enamel pin, long and low and entirely sure of themselves. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
       "slug": "french-bulldog",
       "name": "french bulldog",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard"]
+      "sizes": ["standard"],
+      "breed": "french bulldog",
+      "about": "a french bulldog with bat ears and a snore like a tiny engine. sighs dramatically, then falls asleep on your feet.",
+      "summary": "our french bulldog enamel pin, with bat ears and a snore like a tiny engine. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
       "slug": "german-shepherd",
       "name": "german shepherd",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard"]
+      "sizes": ["standard"],
+      "breed": "german shepherd",
+      "about": "a german shepherd, loyal down to the bone. keeps watch over the whole house and still wants a belly rub.",
+      "summary": "our german shepherd enamel pin, loyal down to the bone. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
       "slug": "golden",
       "name": "golden",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard"]
+      "sizes": ["standard"],
+      "breed": "golden retriever",
+      "about": "a golden retriever, sunshine with a tail. will carry a stick, a shoe or a very large branch to greet you, and means it every time.",
+      "summary": "goldie, our golden retriever enamel pin: sunshine with a tail. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
       "slug": "husky",
       "name": "husky",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard"]
+      "sizes": ["standard"],
+      "breed": "siberian husky",
+      "about": "a husky with ice-blue eyes and plenty to say. will tell you all about their day, usually right around dinner.",
+      "summary": "our siberian husky enamel pin, with ice-blue eyes and plenty to say. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
       "slug": "pit-bull",
       "name": "pit bull",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard"]
+      "sizes": ["standard"],
+      "breed": "pit bull",
+      "about": "a pit bull with a wide grin and a wagging back half. gentle with the people they love, and fully convinced they are a lap dog.",
+      "summary": "our pit bull enamel pin, with a wide grin and a wagging back half. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
       "slug": "pomeranian",
       "name": "pomeranian",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard", "large"]
+      "sizes": ["standard", "large"],
+      "breed": "pomeranian",
+      "about": "a pomeranian, a small cloud with a big opinion. fluffed up like they are twice the size, and expecting you to agree.",
+      "summary": "our pomeranian enamel pin, a small cloud with a big opinion. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
       "slug": "poodle",
       "name": "poodle",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard"]
+      "sizes": ["standard"],
+      "breed": "poodle",
+      "about": "a poodle, quick and clever and a little bit fancy. learns the trick on the second try, then shows everyone else how it is done.",
+      "summary": "our poodle enamel pin, quick and clever and a little bit fancy. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
       "slug": "pug",
       "name": "pug",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard"]
+      "sizes": ["standard"],
+      "breed": "pug",
+      "about": "a pug with a wrinkled brow and a whole lot of love. snorts, snuffles and follows you to the kitchen on principle.",
+      "summary": "our pug enamel pin, with a wrinkled brow and a whole lot of love. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
       "slug": "rottweiler",
       "name": "rottweiler",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard"]
+      "sizes": ["standard"],
+      "breed": "rottweiler",
+      "about": "a rottweiler who is mostly a big softie. all that seriousness melts the moment someone says the word walk.",
+      "summary": "our rottweiler enamel pin, who is mostly a big softie. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
       "slug": "shiba",
       "name": "shiba",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard"]
+      "sizes": ["standard"],
+      "breed": "shiba inu",
+      "about": "a shiba inu with a fox-like smile and a mind of their own. politely declines to do things, then does them exactly when they please.",
+      "summary": "our shiba inu enamel pin, with a fox-like smile and a mind of their own. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
       "slug": "yorkie",
       "name": "yorkie",
       "kind": "pin",
       "series": "pup-club",
-      "sizes": ["standard"]
+      "sizes": ["standard"],
+      "breed": "yorkshire terrier",
+      "about": "a yorkshire terrier, small in size and large in personality. a tiny boss in a silky coat who runs the house with a bark and a wink.",
+      "summary": "our yorkshire terrier enamel pin, a tiny boss in a silky coat. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
       "slug": "bay-area-pin-board",

@@ -118,6 +118,8 @@ async function build(env, origin, fetchFn) {
     }
     return {
       slug: p.slug, name: p.name, kind: p.kind, series: p.series || '', description: p.description || '', sizes,
+      // a pup's breed and its few sentences, shown on the board and on its own page (server/pup-pages.js)
+      ...(p.breed ? { breed: p.breed } : {}), ...(p.about ? { about: p.about } : {}),
       available, interest: available ? 0 : interest[p.slug] || 0
     };
   });
