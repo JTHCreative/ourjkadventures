@@ -382,6 +382,9 @@ order, raised gold lines, a taller gold rim, and the post and rubber clutch copi
 - **The tools (shapely, mapbox-earcut, svgelements) run only on our side**, like gltf-transform. Nothing new loads
   on the site. After the usual two slimming steps the new model is 874 KB, down from 2.2 MB.
 - `?v=` in `MODEL_3D` went to 3 so browsers fetch the new file.
+- **Update, same month:** new art with thinner plating (dark mouth and nose with gold outlines, gold arcs over
+  the eyes). The script now also reads outline-only shapes (`fill: none`): they add gold but no enamel, and a red
+  line on an open curve follows the curve instead of closing into a loop. The model is 975 KB; `?v=` went to 4.
 
 
 ## 2026-11 Reels on backing cards
