@@ -443,5 +443,5 @@ tops out at 1 MB, and the site reads every approved review at once), so the phot
   caps photos at 20 a day per connection. They can't see waiting photos again, having no sign-in.
 - **Kept tidy.** Editing keeps the photos asked for and deletes the rest. Removing a review or an account
   deletes its photos, and a guest review dropped when joining an account takes its photos with it.
-- **Thank-you line.** After a review is shared it now reads "thank you! your feedback means the world to us.",
-  then still says every review is read before it shows up, so nobody wonders where theirs went.
+- **Thank-you line.** After a review is shared it reads just "thank you! your feedback means the world to us."
+  (the owner's wording). Signed-in writers still see "your review is waiting for us to read it." on later visits.

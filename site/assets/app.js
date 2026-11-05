@@ -1129,7 +1129,7 @@
     if (r.error === 'photos off') return 'we can\'t take photos just yet. try again without them.';
     return '';
   }
-  var THANKS = 'thank you! your feedback means the world to us. we read every review before it shows up here.';
+  var THANKS = 'thank you! your feedback means the world to us.';
   function reviewRequest(method, query, token, body) {
     var headers = {};
     if (token) headers.Authorization = 'Bearer ' + token;
