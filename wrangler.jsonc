@@ -6,7 +6,9 @@
   "compatibility_date": "2026-10-01",
   "assets": {
     "directory": "./site",
-    "binding": "ASSETS"
+    "binding": "ASSETS",
+    // any address we don't have shows site/404.html ("this page wandered off."), still as a 404 for search engines
+    "not_found_handling": "404-page"
   },
   // the KV drawer for the instagram key and the saved reels (docs/setup/instagram.md, step 3)
   "kv_namespaces": [{ "binding": "REEL_STORE", "id": "09a672c7570c4bea8b4584e92c287bbb" }],
