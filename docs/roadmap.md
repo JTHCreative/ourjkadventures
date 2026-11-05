@@ -109,4 +109,8 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [ ] Owner: approve the first reviews on `/admin`
 - [x] Search basics (2026-11-05): `sitemap.xml` (pages and pictures), `robots.txt`, a descriptive title, description and canonical address on each public page, Organization details on the home page. `tests/sitemap.test.mjs` keeps them in step
 - [ ] Owner: add the site to Google Search Console and submit the sitemap (`setup/google-search.md`)
-- [ ] One page per pup (e.g. `/pup-club/corgi`) with its own words and Product structured data (price and stock from Square, written by the Worker), so a pin can show its price in Google results
+- [x] One page per pup (2026-11-05): `/pup-club/<slug>` is the board with that pup open and its own title, description, canonical address, heading and words, plus Product structured data written by the Worker (`server/pup-pages.js`) from the same Square price and stock as `/api/catalog`. No offer while the shop is closed, the pin is switched off or unlinked, or Square or Firestore can't be read. In the sitemap with pictures; the board, featured carousel and "it's here!" email use the new addresses
+- [ ] Owner: read the 16 pup search descriptions (`summary` in `products.json`) and change any you'd say differently
+- [ ] Owner: after deploy, check a pup page in Google's Rich Results Test (`setup/google-search.md`, "pup pages")
+- [ ] Shipping and returns in the product data (`shippingDetails`, `hasMerchantReturnPolicy`), once the owner says where we ship and what the return policy is. Google lists them as recommended, not required
+- [ ] The pup club intro says "pins from $12", a price typed into the page. Prices should come from Square only: reword it or fill it from the catalog

@@ -464,3 +464,28 @@ The site had no sitemap, and most page titles were just the page name ("shop. j+
   Instagram). Product structured data (price and stock in the search listing) is not added yet: the price
   has to come from Square, so it must be written by the Worker, and Google wants one page per product for it.
   See the roadmap.
+
+## One page per pup club pin, with Google product data (2026-11-05)
+Google treats `pup-club.html#corgi` as the same page as `pup-club.html`, so no pin could show up in search
+on its own or with its price. Each pup now has its own address, `/pup-club/corgi`. Owner's calls, 2026-11-05:
+- **The board with the pup opened, not a separate page per pin.** `/pup-club/corgi` is the pup club board
+  with the corgi open and its own heading and words above it. One template (`pup-club.html`) that the Worker
+  fills in, like a form letter, so there's only one way to show a pup to keep in step. Tapping another pup
+  changes the address (replace, not a new history step) and the heading; closing it goes back to `/pup-club`.
+  Old `pup-club.html#corgi` links still work and move to the new address.
+- **Words.** Each pup's few sentences were already on the board (`PUP_ABOUT` in `app.js`); they move to
+  `products.json` (`about`, with `breed`) so the Worker and the board read the same words. The 16 search
+  descriptions (`summary`) were drafted in our voice for the owner to review.
+- **Titles** are worked out from the breed: "corgi dog enamel pin. j+k adventures", "goldie golden retriever
+  enamel pin. j+k adventures". All under 60 characters (the test checks).
+- **Product data is written by the Worker on each visit**, from the same catalog as `/api/catalog`, so the
+  price is always Square's and never in the repo. Plain text replacement instead of HTMLRewriter: the page
+  is our own file, and this way the tests run it in node and check every spot is still there.
+- **Fails closed: no offer unless the pin can be bought.** Shop closed, product switched off, not linked, or
+  Square or Firestore not answering: the card has the name, picture and brand but no offer (owner chose this
+  over "price, out of stock" while closed). Open and linked but none on the shelf: the price, marked out of stock.
+  Pins in two sizes (aussie, pomeranian) list one offer per size.
+- **`<base href="/">` on `pup-club.html`.** Its links and pictures are written as `assets/...` and `shop.html`;
+  without it `/pup-club/corgi` would look for them in `/pup-club/assets/`.
+- **Not yet:** shipping and return details in the card (Google recommends them; we need the owner's shipping
+  area and return policy first), and pages of their own for other sets once they're on sale.
