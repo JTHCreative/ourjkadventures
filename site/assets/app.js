@@ -871,9 +871,265 @@
     top.appendChild(starsEl(r.rating));
     item.appendChild(top);
     if (r.text) item.appendChild(el('p', 'review-text', r.text));
+    if (r.photos && r.photos.length) {
+      item.appendChild(photoStrip(r.photos.map(function (ph) { return { src: photoUrl(ph.id), w: ph.w, h: ph.h }; }), r.name));
+    }
     item.appendChild(el('p', 'review-by', r.name + (monthYear(r.date) ? ', ' + monthYear(r.date) : '') + '.'));
     return item;
   }
+
+  /* ---------- review photos: up to four on a review, shown once we approve it (see server/photos.js) ---------- */
+  var MAX_PHOTOS = 4;
+  function photoUrl(id) { return '/api/reviews/photo?id=' + encodeURIComponent(id); }
+  function photoAlt(name, i, n) { return 'photo ' + (i + 1) + ' of ' + n + ' from ' + name + '\'s review'; }
+
+  // a row of small square photos; tapping one opens it big
+  function photoStrip(pics, name) {
+    var row = el('div', 'review-photos');
+    pics.forEach(function (pic, i) {
+      var b = el('button', 'review-photo');
+      b.type = 'button';
+      b.setAttribute('aria-label', 'open ' + photoAlt(name, i, pics.length));
+      var img = el('img');
+      img.alt = '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.width = 72;
+      img.height = 72;
+      img.src = pic.src;
+      b.appendChild(img);
+      b.addEventListener('click', function () { openPhotos(pics, i, name, b); });
+      row.appendChild(b);
+    });
+    return row;
+  }
+
+  // the big view: one photo at a time, with previous and next when there are more. escape or the x closes it
+  var pv = null;
+  function buildPhotoViewer() {
+    var root = el('div', 'v3d photo-view');
+    root.setAttribute('role', 'dialog');
+    root.setAttribute('aria-modal', 'true');
+    root.setAttribute('aria-label', 'review photo');
+    root.setAttribute('aria-hidden', 'true');
+    var card = el('div', 'v3d-card photo-view-card');
+    var head = el('div', 'v3d-head');
+    var count = el('p', 'caption', '');
+    count.setAttribute('aria-live', 'polite');
+    var close = el('button', 'icon-btn');
+    close.type = 'button';
+    close.setAttribute('aria-label', 'close the photo');
+    close.appendChild(svg(['M6 6l12 12', 'M18 6L6 18']));
+    head.appendChild(count);
+    head.appendChild(close);
+    var stage = el('div', 'photo-view-stage');
+    var img = el('img');
+    stage.appendChild(img);
+    var nav = el('div', 'photo-view-nav');
+    var prev = el('button', 'icon-btn');
+    prev.type = 'button';
+    prev.setAttribute('aria-label', 'previous photo');
+    prev.appendChild(svg(['M15 6l-6 6 6 6']));
+    var next = el('button', 'icon-btn');
+    next.type = 'button';
+    next.setAttribute('aria-label', 'next photo');
+    next.appendChild(svg(['M9 6l6 6-6 6']));
+    nav.appendChild(prev);
+    nav.appendChild(next);
+    card.appendChild(head);
+    card.appendChild(stage);
+    card.appendChild(nav);
+    root.appendChild(card);
+    document.body.appendChild(root);
+    pv = { root: root, img: img, count: count, close: close, nav: nav, pics: [], at: 0, name: '', last: null };
+    function show(i) {
+      pv.at = (i + pv.pics.length) % pv.pics.length;
+      var pic = pv.pics[pv.at];
+      pv.img.src = pic.src;
+      if (pic.w && pic.h) { pv.img.width = pic.w; pv.img.height = pic.h; } else { pv.img.removeAttribute('width'); pv.img.removeAttribute('height'); }
+      pv.img.alt = photoAlt(pv.name, pv.at, pv.pics.length);
+      pv.count.textContent = pv.pics.length > 1 ? 'photo ' + (pv.at + 1) + ' of ' + pv.pics.length + '.' : '';
+    }
+    pv.show = show;
+    prev.addEventListener('click', function () { show(pv.at - 1); });
+    next.addEventListener('click', function () { show(pv.at + 1); });
+    close.addEventListener('click', closePhotos);
+    root.addEventListener('click', function (e) { if (e.target === root) closePhotos(); });
+    document.addEventListener('keydown', function (e) {
+      if (!root.classList.contains('open')) return;
+      if (e.key === 'Escape') closePhotos();
+      else if (e.key === 'ArrowLeft' && pv.pics.length > 1) show(pv.at - 1);
+      else if (e.key === 'ArrowRight' && pv.pics.length > 1) show(pv.at + 1);
+    });
+  }
+  function openPhotos(pics, i, name, trigger) {
+    if (!pv) buildPhotoViewer();
+    pv.pics = pics;
+    pv.name = name;
+    pv.last = trigger;
+    pv.nav.hidden = pics.length < 2;
+    pv.show(i);
+    pv.root.classList.add('open');
+    pv.root.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    pv.close.focus();
+  }
+  function closePhotos() {
+    if (!pv || !pv.root.classList.contains('open')) return;
+    pv.root.classList.remove('open');
+    pv.root.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    if (pv.last && pv.last.focus) pv.last.focus();
+  }
+
+  // Before a photo leaves the phone: shrink it (long side 1600px) and save it as a JPEG. Drawing it fresh like
+  // this leaves behind the hidden notes a camera writes inside the file, like where the photo was taken.
+  var PHOTO_SIDE = 1600;
+  var PHOTO_GOAL = 600 * 1024;
+  function openImage(file) {
+    if (window.createImageBitmap) {
+      return createImageBitmap(file, { imageOrientation: 'from-image' }).catch(function () { return viaImgTag(file); });
+    }
+    return viaImgTag(file);
+  }
+  function viaImgTag(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () { resolve(img); };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('photo')); };
+      img.src = url;
+    });
+  }
+  function canvasJpeg(c, quality) {
+    return new Promise(function (resolve, reject) {
+      c.toBlob(function (b) { if (b) resolve(b); else reject(new Error('photo')); }, 'image/jpeg', quality);
+    });
+  }
+  function shrinkPhoto(file) {
+    return openImage(file).then(function (pic) {
+      var w = pic.naturalWidth || pic.width, h = pic.naturalHeight || pic.height;
+      if (!w || !h) throw new Error('photo');
+      var scale = Math.min(1, PHOTO_SIDE / Math.max(w, h));
+      var c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(w * scale));
+      c.height = Math.max(1, Math.round(h * scale));
+      var ctx = c.getContext('2d');
+      // a see-through png would turn black as a jpeg, so lay it on white paper first
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(pic, 0, 0, c.width, c.height);
+      if (pic.close) pic.close();
+      return canvasJpeg(c, 0.82).then(function (b) { return b.size > PHOTO_GOAL ? canvasJpeg(c, 0.6) : b; });
+    }).then(function (blob) {
+      if (blob.size > PHOTO_GOAL * 1.15) throw new Error('photo');
+      return new Promise(function (resolve, reject) {
+        var r = new FileReader();
+        r.onload = function () { resolve({ blob: blob, jpeg: String(r.result).replace(/^data:image\/jpeg;base64,/, '') }); };
+        r.onerror = function () { reject(new Error('photo')); };
+        r.readAsDataURL(blob);
+      });
+    });
+  }
+
+  // the photo part of a review form: the ones it has, a remove button on each, and "add photos."
+  // start: [{ keep: id, src }] for photos the review already has
+  function photoPicker(id, start) {
+    var items = (start || []).slice();
+    var working = 0;
+    var field = el('div', 'field photo-pick');
+    var lab = el('p', 'photo-pick-label', 'photos, if you like. up to ' + MAX_PHOTOS + '.');
+    lab.id = id + '-label';
+    var grid = el('div', 'photo-pick-grid');
+    grid.setAttribute('role', 'list');
+    grid.setAttribute('aria-labelledby', lab.id);
+    var input = el('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+    input.id = id;
+    input.className = 'sr-only';
+    input.tabIndex = -1;
+    input.setAttribute('aria-hidden', 'true');
+    var add = el('button', 'jka-btn jka-btn--quiet jka-btn--sm photo-add', 'add photos.');
+    add.type = 'button';
+    var note = el('p', 'review-note');
+    note.setAttribute('role', 'status');
+    field.appendChild(lab);
+    field.appendChild(grid);
+    field.appendChild(add);
+    field.appendChild(input);
+    field.appendChild(note);
+
+    function paint() {
+      grid.textContent = '';
+      items.forEach(function (it, i) {
+        var cell = el('div', 'photo-pick-item');
+        cell.setAttribute('role', 'listitem');
+        var img = el('img');
+        img.alt = 'your photo ' + (i + 1);
+        img.width = 72;
+        img.height = 72;
+        if (it.src) img.src = it.src;
+        cell.appendChild(img);
+        var x = el('button', 'photo-remove');
+        x.type = 'button';
+        x.setAttribute('aria-label', 'remove your photo ' + (i + 1));
+        x.appendChild(svg(['M6 6l12 12', 'M18 6L6 18']));
+        x.addEventListener('click', function () {
+          var gone = items.splice(i, 1)[0];
+          if (gone && gone.blobUrl) URL.revokeObjectURL(gone.blobUrl);
+          note.textContent = '';
+          paint();
+          add.focus();
+        });
+        cell.appendChild(x);
+        grid.appendChild(cell);
+      });
+      for (var k = 0; k < working; k++) grid.appendChild(el('div', 'photo-pick-item is-working', ''));
+      add.hidden = items.length + working >= MAX_PHOTOS;
+      grid.hidden = !items.length && !working;
+    }
+    add.addEventListener('click', function () { input.click(); });
+    input.addEventListener('change', function () {
+      var room = MAX_PHOTOS - items.length - working;
+      var files = Array.prototype.slice.call(input.files || []);
+      input.value = '';
+      if (!files.length) return;
+      note.textContent = files.length > room ? 'that\'s more than ' + MAX_PHOTOS + ', so we kept the first ' + (room === 1 ? 'one.' : room + '.') : '';
+      files.slice(0, room).forEach(function (file) {
+        working++;
+        shrinkPhoto(file).then(function (pic) {
+          var url = URL.createObjectURL(pic.blob);
+          items.push({ jpeg: pic.jpeg, src: url, blobUrl: url });
+        }).catch(function () {
+          note.textContent = 'we couldn\'t open one of those photos. try a different one.';
+        }).then(function () { working--; paint(); });
+      });
+      paint();
+    });
+    paint();
+    return {
+      field: field,
+      busy: function () { return working > 0; },
+      refresh: paint,
+      value: function () { return items.map(function (it) { return it.keep ? { keep: it.keep } : { jpeg: it.jpeg }; }); }
+    };
+  }
+
+  // a photo on your own review that we haven't approved yet: only you can see it, so ask with your ticket
+  function ownPhoto(token, slug, id) {
+    return fetch(photoUrl(id) + '&slug=' + encodeURIComponent(slug), { headers: { Authorization: 'Bearer ' + token } })
+      .then(function (r) { if (!r.ok) throw new Error('photo'); return r.blob(); })
+      .then(function (b) { return URL.createObjectURL(b); });
+  }
+  function photoError(r) {
+    if (r.status_code === 413) return 'those photos are too big together. try fewer.';
+    if (r.error === 'photo') return 'one of the photos didn\'t come through. try a different one.';
+    if (r.error === 'photos off') return 'we can\'t take photos just yet. try again without them.';
+    return '';
+  }
+  var THANKS = 'thank you! your feedback means the world to us. we read every review before it shows up here.';
   function reviewRequest(method, query, token, body) {
     var headers = {};
     if (token) headers.Authorization = 'Bearer ' + token;
@@ -891,11 +1147,13 @@
     block.appendChild(el('h3', 'pup-reviews-title', 'reviews'));
     block.appendChild(list);
     block.appendChild(form);
+    var photosOn = false;
 
     signInTicket().then(function (token) {
       return reviewRequest('GET', '?slug=' + encodeURIComponent(p.slug), token).then(function (data) {
         // no reviews service (or it is resting): leave the panel as it was
         if (data.status_code !== 200) return;
+        photosOn = data.photos === true;
         paintSummary(data);
         paintList(data.reviews || []);
         paintForm(token, data.mine);
@@ -964,6 +1222,21 @@
       field.appendChild(tl);
       field.appendChild(ta);
       f.appendChild(field);
+      var had = (mine && mine.photos) || [];
+      var picker = null;
+      if (photosOn || had.length) {
+        var start = had.map(function (ph) { return { keep: ph.id, src: '' }; });
+        picker = photoPicker('review-photos-' + p.slug, start);
+        f.appendChild(picker.field);
+        // your own photos may still be waiting for us, so they come with your ticket
+        start.forEach(function (it) {
+          ownPhoto(token, p.slug, it.keep).then(function (url) {
+            it.src = url;
+            it.blobUrl = url;
+            picker.refresh();
+          }).catch(function () {});
+        });
+      }
       var note = el('p', 'review-note');
       note.setAttribute('role', 'status');
       if (mine) {
@@ -993,19 +1266,29 @@
       f.addEventListener('submit', function (e) {
         e.preventDefault();
         if (!picked) { note.textContent = 'pick from one to five stars first.'; return; }
+        if (picker && picker.busy()) { note.textContent = 'one moment, your photos are still getting ready.'; return; }
         send.disabled = true;
         send.textContent = 'one moment.';
-        reviewRequest('POST', '', token, { slug: p.slug, rating: picked, text: ta.value }).then(function (r) {
+        var sending = { slug: p.slug, rating: picked, text: ta.value };
+        if (picker) sending.photos = picker.value();
+        reviewRequest('POST', '', token, sending).then(function (r) {
           send.disabled = false;
           if (r.status_code === 200) {
-            paintForm(token, { rating: picked, text: ta.value.trim(), status: 'pending' });
-            form.querySelector('.review-note').textContent = 'thank you. we read every review before it shows up here.';
+            var thanks = function () { form.querySelector('.review-note').textContent = THANKS; };
+            // ask again so the form shows the photos as we saved them
+            reviewRequest('GET', '?slug=' + encodeURIComponent(p.slug), token).then(function (d) {
+              paintForm(token, d.mine || { rating: picked, text: ta.value.trim(), status: 'pending' });
+              thanks();
+            }).catch(function () {
+              paintForm(token, { rating: picked, text: ta.value.trim(), status: 'pending' });
+              thanks();
+            });
             return;
           }
           send.textContent = mine ? 'update your review.' : 'share your review.';
-          note.textContent = r.error === 'confirm email' ? 'please confirm your email first. the link is in your inbox, or send a new one from your account page.'
+          note.textContent = photoError(r) || (r.error === 'confirm email' ? 'please confirm your email first. the link is in your inbox, or send a new one from your account page.'
             : r.status_code === 401 ? 'please sign in again, then try once more.'
-            : 'we could not save your review. try again, or write to us at support@ourjkadventures.com.';
+            : 'we could not save your review. try again, or write to us at support@ourjkadventures.com.');
         }).catch(function () {
           send.disabled = false;
           send.textContent = mine ? 'update your review.' : 'share your review.';
@@ -1072,6 +1355,8 @@
       mail.input.autocomplete = 'email';
       mail.input.setAttribute('inputmode', 'email');
       f.appendChild(words.field);
+      var picker = photosOn ? photoPicker('review-photos-' + p.slug, []) : null;
+      if (picker) f.appendChild(picker.field);
       f.appendChild(who.field);
       f.appendChild(mail.field);
       var tick = el('label', 'tick');
@@ -1117,9 +1402,12 @@
           note.appendChild(document.createTextNode(' or press share again to keep it.'));
           return;
         }
+        if (picker && picker.busy()) { note.textContent = 'one moment, your photos are still getting ready.'; return; }
         send.disabled = true;
         send.textContent = 'one moment.';
-        reviewRequest('POST', '', null, { slug: p.slug, rating: picked, text: words.input.value, name: name, email: email }).then(function (r) {
+        var sending = { slug: p.slug, rating: picked, text: words.input.value, name: name, email: email };
+        if (picker) sending.photos = picker.value();
+        reviewRequest('POST', '', null, sending).then(function (r) {
           send.disabled = false;
           send.textContent = 'share your review.';
           if (r.saved) {
@@ -1130,7 +1418,7 @@
               return;
             }
             form.textContent = '';
-            form.appendChild(el('p', 'review-note', 'thank you. we read every review before it shows up here.'));
+            form.appendChild(el('p', 'review-note', THANKS));
             return;
           }
           if (r.error === 'already') note.textContent = 'we already have a review of this pin from that email. to change it, write to us at ' + CONTACT_EMAIL + '.';
@@ -1138,6 +1426,7 @@
           else if (r.error === 'domain') wrong(mail.input, 'we couldn\'t find mail at "' + email.slice(email.lastIndexOf('@') + 1) + '". check the part after the @.');
           else if (r.error === 'email') wrong(mail.input, 'that email doesn\'t look quite right.');
           else if (r.error === 'name') wrong(who.input, 'please add your name.');
+          else if (photoError(r)) note.textContent = photoError(r);
           else note.textContent = 'we could not save your review. try again, or write to us at ' + CONTACT_EMAIL + '.';
         }).catch(function () {
           send.disabled = false;
@@ -1212,7 +1501,7 @@
     });
     if (!shown) grid.appendChild(el('p', 'notice', 'the pack is out for a walk. check back soon.'));
     document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && !(v3d && v3d.root.classList.contains('open'))) closePup();
+      if (e.key === 'Escape' && !(v3d && v3d.root.classList.contains('open')) && !(pv && pv.root.classList.contains('open'))) closePup();
     });
   }
 

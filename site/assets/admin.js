@@ -489,6 +489,31 @@ function dateText(iso) {
 }
 function pinName(slug) { return (slug === 'golden' ? 'goldie' : slug.replace(/-/g, ' ')) + ' pin'; }
 
+// a review's photos, fetched with the owner's ticket (they aren't public until approved). tap one to see it full size
+function reviewPhotos(r) {
+  const row = el('div', 'admin-review-photos');
+  r.photos.forEach(async (ph, i) => {
+    const link = el('a');
+    link.target = '_blank';
+    link.rel = 'noopener';
+    const img = el('img');
+    img.alt = 'photo ' + (i + 1) + ' of ' + r.photos.length + ' with the review by ' + r.name;
+    img.width = 96;
+    img.height = 96;
+    link.appendChild(img);
+    row.appendChild(link);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/admin/photo?id=' + encodeURIComponent(ph.id), { headers: { Authorization: 'Bearer ' + token } });
+      if (!res.ok) throw new Error('photo ' + res.status);
+      const url = URL.createObjectURL(await res.blob());
+      img.src = url;
+      link.href = url;
+    } catch (e) { link.replaceWith(el('span', 'caption', "photo " + (i + 1) + " didn't load.")); }
+  });
+  return row;
+}
+
 function paintReviews(list) {
   const box = $('[data-review-list]');
   box.textContent = '';
@@ -499,6 +524,7 @@ function paintReviews(list) {
     stars.setAttribute('aria-label', r.rating + ' out of 5 stars');
     item.append(el('p', 'admin-review-pin', pinName(r.slug)), stars);
     item.appendChild(el('p', 'review-text', r.text || '(stars only, no words.)'));
+    if (r.photos && r.photos.length) item.appendChild(reviewPhotos(r));
     item.appendChild(el('p', 'caption', r.name + (r.guest ? ' (a guest, no account)' : '') + (dateText(r.date) ? ', ' + dateText(r.date) : '') + '.'));
     const row = el('div', 'admin-actions');
     const note = el('span', 'caption');
