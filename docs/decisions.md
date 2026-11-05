@@ -484,10 +484,35 @@ on its own or with its price. Each pup now has its own address, `/pup-club/corgi
   price is always Square's and never in the repo. Plain text replacement instead of HTMLRewriter: the page
   is our own file, and this way the tests run it in node and check every spot is still there.
 - **Fails closed: no offer unless the pin can be bought.** Shop closed, product switched off, not linked, or
-  Square or Firestore not answering: the card has the name, picture and brand but no offer (owner chose this
+  Square or Firestore not answering: no offer (later: the card is left out unless it has reviews, see
+  "Search, part two") (owner chose this
   over "price, out of stock" while closed). Open and linked but none on the shelf: the price, marked out of stock.
   Pins in two sizes (aussie, pomeranian) list one offer per size.
 - **`<base href="/">` on `pup-club.html`.** Its links and pictures are written as `assets/...` and `shop.html`;
   without it `/pup-club/corgi` would look for them in `/pup-club/assets/`.
 - **Not yet:** shipping and return details in the card (Google recommends them; we need the owner's shipping
   area and return policy first), and pages of their own for other sets once they're on sale.
+
+## Search, part two: real links, review stars, clean addresses, breadcrumbs, link previews (2026-11-05)
+- **The board's pups are links.** Each pup on the board was a button. Search engines follow links but never
+  press buttons, so nothing on the site led Google to `/pup-club/corgi`. Each pup is now a link to its page; a
+  plain tap still opens it in place (the click is caught), a ctrl-click or long press opens a new tab. The open
+  pup is marked `aria-current="page"` instead of `aria-pressed` (a link can't be "pressed").
+- **Reviews and stars on the product card.** Google only accepts a product card with a price, reviews or a
+  star average. The price is left out while a pin can't be bought (fails closed), which left every card invalid
+  while the shop was closed. The card now carries the pin's approved reviews (up to five of the newest with
+  words) and their average, read the same way as `/api/reviews`. With no price and no reviews, the card is left
+  out entirely, so Search Console doesn't list errors. Product reviews on our own product page are allowed by
+  Google's rules (it's star ratings for a business as a whole that it won't show).
+- **Plain addresses in links.** Cloudflare sends `/shop.html` on to `/shop`, so each of the ~220 links between
+  pages went through a forward first. They're now written as `/shop`, `/about`, `/` and so on. Account pages'
+  `?next=` still names `.html` pages (it's checked against that shape), and the email stop link keeps
+  `email.html` because emails already sent use it. A test keeps `.html` links out of the pages.
+- **Breadcrumbs.** Shop pages say where they sit (home › shop › pin boards › bay area pin board) as
+  BreadcrumbList data, so Google can show that trail in a listing instead of the bare address. Pup pages get
+  theirs from the Worker, in the same block as the product card.
+- **Link previews (Open Graph).** Every public page names a title, description and a 1200 x 630 JPEG for shared
+  links. JPEG and flat backgrounds because some apps don't show WebP or see-through pictures. Made by
+  `scripts/share-pictures.py`. Each shows the product itself, never a room (owner's call): the board alone for
+  the pin board pages, a row of pups for the pup club, each pup alone for its own page, and the board with four
+  pups for the home page and the shop's other pages. The pin boards wall on `pin-boards.html` is unchanged.
