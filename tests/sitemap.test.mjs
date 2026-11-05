@@ -61,3 +61,42 @@ test('robots.txt points at the sitemap and keeps crawlers out of the api and adm
   assert.match(robots, /^Disallow: \/api\/$/m);
   assert.match(robots, /^Disallow: \/admin$/m);
 });
+
+test('every public page says what a shared link shows, matching its title, description and address', () => {
+  const prop = (html, p) => (html.match(new RegExp('<meta property="' + p + '" content="([^"]*)">')) || [])[1];
+  for (const file of pages) {
+    const html = read('site/' + file);
+    if (noindex(html)) continue;
+    assert.equal(prop(html, 'og:title'), html.match(/<title>([^<]+)<\/title>/)[1], file + ': og:title');
+    assert.equal(prop(html, 'og:description'), html.match(/<meta name="description" content="([^"]+)">/)[1], file + ': og:description');
+    assert.equal(prop(html, 'og:url'), ORIGIN + pathOf(file), file + ': og:url');
+    const img = prop(html, 'og:image') || '';
+    assert.ok(img.startsWith(ORIGIN + '/assets/img/share/') && existsSync(new URL('../site' + img.slice(ORIGIN.length), import.meta.url)), file + ': og:image ' + img);
+    assert.ok(prop(html, 'og:image:alt'), file + ': og:image:alt');
+    assert.match(html, /<meta name="twitter:card" content="summary_large_image">/, file + ': twitter card');
+  }
+});
+
+test('breadcrumb trails start at home and give every step but the last an address', () => {
+  for (const file of pages) {
+    const html = read('site/' + file);
+    for (const m of html.matchAll(/<script type="application\/ld\+json">([^<]+)<\/script>/g)) {
+      const ld = JSON.parse(m[1]);
+      if (ld['@type'] !== 'BreadcrumbList') continue;
+      const steps = ld.itemListElement;
+      assert.equal(steps[0].item, ORIGIN + '/', file);
+      steps.forEach((s, i) => {
+        assert.equal(s.position, i + 1, file);
+        if (i < steps.length - 1) assert.ok(s.item && s.item.startsWith(ORIGIN + '/'), file + ': step ' + s.name);
+        else assert.equal(s.item, undefined, file + ': the last step is this page');
+      });
+    }
+  }
+});
+
+test('links between our pages use the plain address (/shop), not the old one (shop.html) that redirects', () => {
+  for (const file of pages) {
+    const bad = read('site/' + file).match(/href="[a-z0-9-]+\.html[^"]*"/g);
+    assert.equal(bad, null, file + ': ' + bad);
+  }
+});

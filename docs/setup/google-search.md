@@ -28,11 +28,23 @@ It only says the pin is for sale while the shop is open and the pin is switched 
 1. Make sure the shop is open on `/admin` and a pup, say the aussie, is linked and switched on.
 2. Go to <https://search.google.com/test/rich-results>.
 3. Paste `https://ourjkadventures.com/pup-club/aussie` and click **Test URL**.
-4. It should find **Product snippets** (and maybe **Merchant listings**) with the aussie's price. Warnings
-   about `shippingDetails`, `hasMerchantReturnPolicy`, `review` or `aggregateRating` are fine for now: they
-   are nice-to-haves. Red **errors** are not: send a screenshot.
-5. Try a pup that isn't linked, or close the shop and test again: the card is still found, but with no
-   price. That's on purpose.
+4. It should find **Product snippets** (and maybe **Merchant listings**) with the aussie's price, and
+   **Breadcrumbs** (home › shop › pup club › aussie). Warnings about `shippingDetails` or
+   `hasMerchantReturnPolicy` are fine for now: they are nice-to-haves. Red **errors** are not: send a screenshot.
+5. Try a pup that isn't linked, or close the shop and test again. If the pup has approved reviews, the card is
+   still found, with its stars but no price. If it has no reviews yet, only **Breadcrumbs** is found and no
+   product card at all. Both are on purpose: Google won't accept a product card with no price, reviews or stars,
+   so we leave it out rather than send a half-empty one.
+
+## Shared links: check the preview
+When someone sends a link to the site in Messages, Instagram or Facebook, the app shows a picture and a title
+with it, like the cover of a book. Each page names its own (a pup page shows that pup).
+
+1. Go to <https://www.opengraph.xyz> and paste `https://ourjkadventures.com/pup-club/corgi`.
+2. The previews should show the corgi pin, "corgi dog enamel pin. j+k adventures" and its description.
+3. Try `https://ourjkadventures.com/` too: the bay area board with four pups beside it.
+
+Apps remember a preview for a while, so after a change a link you already shared may show the old one.
 
 Prices in search results can take a few weeks to show, and Google decides when to show them.
 

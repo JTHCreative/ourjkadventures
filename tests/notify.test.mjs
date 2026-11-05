@@ -246,7 +246,7 @@ test('the pin board gets "email me when it\'s here" too, sent from /admin like a
   const m = s.sent[0];
   assert.equal(m.subject, 'the bay area pin board is here!');
   assert.ok(m.html.includes('<img src="https://x.test/assets/img/email/bay-area-pin-board.png"'));
-  assert.ok(m.html.includes('href="https://x.test/bay-area-pin-board.html"'));
+  assert.ok(m.html.includes('href="https://x.test/bay-area-pin-board"'));
   assert.deepEqual(await waiting(s), []);
 });
 
