@@ -445,3 +445,22 @@ tops out at 1 MB, and the site reads every approved review at once), so the phot
   deletes its photos, and a guest review dropped when joining an account takes its photos with it.
 - **Thank-you line.** After a review is shared it reads just "thank you! your feedback means the world to us."
   (the owner's wording). Signed-in writers still see "your review is waiting for us to read it." on later visits.
+
+## Sitemap, robots.txt and page titles for search (2026-11-05)
+The site had no sitemap, and most page titles were just the page name ("shop. j+k adventures").
+- **What's in the sitemap.** The ten pages a person might search for. Account, sign-in, admin, email and
+  thank-you pages say `noindex` and are left out (thank-you was missing its `noindex`; added). Addresses
+  have no `.html` because Cloudflare redirects `/about.html` to `/about`, and Google wants the final address.
+- **No `priority` or `changefreq`.** Google ignores both. `lastmod` is kept, set to the day the page really
+  changed, because Google does use it when it's honest.
+- **Image entries.** Each pin and board picture is listed under its page so it can show in Google Images.
+- **robots.txt blocks only `/api/` and `/admin`.** Noindex pages are not blocked: a crawler has to open a page
+  to read its `noindex`, so blocking them could leave them in results.
+- **Titles say what's there, still lowercase.** e.g. "pup club dog breed enamel pins. j+k adventures", kept
+  under 60 characters so Google doesn't cut them off. Descriptions are 70 to 160 characters and leave out
+  prices, since prices live in Square and would go stale. Each public page names its own address with
+  `rel="canonical"`. A test checks all of this so it doesn't drift.
+- **Structured data.** The home page says who we are (Organization and WebSite: name, logo, email,
+  Instagram). Product structured data (price and stock in the search listing) is not added yet: the price
+  has to come from Square, so it must be written by the Worker, and Google wants one page per product for it.
+  See the roadmap.

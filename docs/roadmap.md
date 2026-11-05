@@ -107,3 +107,6 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [ ] Check after the first real "it's here" send: Resend accepted the per-email `List-Unsubscribe` headers in a batch (couldn't confirm from the docs), and Gmail shows its unsubscribe button
 - [ ] Owner: add `ADMIN_EMAILS` in Cloudflare and publish the updated `firestore.rules` (`setup/firebase.md`, steps 14 to 17)
 - [ ] Owner: approve the first reviews on `/admin`
+- [x] Search basics (2026-11-05): `sitemap.xml` (pages and pictures), `robots.txt`, a descriptive title, description and canonical address on each public page, Organization details on the home page. `tests/sitemap.test.mjs` keeps them in step
+- [ ] Owner: add the site to Google Search Console and submit the sitemap (`setup/google-search.md`)
+- [ ] One page per pup (e.g. `/pup-club/corgi`) with its own words and Product structured data (price and stock from Square, written by the Worker), so a pin can show its price in Google results
