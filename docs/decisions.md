@@ -528,3 +528,11 @@ on its own or with its price. Each pup now has its own address, `/pup-club/corgi
   at any depth. Not Cloudflare's `not_found_handling: "404-page"` setting: with it on, Cloudflare answers a
   browser's visit (a "navigation" request) to `/pup-club/corgi` with "not found" before the worker runs, which
   breaks every pup page. The hosting setup is unchanged.
+
+## Links are at least 18px (2026-11-05)
+The owner found the small links (like "← all of the shop") hard to read for people with weaker eyesight. EB
+Garamond is small for its size: 16px of it looks about like 14px of an everyday font. So no link is smaller
+than the body text, 18px. Back links and the sign-in page links are 19px. Text-style buttons (`.linklike`,
+`.link-btn`, such as "remove" in the bag) are 18px, and a link inside small print (`.caption`, `.body-sm`) grows
+to 18px while the words around it stay put. The pill buttons (17px, bold, large) and the Instagram handle printed
+on the About page's reel cards (part of the card's design) were left as they are.
