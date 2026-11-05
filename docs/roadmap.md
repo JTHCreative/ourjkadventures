@@ -101,7 +101,8 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [x] "email me when it's here" (2026-11-04): sign up under "i'm interested", checked on the spot (typo hints, DNS: no confirm email, owner's call), owner presses send on `/admin` once the product is back. Through Resend's free plan (owner chose it over Cloudflare Email Sending)
 - [x] Guest reviews (2026-11-04): name and email instead of an account, owner approves as always, a tick box to make an account that then takes the guest reviews in
 - [x] Review photos (2026-11-05): up to 4 per review, accounts and guests, kept in Cloudflare R2, shrunk and stripped of camera notes in the browser and checked again on the server, private until the owner approves the review
-- [ ] Owner: create the `review-photos` R2 bucket **before** the photo change is merged (`setup/reviews.md`, "photos on reviews")
+- [x] Owner: create the `review-photos` R2 bucket before the photo change is merged (done 2026-11-05: Standard, automatic location)
+- [ ] Owner: after merging, leave a review with a photo from your own account, approve it on `/admin`, and check it shows on the pin
 - [ ] Owner: Resend account, domain records and `RESEND_API_KEY` in Cloudflare (`setup/email.md`), then try steps 7 to 11
 - [ ] Check after the first real "it's here" send: Resend accepted the per-email `List-Unsubscribe` headers in a batch (couldn't confirm from the docs), and Gmail shows its unsubscribe button
 - [ ] Owner: add `ADMIN_EMAILS` in Cloudflare and publish the updated `firestore.rules` (`setup/firebase.md`, steps 14 to 17)
