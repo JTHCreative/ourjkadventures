@@ -325,24 +325,6 @@
     'husky': 'siberian husky', 'pit-bull': 'pit bull', 'pomeranian': 'pomeranian', 'poodle': 'poodle', 'pug': 'pug',
     'rottweiler': 'rottweiler', 'shiba': 'shiba inu', 'yorkie': 'yorkshire terrier'
   };
-  var PUP_ABOUT = {
-    'aussie': 'an australian shepherd with a merle coat and eyes that never quite match. happiest with a job to do, even if the job is following you from room to room.',
-    'beagle': 'a beagle, led by the nose and a little by the heart. the one who hears a snack bag from three rooms away and sings about it.',
-    'cavalier': 'a cavalier king charles spaniel, soft-eared and built for laps. a gentle shadow who is never more than one cushion away.',
-    'corgi': 'a corgi, all fluff and short legs. the loaf-shaped one who trots instead of walks and is certain the whole yard belongs to them.',
-    'dachshund': 'a dachshund, long and low and entirely sure of themselves. brave enough to bark at a dog ten times their size from behind the couch.',
-    'french-bulldog': 'a french bulldog with bat ears and a snore like a tiny engine. sighs dramatically, then falls asleep on your feet.',
-    'german-shepherd': 'a german shepherd, loyal down to the bone. keeps watch over the whole house and still wants a belly rub.',
-    'golden': 'a golden retriever, sunshine with a tail. will carry a stick, a shoe or a very large branch to greet you, and means it every time.',
-    'husky': 'a husky with ice-blue eyes and plenty to say. will tell you all about their day, usually right around dinner.',
-    'pit-bull': 'a pit bull with a wide grin and a wagging back half. gentle with the people they love, and fully convinced they are a lap dog.',
-    'pomeranian': 'a pomeranian, a small cloud with a big opinion. fluffed up like they are twice the size, and expecting you to agree.',
-    'poodle': 'a poodle, quick and clever and a little bit fancy. learns the trick on the second try, then shows everyone else how it is done.',
-    'pug': 'a pug with a wrinkled brow and a whole lot of love. snorts, snuffles and follows you to the kitchen on principle.',
-    'rottweiler': 'a rottweiler who is mostly a big softie. all that seriousness melts the moment someone says the word walk.',
-    'shiba': 'a shiba inu with a fox-like smile and a mind of their own. politely declines to do things, then does them exactly when they please.',
-    'yorkie': 'a yorkshire terrier, small in size and large in personality. a tiny boss in a silky coat who runs the house with a bark and a wink.'
-  };
 
   function priceOf(sz) { return money(sz.price_cents / 100, catalog.currency); }
   // the price line: "$12", or "$12 or $15" when a pin comes in two sizes. empty until it is linked to square
@@ -779,9 +761,37 @@
 
   function pupName(p) { return p.slug === 'golden' ? 'goldie' : p.name; }
 
+  // each pup has its own page, /pup-club/corgi (server/pup-pages.js). while a pup is open the address, the tab title
+  // and the heading follow it, so a copied or shared link is to that pup; closing it goes back to the whole pack.
+  // the pack's own words wait in data-pack (the worker puts them there on a pup's page)
+  function pupTitle(p) {
+    var name = pupName(p), breed = p.breed || p.name;
+    var what = breed.indexOf(name) >= 0 ? breed : name + ' ' + breed;
+    if (what.indexOf(' ') < 0) what += ' dog';
+    return what + ' enamel pin. j+k adventures';
+  }
+  function packSpot(node) {
+    if (node && !node.hasAttribute('data-pack')) node.setAttribute('data-pack', node.textContent);
+    return node;
+  }
+  function pupAddress(p) {
+    var heading = packSpot(document.querySelector('[data-pup-heading]'));
+    if (!heading) return;
+    var words = packSpot(document.querySelector('[data-pup-words]'));
+    var title = packSpot(document.querySelector('title'));
+    var path = p ? '/pup-club/' + p.slug : '/pup-club';
+    if (location.pathname !== path || location.hash) {
+      try { history.replaceState(null, '', path); } catch (e) {}
+    }
+    heading.textContent = p ? 'the ' + pupName(p) + '.' : heading.getAttribute('data-pack');
+    if (words) words.textContent = p ? (p.about || '') : words.getAttribute('data-pack');
+    if (title) document.title = p ? pupTitle(p) : title.getAttribute('data-pack');
+  }
+
   function closePup() {
     var panel = document.getElementById('pup-panel');
     if (!panel || panel.hidden) return;
+    pupAddress(null);
     panel.hidden = true;
     panel.textContent = '';
     var on = document.querySelector('.pup-pin[aria-pressed="true"]');
@@ -793,6 +803,7 @@
     if (!panel) return;
     Array.prototype.forEach.call(document.querySelectorAll('.pup-pin'), function (b) { b.setAttribute('aria-pressed', 'false'); });
     btn.setAttribute('aria-pressed', 'true');
+    pupAddress(p);
     panel.textContent = '';
     var sheet = el('div', 'card clean pup-sheet');
     var close = el('button', 'icon-btn close');
@@ -825,7 +836,7 @@
     var buy = buyArea(p, 'jka-btn');
     var starLine = el('p', 'pup-star-line');
     starLine.hidden = true;
-    var about = el('p', 'about', PUP_ABOUT[p.slug] || '');
+    var about = el('p', 'about', p.about || '');
     // name, price, stars, about, then size, stock and the button
     sheet.appendChild(buy.querySelector('.price'));
     sheet.appendChild(starLine);
@@ -1505,9 +1516,11 @@
     });
   }
 
-  // a link like pup-club.html#corgi (from the featured carousel) opens that pup straight away
-  function openPupFromHash(grid) {
-    var slug = decodeURIComponent((location.hash || '').slice(1));
+  // a pup's own page, /pup-club/corgi, opens that pup straight away. so does an older link like pup-club.html#corgi,
+  // which then moves to the pup's own address
+  function openPupFromAddress(grid) {
+    var m = /^\/pup-club\/([a-z0-9-]+)$/.exec(location.pathname);
+    var slug = m ? m[1] : decodeURIComponent((location.hash || '').slice(1));
     var p = slug && catalog.items[slug];
     if (!p || p.kind !== 'pin') return;
     var btn = Array.prototype.find.call(grid.querySelectorAll('.pup-pin'), function (b) { return b.getAttribute('data-slug') === slug; });
@@ -1523,7 +1536,7 @@
   function featuredItem(p) {
     var img = p.kind === 'board' ? BOARD_IMG[p.slug] : PIN_IMG[p.slug];
     var href = p.kind === 'board' ? (BOARD_PAGE[p.slug] || 'pin-boards.html')
-      : p.series === 'pup-club' ? 'pup-club.html#' + encodeURIComponent(p.slug) : (SERIES_PAGE[p.series] || 'shop.html');
+      : p.series === 'pup-club' ? '/pup-club/' + encodeURIComponent(p.slug) : (SERIES_PAGE[p.series] || 'shop.html');
     if (!img) return null;
     var name = p.kind === 'board' ? p.name : pupName(p);
     var price = priceRange(p);
@@ -1591,7 +1604,7 @@
           boardBuy.appendChild(area);
         }
       }
-      if (pupGrid) { buildPupBoard(pupGrid, catalog.items); openPupFromHash(pupGrid); }
+      if (pupGrid) { buildPupBoard(pupGrid, catalog.items); openPupFromAddress(pupGrid); }
       if (boardSlot) {
         boardSlot.textContent = '';
         var b = catalog.items['bay-area-pin-board'];
