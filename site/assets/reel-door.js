@@ -655,12 +655,15 @@
       });
       f.tools.appendChild(f.playBtn);
       f.tools.appendChild(f.soundBtn);
-      c.win.appendChild(f.tools);
       f.bar = c.bar;
       frame.appendChild(f.card);
       var side = el('div', 'reel-door__full-side');
       side.appendChild(f.counts);
       side.appendChild(f.about);
+      // play and sound sit left of the card, across from the counts
+      var left = el('div', 'reel-door__full-left');
+      left.appendChild(f.tools);
+      body.appendChild(left);
       body.appendChild(frame);
       body.appendChild(side);
       f.dialog.appendChild(top);
