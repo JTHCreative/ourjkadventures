@@ -1301,7 +1301,16 @@ html.reel-door-locked { overflow: hidden; }
 .reel-door__card--bare .reel-door__printed { top: 361px; }
 .reel-door__card--bare .reel-door__progress { margin-top: 0; }
 /* the window beside the card: who posted it and the whole caption, scrolling if it's long */
+.reel-door__full-left {
+  grid-column: 1; grid-row: 1; justify-self: end;
+  padding-top: 8%;
+}
+.reel-door__full-left .reel-door__tools { position: static; flex-direction: column; gap: var(--space-3); }
+.reel-door__full-left .reel-door__tool { width: 44px; height: 44px; }
+.reel-door__full-left .reel-door__tool svg { width: 22px; height: 22px; }
+.reel-door__full-frame { grid-row: 1; }
 .reel-door__full-side {
+  grid-row: 1;
   grid-column: 3; min-width: 0; min-height: 0;
   display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; gap: var(--space-4);
   padding-top: 8%;
@@ -1332,7 +1341,10 @@ html.reel-door-locked { overflow: hidden; }
 @media (max-width: 980px) {
   .reel-door__full[open] { overflow-y: auto; }
   .reel-door__full-body { display: flex; flex-direction: column; align-items: center; }
-  .reel-door__full-side { width: 100%; align-items: center; padding-top: 0; }
+  .reel-door__full-side { width: 100%; align-items: center; padding-top: 0; order: 3; }
+  .reel-door__full-frame { order: 1; }
+  .reel-door__full-left { order: 2; padding-top: 0; }
+  .reel-door__full-left .reel-door__tools { flex-direction: row; gap: var(--space-5); }
   .reel-door__counts { flex-direction: row; gap: var(--space-5); }
   .reel-door__about { width: min(100%, 420px); overflow: visible; }
 }
