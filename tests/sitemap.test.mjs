@@ -37,6 +37,17 @@ test('every public page has its own title, description and canonical address', (
   }
 });
 
+test('every pup club pin has its own page in the sitemap, with its picture', () => {
+  const products = JSON.parse(read('site/products.json'));
+  const pups = products.items.filter((p) => p.series === 'pup-club').map((p) => p.slug);
+  const pupLocs = locs.filter((l) => l.startsWith(ORIGIN + '/pup-club/'));
+  assert.deepEqual(pupLocs.slice().sort(), pups.map((s) => ORIGIN + '/pup-club/' + s).sort(), 'the pup pages in the sitemap');
+  for (const slug of pups) {
+    const block = sitemap.split('<url>').find((u) => u.includes('<loc>' + ORIGIN + '/pup-club/' + slug + '</loc>'));
+    assert.ok(block.includes('<image:loc>' + ORIGIN + '/assets/img/pins/' + slug + '.webp</image:loc>'), slug + ': picture');
+  }
+});
+
 test('every lastmod is a real date and every image in the sitemap exists', () => {
   for (const m of sitemap.matchAll(/<lastmod>([^<]+)<\/lastmod>/g)) assert.match(m[1], /^\d{4}-\d{2}-\d{2}$/);
   for (const l of locs.filter((l) => l.includes('/assets/'))) {
