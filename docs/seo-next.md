@@ -53,15 +53,15 @@ Until then, the last line can just say "this set is not in the shop yet."
 Drafted: `site/404.html` ("this page wandered off.", with buttons to the shop, the pup club and the pin
 boards, and our email). It says `noindex`, so it never shows in search, and it's checked at 360px wide.
 
-Switched on (owner's OK, 2026-11-05) with one line in `wrangler.jsonc`, under `"assets"`:
+Switched on (owner's OK, 2026-11-05). The worker shows it (`server/not-found.js`): whenever an address isn't
+one of our files or pages, it answers with `404.html`, still with the proper "not found" code for search engines.
 
-```
-"not_found_handling": "404-page"
-```
-
-Cloudflare shows `404.html` for any address we don't have, still with the proper "not found" code for
-search engines. Checked locally: `/no-such-page`, `/pup-club/not-a-dog` and `/a/b/c` all show it. After the
-deploy, open `https://ourjkadventures.com/no-such-page` to see it live.
+Cloudflare has its own setting for this (`not_found_handling` in `wrangler.jsonc`), and it was tried first. It
+had a catch: when a browser opened `/pup-club/corgi`, Cloudflare said "not found" itself before our worker could
+build the pup's page, like a receptionist turning visitors away before checking with the office. So the setting
+stays off and the worker does it. Checked locally: `/no-such-page`, `/pup-club/not-a-dog` and `/a/b/c` show the
+page, and every real page and pup page still opens. After the deploy, open
+`https://ourjkadventures.com/no-such-page` to see it live.
 
 ## 9. Keeping the sitemap's dates honest
 

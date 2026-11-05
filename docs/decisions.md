@@ -523,6 +523,8 @@ on its own or with its price. Each pup now has its own address, `/pup-club/corgi
   made you (where you grew up, where you fell in love, where your story got written), the zodiac is about your
   animal as the first chapter of your story and something beautiful about you. Neither promises a date, a
   number of pins or particular towns, so they stay true until the pins exist.
-- **`site/404.html` for any address we don't have**, through Cloudflare's `not_found_handling: "404-page"`
-  (a hosting setting, owner's OK). It still answers "not found" so search engines drop dead links, says
-  `noindex`, and uses `<base href="/">` so it works at any depth.
+- **`site/404.html` for any address we don't have**, shown by the worker (`server/not-found.js`). It still
+  answers "not found" so search engines drop dead links, says `noindex`, and uses `<base href="/">` so it works
+  at any depth. Not Cloudflare's `not_found_handling: "404-page"` setting: with it on, Cloudflare answers a
+  browser's visit (a "navigation" request) to `/pup-club/corgi` with "not found" before the worker runs, which
+  breaks every pup page. The hosting setup is unchanged.
