@@ -1,13 +1,13 @@
-# Search: what's prepared and waiting (items 7 to 9)
+# Search: the coming-soon pages, the 404 page and sitemap dates (items 7 to 9)
 
-Follow-ups from the search work on 2026-11-05. Each one is ready to finish once the owner decides.
+Follow-ups from the search work on 2026-11-05. 7 and 8 are live (owner's OK, 2026-11-05); 9 is a tool.
 
 ## 7. The two "coming soon" pages
 
 `hometown-series.html` and `chinese-zodiac.html` are one sentence each. Google gives very short pages little
 weight, a bit like a shop window with just a "coming soon" sign: people walk past it. Two ways to go:
 
-- **A. Add a short paragraph to each (recommended).** Drafts are below, in our voice. They don't promise a date,
+- **A. Add a short paragraph to each (chosen, live 2026-11-05).** Drafts are below, in our voice. They don't promise a date,
   a number of pins or particular towns, so they stay true until the sets arrive. Edit freely.
 - **B. Hide them from Google until the pins exist.** Add `noindex` and take them out of the sitemap. Then they
   can't show up in search at all, which also means nobody finds them early.
@@ -41,8 +41,8 @@ Casual and warm: the zodiac as the start of your story, and each animal as somet
 The "i'm interested!" lines only fit once those pins are in `products.json` with their switch off on `/admin`.
 Until then, the last line can just say "this set is not in the shop yet."
 
-**Questions for the owner:**
-1. A or B?
+**Still to ask the owner:**
+1. ~~A or B?~~ A.
 2. Hometown: which towns are first (the earlier feedback mentioned Burlingame)? Naming real towns is what
    people search for ("burlingame enamel pin"), so a list of the first few helps a lot.
 3. Zodiac: all twelve animals at once, or a few at a time?
@@ -53,16 +53,15 @@ Until then, the last line can just say "this set is not in the shop yet."
 Drafted: `site/404.html` ("this page wandered off.", with buttons to the shop, the pup club and the pin
 boards, and our email). It says `noindex`, so it never shows in search, and it's checked at 360px wide.
 
-Right now a wrong address shows Cloudflare's plain "not found" text, because Cloudflare doesn't know to use
-our page yet. Turning it on is one line in `wrangler.jsonc`, under `"assets"`:
+Switched on (owner's OK, 2026-11-05) with one line in `wrangler.jsonc`, under `"assets"`:
 
 ```
 "not_found_handling": "404-page"
 ```
 
-Cloudflare then shows `404.html` for any address we don't have, still with the proper "not found" code for
-search engines. This changes the hosting setup, so it waits for the owner's OK. Once it's on, check that
-`https://ourjkadventures.com/no-such-page` shows the new page and that `/pup-club/not-a-dog` does too.
+Cloudflare shows `404.html` for any address we don't have, still with the proper "not found" code for
+search engines. Checked locally: `/no-such-page`, `/pup-club/not-a-dog` and `/a/b/c` all show it. After the
+deploy, open `https://ourjkadventures.com/no-such-page` to see it live.
 
 ## 9. Keeping the sitemap's dates honest
 

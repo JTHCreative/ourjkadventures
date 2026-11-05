@@ -114,8 +114,8 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [ ] Owner: after deploy, check a pup page in Google's Rich Results Test (`setup/google-search.md`, "pup pages")
 - [x] Search, part two (2026-11-05): the board's pups are real links, review stars on the product card (and no card when there's nothing to say), plain addresses in links, breadcrumb trails, link previews with pictures (`scripts/share-pictures.py`)
 - [ ] Owner: after deploy, check a shared-link preview (`setup/google-search.md`, "shared links")
-- [ ] Coming-soon pages (hometown series, chinese zodiac): owner picks a short paragraph or hiding them from Google; drafts and questions in `seo-next.md`
-- [ ] "Page not found" page: `site/404.html` is drafted; turning it on is one line in `wrangler.jsonc`, waiting for the owner's OK (`seo-next.md`)
+- [x] Coming-soon pages (2026-11-05): hometown series and chinese zodiac each have a short, warm paragraph in place of one line (owner's words, see `seo-next.md`). Still to ask: the first hometown towns, and whether the zodiac comes out all at once
+- [x] "Page not found" page (2026-11-05): `site/404.html` for any address we don't have, switched on in `wrangler.jsonc` (`not_found_handling`), owner's OK
 - [x] Sitemap dates from git: `python3 scripts/sitemap-dates.py` (`--check` to only look). Owner: by hand, or a GitHub Action?
 - [ ] Shipping and returns in the product data (`shippingDetails`, `hasMerchantReturnPolicy`), once the owner says where we ship and what the return policy is. Google lists them as recommended, not required
 - [ ] The pup club intro says "pins from $12", a price typed into the page. Prices should come from Square only: reword it or fill it from the catalog

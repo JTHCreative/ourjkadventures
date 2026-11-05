@@ -516,3 +516,13 @@ on its own or with its price. Each pup now has its own address, `/pup-club/corgi
   `scripts/share-pictures.py`. Each shows the product itself, never a room (owner's call): the board alone for
   the pin board pages, a row of pups for the pup club, each pup alone for its own page, and the board with four
   pups for the home page and the shop's other pages. The pin boards wall on `pin-boards.html` is unchanged.
+
+## Coming-soon pages get real words; a friendly 404 (2026-11-05)
+- **The hometown series and chinese zodiac pages say more than one line.** Google gives one-line pages little
+  weight. The owner chose a short paragraph over hiding the pages: hometown is about pride in the places that
+  made you (where you grew up, where you fell in love, where your story got written), the zodiac is about your
+  animal as the first chapter of your story and something beautiful about you. Neither promises a date, a
+  number of pins or particular towns, so they stay true until the pins exist.
+- **`site/404.html` for any address we don't have**, through Cloudflare's `not_found_handling: "404-page"`
+  (a hosting setting, owner's OK). It still answers "not found" so search engines drop dead links, says
+  `noindex`, and uses `<base href="/">` so it works at any depth.
