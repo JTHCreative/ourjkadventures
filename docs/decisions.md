@@ -423,3 +423,25 @@ and the whole caption (instead of one cut-off line under the window). The reel-n
   the counts (owner's drawing, 2026-11-05), so nothing covers the picture.
 - **Phones.** There's no room beside the card under 980px wide, so the counts sit in a row under the card and the
   caption window under that; the screen scrolls to them.
+
+## 2026-11 Review photos in Cloudflare R2
+The owner wanted reviewers to add up to 4 photos that others can see. Firestore can't hold pictures (a record
+tops out at 1 MB, and the site reads every approved review at once), so the photos need file storage.
+- **R2, not Workers KV or Firebase Storage.** KV was already set up but is built for small notes: 1 GB free
+  and 1,000 saves a day. Firebase Storage now needs Firebase's pay-as-you-go plan. R2 is Cloudflare's file
+  storage, free to 10 GB with no charge for showing photos to visitors, and sits with the Worker already
+  running the site. The owner chose R2 so photos never have to move as the shop grows. It needs a card on
+  file with Cloudflare and one binding in `wrangler.jsonc` (`REVIEW_PHOTOS`, bucket `review-photos`).
+- **Private until approved.** The bucket has no public access. The Worker hands a photo out only when its
+  review is approved, to the writer (with their sign-in ticket), or to the owner on `/admin`. Photo names are
+  long random numbers, never the account id. Approving or hiding covers the whole review, photos and all.
+- **Shrunk and cleaned before they leave the phone.** The page redraws each photo at 1600px on its longest side
+  as a JPEG, which leaves out the camera's hidden notes (EXIF: location, time, phone model) and keeps uploads
+  around 300 KB. The server accepts JPEGs only, checks the file is sound and at most 700 KB and 4000px, and strips
+  any camera notes again in case a page skipped that step. Only JPEGs are ever served, with `nosniff`.
+- **Guests too.** Guests can attach photos (the owner's choice). Their 5-a-day limit per connection also
+  caps photos at 20 a day per connection. They can't see waiting photos again, having no sign-in.
+- **Kept tidy.** Editing keeps the photos asked for and deletes the rest. Removing a review or an account
+  deletes its photos, and a guest review dropped when joining an account takes its photos with it.
+- **Thank-you line.** After a review is shared it now reads "thank you! your feedback means the world to us.",
+  then still says every review is read before it shows up, so nobody wonders where theirs went.
