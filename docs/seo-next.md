@@ -26,8 +26,15 @@ Warm and proud, like telling your best friend about where you're from (owner's d
 
 ### Draft: chinese zodiac
 
-> the zodiac, one pin at a time. find the year you were born, or your mom's, or the whole family's, and keep
-> them together on a board.
+Casual and warm: the zodiac as the start of your story, and each animal as something beautiful about you
+(owner's direction, 2026-11-05).
+
+> the zodiac, one pin at a time. your animal is the year you came into the world, so it's kind of the very first
+> chapter of your story, and it's been with you on every adventure since!
+>
+> what we love most is that each animal holds something beautiful about the person it belongs to, like a little
+> reminder of who you are. so we're turning them into pins, to wear your own close to your heart or gather the
+> whole family's together on a board.
 >
 > this set is not in the shop yet. tap "i'm interested!" and we'll let you know when it's here.
 
