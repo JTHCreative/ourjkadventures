@@ -10,6 +10,9 @@
   },
   // the KV drawer for the instagram key and the saved reels (docs/setup/instagram.md, step 3)
   "kv_namespaces": [{ "binding": "REEL_STORE", "id": "09a672c7570c4bea8b4584e92c287bbb" }],
+  // the R2 bucket for review photos (docs/setup/reviews.md, "photos on reviews"). the bucket must exist
+  // in Cloudflare before this is deployed, or the deploy stops
+  "r2_buckets": [{ "binding": "REVIEW_PHOTOS", "bucket_name": "review-photos" }],
   // the J+K Adventures Facebook Page's ID (not secret): the website reaches @ourjkadventures through this Page
   "vars": { "INSTAGRAM_PAGE_ID": "1209633565574678" },
   "observability": { "enabled": true },
