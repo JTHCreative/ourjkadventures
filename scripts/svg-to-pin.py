@@ -2,7 +2,8 @@
 """Turn a pin's SVG artwork into a 3D enamel pin model (.glb) for the "See in 3D" viewer.
 
 How the SVG is read:
-  - anything filled red (#ff0000), or outlined in red, becomes raised gold metal
+  - anything filled red (#ff0000), or outlined in red, becomes raised gold metal; a red line on an open
+    curve (fill: none) stays an open curve
   - every other fill colour becomes a glossy enamel layer of that colour, stacked in drawing order
   - the outline of everything is the pin's gold back plate, with the post and rubber clutch from an
     existing model behind it
@@ -105,6 +106,34 @@ def path_polygon(d, tol=1.5):
     return shape.simplify(0.25) if shape is not None else None
 
 
+def path_lines(d, tol=1.5):
+    """SVG path -> the lines a stroke follows: one per piece, closed pieces as loops, open ones left open."""
+    from shapely.geometry import LineString, LinearRing
+    out, cur = [], []
+
+    def finish(closed):
+        if len(cur) > 1:
+            out.append(LinearRing(cur) if closed and len(cur) > 2 else LineString(cur))
+
+    for seg in Path(d):
+        if isinstance(seg, Move):
+            finish(False)
+            cur = [(seg.end.x, seg.end.y)]
+            continue
+        if isinstance(seg, Close):
+            finish(True)
+            cur = []
+            continue
+        pts = [q for q in (getattr(seg, k, None) for k in ('start', 'control1', 'control2', 'control', 'end')) if q is not None]
+        rough = sum(((b.x - a.x) ** 2 + (b.y - a.y) ** 2) ** 0.5 for a, b in zip(pts, pts[1:]))
+        n = 1 if type(seg).__name__ == 'Line' else max(2, min(64, int(rough / tol)))
+        for t in np.linspace(0, 1, n + 1)[1:]:
+            q = seg.point(t)
+            cur.append((q.x, q.y))
+    finish(False)
+    return out
+
+
 def polys(shape):
     if shape is None or shape.is_empty:
         return []
@@ -165,18 +194,22 @@ def main(svg_path, slug, out_path):
     for el in root.iter('{http://www.w3.org/2000/svg}path'):
         d = el.get('d') or ''
         st = styles.get((el.get('class') or '').strip(), {})
-        shape = path_polygon(d)
-        if shape is None or shape.area < 50:   # stray slivers from the drawing program
-            continue
-        fill = hex_rgb(st['fill']) if 'fill' in st else (0, 0, 0)
-        if fill == RED:
-            gold.append(shape)
-            fills.append(shape)
-        else:
-            enamel.append((fill, shape))
-        if st.get('stroke') and hex_rgb(st['stroke']) == RED:
+        has_fill = st.get('fill', '').lower() != 'none'   # "none" = an outline only, no enamel inside
+        if has_fill:
+            shape = path_polygon(d)
+            if shape is not None and shape.area >= 50:   # skip stray slivers from the drawing program
+                fill = hex_rgb(st['fill']) if 'fill' in st else (0, 0, 0)
+                if fill == RED:
+                    gold.append(shape)
+                    fills.append(shape)
+                else:
+                    enamel.append((fill, shape))
+        if st.get('stroke', '').lower() not in ('', 'none') and hex_rgb(st['stroke']) == RED:
+            # a red outline is a gold line along the stroke itself, so open curves stay open
             w = float(re.sub('[^0-9.]', '', st.get('stroke-width', '1')))
-            gold.append(shape.boundary.buffer(w / 2, join_style='mitre', mitre_limit=4).simplify(0.25))
+            line = unary_union([l.buffer(w / 2, join_style='mitre', mitre_limit=4) for l in path_lines(d)])
+            if line.area >= 50:
+                gold.append(line.simplify(0.25))
 
     everything = unary_union([s for _, s in enamel] + gold)
     outline = Polygon(max(polys(everything), key=lambda p: p.area).exterior)
