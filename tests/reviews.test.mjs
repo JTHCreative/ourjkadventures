@@ -65,8 +65,8 @@ test('a new review waits for the owner, then shows with its average and no accou
   assert.equal(doc.text.stringValue, 'wears it ievery/i day.');
 
   // waiting: the public sees nothing yet, the writer sees their own
-  assert.deepEqual(await getPin(g, 'corgi'), { count: 0, average: null, reviews: [] });
-  assert.deepEqual((await getPin(g, 'corgi', tok)).mine, { rating: 5, text: 'wears it ievery/i day.', status: 'pending' });
+  assert.deepEqual(await getPin(g, 'corgi'), { count: 0, average: null, reviews: [], photos: false });
+  assert.deepEqual((await getPin(g, 'corgi', tok)).mine, { rating: 5, text: 'wears it ievery/i day.', status: 'pending', photos: [] });
 
   approve(g, 'corgi_uid123');
   g.docs['users/uid456'] = { firstName: { stringValue: 'sam' } };

@@ -7,6 +7,7 @@
 //   POST /api/admin/shop     { open: true|false }
 //   GET  /api/admin/reviews  reviews waiting for a look
 //   POST /api/admin/reviews  { id, status: "approved" | "hidden" }
+//   GET  /api/admin/photo?id=…  a review photo, approved or not, so the owner can look before approving
 //   GET  /api/admin/products  website products, the Square items they could be, the links chosen,
 //                             and each product's available switch and "i'm interested" tally
 //   POST /api/admin/products  { links: { "aussie": "<square variation id>", "aussie:large": "", ... } }
@@ -22,7 +23,7 @@
 
 import { configured, userFromRequest } from './firebase.js';
 import { readShopSwitch, setShopOpen } from './shop.js';
-import { pendingReviews, setReviewStatus, REVIEW_STATUSES } from './reviews.js';
+import { pendingReviews, setReviewStatus, REVIEW_STATUSES, ownerPhoto } from './reviews.js';
 import { siteProducts, siteKeys, readLinks, saveLinks, freshCatalog, readFeatured, saveFeatured, stockOf, MAX_FEATURED, forgetCatalog } from './catalog.js';
 import { squareConfigured, squareMode, listVariations, stockCounts } from './square.js';
 import { instagramStatus } from './instagram.js';
@@ -85,6 +86,11 @@ export async function admin(request, env, fetchFn = fetch) {
       if (!REVIEW_STATUSES.includes(body.status)) return json({ error: 'status' }, 400);
       if (!(await setReviewStatus(env, body.id, body.status, user.email, fetchFn))) return json({ error: 'no such review' }, 404);
       return json({ id: body.id, status: body.status });
+    }
+
+    if (route === 'photo') {
+      if (request.method !== 'GET') return json({ error: 'method' }, 405);
+      return ownerPhoto(env, url.searchParams.get('id'));
     }
 
     if (route === 'products') {

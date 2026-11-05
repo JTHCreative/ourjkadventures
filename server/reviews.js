@@ -3,7 +3,11 @@
 //   GET    /api/reviews?featured=1   approved 4 and 5 star reviews with words, newest first, for the home page
 //   POST   /api/reviews              { slug, rating, text }: leave or replace your review. Needs a confirmed email.
 //                                    Without a ticket, a guest review: { slug, rating, text, name, email }
-//   DELETE /api/reviews?slug=corgi   remove your review
+//   DELETE /api/reviews?slug=corgi   remove your review (and its photos)
+//   GET    /api/reviews/photo?id=…   one review photo. Anyone, once its review is approved. Before that, only the
+//                                    writer (with their ticket and &slug=) or the owner (/api/admin/photo)
+// A POST may carry photos: [{ keep: "<id>" } | { jpeg: "<base64>" }], at most 4 (server/photos.js). Leaving
+// "photos" out keeps the ones the review had. Photos wait for the owner with the rest of the review.
 // One review per person per pin, stored as reviews/{slug}_{uid}.
 // Guests (no account): one review per email per pin, stored as reviews/{slug}_g{who} (who = the email scrambled),
 // with the email kept so the review can join their account later. Never shown: only "first l." is. The email has
@@ -16,10 +20,12 @@
 import { configured, userFromRequest, firestoreGet, firestoreSet, firestoreUpdate, firestoreQuery, firestoreDelete, firestoreCommit } from './firebase.js';
 import { scramble } from './interest.js';
 import { cleanEmail, domainTakesMail } from './notify.js';
+import { photosOn, parsePhotos, photoString, planPhotos, storePhotos, deletePhotos, photoResponse, isPhotoId } from './photos.js';
 
 const MAX_TEXT = 600;
 export const GUEST_PER_DAY = 5;
 const FEATURED = 6;
+const MAX_BODY = 4 * 1024 * 1024; // four photos as text, with room to spare
 const CACHE_MS = 10 * 60 * 1000; // approved reviews are re-read at most every 10 minutes per server
 
 let approvedCache = { list: null, until: 0 };
@@ -42,7 +48,10 @@ export function reviewId(slug, uid) { return slug + '_' + uid; }
 
 // what anyone may see: never the uid
 function publicView(r) {
-  return { slug: r.slug, rating: r.rating, text: r.text || '', name: r.name || 'a collector', date: String(r.createdAt || '').slice(0, 10) };
+  return {
+    slug: r.slug, rating: r.rating, text: r.text || '', name: r.name || 'a collector', date: String(r.createdAt || '').slice(0, 10),
+    photos: parsePhotos(r.photos)
+  };
 }
 
 // "juniper h." from the account's first and last name
@@ -71,8 +80,10 @@ async function pinSlugs(request, env) {
 
 export async function reviews(request, env, fetchFn = fetch) {
   const url = new URL(request.url);
+  if (url.pathname === '/api/reviews/photo') return photo(request, env, url, fetchFn);
   if (!['GET', 'POST', 'DELETE'].includes(request.method)) return json({ error: 'method' }, 405);
   if (!configured(env)) return json({ error: 'not configured' }, 503);
+  if (request.method === 'POST' && Number(request.headers.get('Content-Length') || 0) > MAX_BODY) return json({ error: 'too big' }, 413);
 
   try {
     if (request.method === 'GET' && url.searchParams.get('featured')) {
@@ -94,11 +105,13 @@ export async function reviews(request, env, fetchFn = fetch) {
       const body = {
         count: list.length,
         average: list.length ? Math.round((sum / list.length) * 10) / 10 : null,
-        reviews: list.map(publicView)
+        reviews: list.map(publicView),
+        // the photo picker only shows once the photo bucket is set up
+        photos: photosOn(env)
       };
       if (!user) return json(body, 200, 'public, max-age=300');
       const mine = await firestoreGet(env, 'reviews/' + encodeURIComponent(reviewId(slug, user.sub)), fetchFn);
-      body.mine = mine ? { rating: mine.rating, text: mine.text || '', status: mine.status } : null;
+      body.mine = mine ? { rating: mine.rating, text: mine.text || '', status: mine.status, photos: parsePhotos(mine.photos) } : null;
       return json(body);
     }
 
@@ -108,7 +121,10 @@ export async function reviews(request, env, fetchFn = fetch) {
 
     if (request.method === 'DELETE') {
       if (!slug || !/^[a-z0-9-]{1,40}$/.test(slug)) return json({ error: 'slug' }, 400);
-      await firestoreDelete(env, 'reviews/' + encodeURIComponent(reviewId(slug, user.sub)), fetchFn);
+      const path = 'reviews/' + encodeURIComponent(reviewId(slug, user.sub));
+      const had = await firestoreGet(env, path, fetchFn);
+      await firestoreDelete(env, path, fetchFn);
+      if (had) await deletePhotos(env, parsePhotos(had.photos).map((p) => p.id));
       approvedCache = { list: null, until: 0 };
       return json({ deleted: true });
     }
@@ -124,19 +140,29 @@ export async function reviews(request, env, fetchFn = fetch) {
     const text = cleanText(body.text);
     const path = 'reviews/' + encodeURIComponent(reviewId(body.slug, user.sub));
     const before = await firestoreGet(env, path, fetchFn);
+    const plan = planPhotos(env, body.photos, before && before.photos);
+    if (plan.error) return json({ error: plan.error }, 400);
     const profile = await firestoreGet(env, 'users/' + encodeURIComponent(user.sub), fetchFn);
     const now = new Date();
-    await firestoreSet(env, path, {
-      slug: body.slug,
-      uid: user.sub,
-      rating,
-      text,
-      name: displayName(profile),
-      // a changed review goes back to the owner for another look
-      status: 'pending',
-      createdAt: before && before.createdAt ? new Date(before.createdAt) : now,
-      updatedAt: now
-    }, fetchFn);
+    await storePhotos(env, plan.add);
+    try {
+      await firestoreSet(env, path, {
+        slug: body.slug,
+        uid: user.sub,
+        rating,
+        text,
+        photos: photoString(plan.list),
+        name: displayName(profile),
+        // a changed review goes back to the owner for another look
+        status: 'pending',
+        createdAt: before && before.createdAt ? new Date(before.createdAt) : now,
+        updatedAt: now
+      }, fetchFn);
+    } catch (e) {
+      await deletePhotos(env, plan.add.map((p) => p.id));
+      throw e;
+    }
+    await deletePhotos(env, plan.remove);
     if (before && before.status === 'approved') approvedCache = { list: null, until: 0 };
     return json({ saved: true, status: 'pending' });
   } catch (e) {
@@ -174,12 +200,21 @@ async function guestReview(request, env, fetchFn) {
   if (fromHere && fromHere.count >= GUEST_PER_DAY) return json({ error: 'limit' }, 429);
   // a mistyped domain gets a plain answer, not an error status: it isn't a broken request
   if ((await domainTakesMail(email.split('@')[1], fetchFn)) === false) return json({ error: 'domain' });
+  // a guest has nothing to keep: every photo is new
+  const plan = planPhotos(env, body.photos === undefined ? [] : body.photos, '');
+  if (plan.error) return json({ error: plan.error }, 400);
 
   const now = new Date();
-  await firestoreSet(env, path, {
-    slug: body.slug, guest: true, who, email, rating, text: cleanText(body.text), name,
-    status: 'pending', createdAt: now, updatedAt: now
-  }, fetchFn);
+  await storePhotos(env, plan.add);
+  try {
+    await firestoreSet(env, path, {
+      slug: body.slug, guest: true, who, email, rating, text: cleanText(body.text), photos: photoString(plan.list), name,
+      status: 'pending', createdAt: now, updatedAt: now
+    }, fetchFn);
+  } catch (e) {
+    await deletePhotos(env, plan.add.map((p) => p.id));
+    throw e;
+  }
   await firestoreCommit(env, [{ add: ipPath, field: 'count', data: { day } }], fetchFn);
   return json({ saved: true, status: 'pending' });
 }
@@ -200,10 +235,13 @@ export async function claimGuestReviews(env, user, fetchFn = fetch) {
     const to = 'reviews/' + encodeURIComponent(reviewId(r.slug, user.sub));
     if (!(await firestoreGet(env, to, fetchFn))) {
       await firestoreSet(env, to, {
-        slug: r.slug, uid: user.sub, rating: r.rating, text: r.text || '', name: r.name, status: r.status,
+        slug: r.slug, uid: user.sub, rating: r.rating, text: r.text || '', photos: r.photos || '', name: r.name, status: r.status,
         createdAt: new Date(r.createdAt), updatedAt: new Date()
       }, fetchFn);
       moved++;
+    } else {
+      // the account's own review of that pin stays, so the guest copy's photos go with it
+      await deletePhotos(env, parsePhotos(r.photos).map((p) => p.id));
     }
     await firestoreDelete(env, from, fetchFn);
   }
@@ -214,7 +252,10 @@ export async function claimGuestReviews(env, user, fetchFn = fetch) {
 // account deletion: remove everything this person wrote
 export async function deleteReviewsBy(env, uid, fetchFn = fetch) {
   const mine = await firestoreQuery(env, 'reviews', { uid }, 100, fetchFn);
-  for (const r of mine) await firestoreDelete(env, 'reviews/' + encodeURIComponent(r.id), fetchFn);
+  for (const r of mine) {
+    await firestoreDelete(env, 'reviews/' + encodeURIComponent(r.id), fetchFn);
+    await deletePhotos(env, parsePhotos(r.photos).map((p) => p.id));
+  }
   if (mine.length) approvedCache = { list: null, until: 0 };
 }
 
@@ -238,6 +279,32 @@ export async function setReviewStatus(env, id, status, who, fetchFn = fetch) {
   approvedCache = { list: null, until: 0 };
   return true;
 }
+
+// One photo. Once its review is approved anyone may see it (the id is only ever handed out with the review).
+// Before that only its writer: their ticket, and &slug= so we know which of their reviews to look in.
+// A guest's waiting photos can't be shown back to them, since there's no sign-in to prove it's them.
+async function photo(request, env, url, fetchFn) {
+  if (request.method !== 'GET') return json({ error: 'method' }, 405);
+  const id = url.searchParams.get('id');
+  if (!isPhotoId(id) || !photosOn(env) || !configured(env)) return new Response('not found', { status: 404 });
+  try {
+    const shown = (await approved(env, fetchFn)).some((r) => parsePhotos(r.photos).some((p) => p.id === id));
+    if (shown) return photoResponse(env, id, 'public, max-age=3600');
+    const slug = url.searchParams.get('slug');
+    if (request.headers.get('Authorization') && slug && /^[a-z0-9-]{1,40}$/.test(slug)) {
+      const user = await userFromRequest(request, env, fetchFn);
+      const mine = user && await firestoreGet(env, 'reviews/' + encodeURIComponent(reviewId(slug, user.sub)), fetchFn);
+      if (mine && parsePhotos(mine.photos).some((p) => p.id === id)) return photoResponse(env, id, 'private, no-store');
+    }
+    return new Response('not found', { status: 404 });
+  } catch (e) {
+    console.log('review photo error', e.message);
+    return new Response('unavailable', { status: 503 });
+  }
+}
+
+// the owner looks at any review's photos on /admin (server/admin.js has already checked who is asking)
+export function ownerPhoto(env, id) { return photoResponse(env, id, 'private, no-store'); }
 
 // for tests
 export function _resetReviewCache() { approvedCache = { list: null, until: 0 }; }

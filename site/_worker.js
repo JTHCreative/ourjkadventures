@@ -10,6 +10,7 @@
 //   ADMIN_EMAILS                   who may use /admin, see server/admin.js
 //   INSTAGRAM_ACCESS_TOKEN, META_APP_SECRET, REEL_STORE  the About page's reels, see server/instagram.js
 //   RESEND_API_KEY, EMAIL_FROM, EMAIL_DAILY_LIMIT  "email me when it's here", see server/email.js
+//   REVIEW_PHOTOS                  the R2 bucket for review photos, see server/photos.js
 //
 // The account code lives in ../server so it is bundled into this worker but never published as a file.
 
@@ -32,7 +33,7 @@ export default {
     if (url.pathname === '/api/checkout') return checkout(request, env, url);
     if (url.pathname === '/api/catalog') return catalogRoute(request, env);
     if (url.pathname === '/api/account' || url.pathname === '/api/account/orders') return account(request, env);
-    if (url.pathname === '/api/reviews') return reviews(request, env);
+    if (url.pathname === '/api/reviews' || url.pathname === '/api/reviews/photo') return reviews(request, env);
     if (url.pathname === '/api/reels') return reelsRoute(request, env);
     if (url.pathname === '/api/interest') return interestRoute(request, env, fetch, noteInterest);
     if (url.pathname === '/api/notify' || url.pathname.startsWith('/api/notify/')) return notifyRoute(request, env);
