@@ -158,14 +158,14 @@ test('the owner sends "it\'s here" once the pin is back: everyone waiting, once 
   for (const m of s.sent) {
     assert.equal(m.subject, 'the corgi pin is here!');
     assert.equal(m.reply_to, 'support@ourjkadventures.com');
-    assert.ok(m.text.includes('https://x.test/pup-club.html#corgi'));
+    assert.ok(m.text.includes('https://x.test/pup-club/corgi'));
     assert.ok(m.text.includes("didn't ask, or want no more of these?"));
     assert.equal(m.text, m.text.toLowerCase());
     // the designed version: logo, the pin's picture, a button to it, and the stop link
     assert.ok(m.html.includes('<img src="https://x.test/assets/img/email/logo.png"'));
     assert.ok(m.html.includes('<img src="https://x.test/assets/img/email/corgi.png"'));
     assert.ok(m.html.includes('alt="the corgi pin"'));
-    assert.ok(m.html.includes('href="https://x.test/pup-club.html#corgi"'));
+    assert.ok(m.html.includes('href="https://x.test/pup-club/corgi"'));
     assert.ok(m.html.includes('>go see the corgi</a>'));
     assert.match(m.html, /href="https:\/\/x\.test\/email\.html\?stop=[0-9a-f]{32}\.[0-9a-f]{32}"/);
     assert.ok(!m.html.includes('<script'));

@@ -445,3 +445,49 @@ tops out at 1 MB, and the site reads every approved review at once), so the phot
   deletes its photos, and a guest review dropped when joining an account takes its photos with it.
 - **Thank-you line.** After a review is shared it reads just "thank you! your feedback means the world to us."
   (the owner's wording). Signed-in writers still see "your review is waiting for us to read it." on later visits.
+
+## Sitemap, robots.txt and page titles for search (2026-11-05)
+The site had no sitemap, and most page titles were just the page name ("shop. j+k adventures").
+- **What's in the sitemap.** The ten pages a person might search for. Account, sign-in, admin, email and
+  thank-you pages say `noindex` and are left out (thank-you was missing its `noindex`; added). Addresses
+  have no `.html` because Cloudflare redirects `/about.html` to `/about`, and Google wants the final address.
+- **No `priority` or `changefreq`.** Google ignores both. `lastmod` is kept, set to the day the page really
+  changed, because Google does use it when it's honest.
+- **Image entries.** Each pin and board picture is listed under its page so it can show in Google Images.
+- **robots.txt blocks only `/api/` and `/admin`.** Noindex pages are not blocked: a crawler has to open a page
+  to read its `noindex`, so blocking them could leave them in results.
+- **Titles say what's there, still lowercase.** e.g. "pup club dog breed enamel pins. j+k adventures", kept
+  under 60 characters so Google doesn't cut them off. Descriptions are 70 to 160 characters and leave out
+  prices, since prices live in Square and would go stale. Each public page names its own address with
+  `rel="canonical"`. A test checks all of this so it doesn't drift.
+- **Structured data.** The home page says who we are (Organization and WebSite: name, logo, email,
+  Instagram). Product structured data (price and stock in the search listing) is not added yet: the price
+  has to come from Square, so it must be written by the Worker, and Google wants one page per product for it.
+  See the roadmap.
+
+## One page per pup club pin, with Google product data (2026-11-05)
+Google treats `pup-club.html#corgi` as the same page as `pup-club.html`, so no pin could show up in search
+on its own or with its price. Each pup now has its own address, `/pup-club/corgi`. Owner's calls, 2026-11-05:
+- **The board with the pup opened, not a separate page per pin.** `/pup-club/corgi` is the pup club board
+  with the corgi open and its own heading above it. The pup's words are in its card on the board; the pack's
+  intro line under the heading hides while a pup is open, so the words aren't said twice (owner's call). Google
+  runs the page's script, so it still reads them, and they're in the description and product data too. One template (`pup-club.html`) that the Worker
+  fills in, like a form letter, so there's only one way to show a pup to keep in step. Tapping another pup
+  changes the address (replace, not a new history step) and the heading; closing it goes back to `/pup-club`.
+  Old `pup-club.html#corgi` links still work and move to the new address.
+- **Words.** Each pup's few sentences were already on the board (`PUP_ABOUT` in `app.js`); they move to
+  `products.json` (`about`, with `breed`) so the Worker and the board read the same words. The 16 search
+  descriptions (`summary`) were drafted in our voice for the owner to review.
+- **Titles** are worked out from the breed: "corgi dog enamel pin. j+k adventures", "goldie golden retriever
+  enamel pin. j+k adventures". All under 60 characters (the test checks).
+- **Product data is written by the Worker on each visit**, from the same catalog as `/api/catalog`, so the
+  price is always Square's and never in the repo. Plain text replacement instead of HTMLRewriter: the page
+  is our own file, and this way the tests run it in node and check every spot is still there.
+- **Fails closed: no offer unless the pin can be bought.** Shop closed, product switched off, not linked, or
+  Square or Firestore not answering: the card has the name, picture and brand but no offer (owner chose this
+  over "price, out of stock" while closed). Open and linked but none on the shelf: the price, marked out of stock.
+  Pins in two sizes (aussie, pomeranian) list one offer per size.
+- **`<base href="/">` on `pup-club.html`.** Its links and pictures are written as `assets/...` and `shop.html`;
+  without it `/pup-club/corgi` would look for them in `/pup-club/assets/`.
+- **Not yet:** shipping and return details in the card (Google recommends them; we need the owner's shipping
+  area and return policy first), and pages of their own for other sets once they're on sale.

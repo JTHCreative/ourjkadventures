@@ -1,0 +1,8 @@
+# for search engines. everything public may be crawled; the owner's page and the api may not.
+# pages that should stay out of search (account, sign-in, thank-you and so on) say "noindex" themselves,
+# so they are not blocked here: a crawler has to be able to open a page to see its noindex.
+User-agent: *
+Disallow: /api/
+Disallow: /admin
+
+Sitemap: https://ourjkadventures.com/sitemap.xml
