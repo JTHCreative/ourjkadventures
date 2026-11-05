@@ -641,6 +641,12 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 /* the pin's card, with its reviews in a card of their own below, so neither needs a scroll bar */
 .pup-panel { flex: 0 0 400px; width: 400px; display: flex; flex-direction: column; gap: var(--space-4); }
 .pup-panel[hidden] { display: none; }
+/* side by side, the board holds still near the top of the screen while the pin card and reviews
+   scroll past it, and lets go when they run out. Only on screens tall enough to show the whole
+   board (about 620px at most), so its bottom row is never hidden. */
+@media (min-width: 761px) and (min-height: 680px) {
+  .pup-frame { position: sticky; top: var(--space-5); }
+}
 .pup-sheet { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-2); padding: var(--space-6) var(--space-5) var(--space-5); animation: pup-in 0.28s ease both; }
 .pup-sheet .close { position: absolute; top: var(--space-3); right: var(--space-3); }
 .pup-sheet .art { height: 160px; display: flex; align-items: center; justify-content: center; margin-top: var(--space-2); }
