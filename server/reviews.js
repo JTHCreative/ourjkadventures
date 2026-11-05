@@ -71,6 +71,15 @@ async function approved(env, fetchFn) {
   return list;
 }
 
+// one pin's approved reviews and their average, for the hidden product card on its own page (server/pup-pages.js).
+// null when reviews aren't set up
+export async function pinReviews(env, slug, fetchFn = fetch) {
+  if (!configured(env)) return null;
+  const list = (await approved(env, fetchFn)).filter((r) => r.slug === slug);
+  const sum = list.reduce((n, r) => n + r.rating, 0);
+  return { count: list.length, average: list.length ? Math.round((sum / list.length) * 10) / 10 : null, reviews: list.map(publicView) };
+}
+
 async function pinSlugs(request, env) {
   const res = await env.ASSETS.fetch(new Request(new URL('/products.json', request.url)));
   if (!res.ok) throw new Error('catalog ' + res.status);

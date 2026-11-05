@@ -634,7 +634,7 @@
   }
 
   // boards with a page of their own, for a closer look
-  var BOARD_PAGE = { 'bay-area-pin-board': 'bay-area-pin-board.html' };
+  var BOARD_PAGE = { 'bay-area-pin-board': '/bay-area-pin-board' };
 
   function boardCard(p) {
     var card = el('article', 'card clean product product--board');
@@ -795,15 +795,15 @@
     pupAddress(null);
     panel.hidden = true;
     panel.textContent = '';
-    var on = document.querySelector('.pup-pin[aria-pressed="true"]');
-    if (on) { on.setAttribute('aria-pressed', 'false'); on.focus(); }
+    var on = document.querySelector('.pup-pin[aria-current]');
+    if (on) { on.removeAttribute('aria-current'); on.focus(); }
   }
 
   function showPup(p, btn) {
     var panel = document.getElementById('pup-panel');
     if (!panel) return;
-    Array.prototype.forEach.call(document.querySelectorAll('.pup-pin'), function (b) { b.setAttribute('aria-pressed', 'false'); });
-    btn.setAttribute('aria-pressed', 'true');
+    Array.prototype.forEach.call(document.querySelectorAll('.pup-pin'), function (b) { b.removeAttribute('aria-current'); });
+    btn.setAttribute('aria-current', 'page');
     pupAddress(p);
     panel.textContent = '';
     var sheet = el('div', 'card clean pup-sheet');
@@ -1490,21 +1490,24 @@
     PUP_ORDER.forEach(function (s) {
       var p = bySlug[s];
       if (!p) return;
-      var b = el('button', 'pup-pin');
-      b.type = 'button';
+      // a real link to the pup's own page, so search engines can follow it (they don't press buttons) and a
+      // ctrl-click or long press opens it in a new tab. a plain tap still opens the pup right here on the board
+      var b = el('a', 'pup-pin');
+      b.href = '/pup-club/' + s;
       b.setAttribute('data-breed', PUP_BREED[s] || p.name);
       b.setAttribute('data-slug', s);
       b.setAttribute('aria-label', pupName(p) + ' pin' + (priceRange(p) ? ', ' + priceRange(p) : ''));
-      b.setAttribute('aria-pressed', 'false');
       var img = el('img');
       img.src = PIN_IMG[s] || '';
       img.width = 900;
       img.height = 900;
-      img.alt = '';
+      img.alt = 'the ' + pupName(p) + ' enamel pin';
       img.draggable = false;
       b.appendChild(img);
       addHoldShake(b);
-      b.addEventListener('click', function () {
+      b.addEventListener('click', function (e) {
+        if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || e.button > 0) return;
+        e.preventDefault();
         if (b.getAttribute('data-held')) { b.removeAttribute('data-held'); return; }
         showPup(p, b);
       });
@@ -1532,12 +1535,12 @@
   // the framed board: a small copy, and the full-size one for sharp screens
   var BOARD_IMG = { 'bay-area-pin-board': 'assets/img/bay-area-board-wall.webp' };
   var BOARD_SRCSET = { 'bay-area-pin-board': 'assets/img/bay-area-board-wall.webp 280w, assets/img/bay-area-board-full.webp 1118w' };
-  var SERIES_PAGE = { 'pup-club': 'pup-club.html', hometown: 'hometown-series.html', zodiac: 'chinese-zodiac.html' };
+  var SERIES_PAGE = { 'pup-club': '/pup-club', hometown: '/hometown-series', zodiac: '/chinese-zodiac' };
   // where a featured product's picture is, and which page it opens
   function featuredItem(p) {
     var img = p.kind === 'board' ? BOARD_IMG[p.slug] : PIN_IMG[p.slug];
-    var href = p.kind === 'board' ? (BOARD_PAGE[p.slug] || 'pin-boards.html')
-      : p.series === 'pup-club' ? '/pup-club/' + encodeURIComponent(p.slug) : (SERIES_PAGE[p.series] || 'shop.html');
+    var href = p.kind === 'board' ? (BOARD_PAGE[p.slug] || '/pin-boards')
+      : p.series === 'pup-club' ? '/pup-club/' + encodeURIComponent(p.slug) : (SERIES_PAGE[p.series] || '/shop');
     if (!img) return null;
     var name = p.kind === 'board' ? p.name : pupName(p);
     var price = priceRange(p);
@@ -1565,7 +1568,7 @@
       var f = featuredItem(p);
       var li = el('li', 'wanted-row');
       var a = el('a', 'wanted-link');
-      a.href = f ? f.href : 'shop.html';
+      a.href = f ? f.href : '/shop';
       if (f && f.img) {
         var img = el('img');
         img.src = f.img;
@@ -1776,7 +1779,7 @@
     if (!header) return;
     var bar = el('div', 'float-shop');
     var shop = el('a', 'float-shop-link', 'shop');
-    shop.href = 'shop.html';
+    shop.href = '/shop';
     var bag = el('button', 'cart-btn');
     bag.type = 'button';
     bag.setAttribute('data-cart', '');
