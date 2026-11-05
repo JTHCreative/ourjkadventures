@@ -536,3 +536,11 @@ than the body text, 18px. Back links and the sign-in page links are 19px. Text-s
 `.link-btn`, such as "remove" in the bag) are 18px, and a link inside small print (`.caption`, `.body-sm`) grows
 to 18px while the words around it stay put. The pill buttons (17px, bold, large) and the Instagram handle printed
 on the About page's reel cards (part of the card's design) were left as they are.
+
+## No reading text under 16px (2026-11-05)
+After the links, the owner found the small print hard to read too (for example "tap for a closer look." under
+the living room on the pin boards page, 14px). The smallest text style, `.caption`, went from 14px to 16px, and
+every other 14px and 15px style with words in it went to 16px: form hints, the "coming soon" tags, the shop's
+set notes, prices in the featured ring, review names and notes, "See in 3D", "or with your email", the About
+page's reel captions and counts, and the owner page's tallies. Only the number badges inside fixed circles (the
+bag count, the owner page's order numbers) stay smaller, since bigger numbers wouldn't fit their circles.

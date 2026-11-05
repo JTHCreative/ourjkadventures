@@ -54,3 +54,4 @@ The about page is the reference for this voice:
 - Motion is gentle (hover wiggle, auto-rotate in 3D) and turns off under `prefers-reduced-motion`.
 - Must work at 360px wide with no horizontal scroll. Icon buttons always have an `aria-label`.
 - Links are never smaller than the body text, 18px (back links like "← all of the shop" and the sign-in links are 19px). EB Garamond runs small, so a 14px or 16px link is hard to read for anyone whose eyes aren't perfect. A link inside small print grows to 18px; the small print around it can stay smaller.
+- No reading text under 16px: small print (`.caption`), form hints, tags, notes and counts are 16px at the smallest. Only number badges inside fixed circles (the bag count, the owner page's order numbers) are smaller.
