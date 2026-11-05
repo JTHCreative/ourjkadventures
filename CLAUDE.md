@@ -49,7 +49,7 @@ an everyday analogy when a concept is technical.
 - Casual, homey and conversational, like justin and kitty talking to you at a craft fair. Not cold or poetic. The about page is the reference.
 - Exclamation marks are fine in friendly text (story paragraphs, notes, thank-yous, small details), never in big headings or page titles, never stacked, never to push a sale.
 - Use the tokens in `styles.css` (`--surface`, `--ink`, `--accent`, `--space-*`, `--radius-*`). Do not hardcode new colors.
-- Font is EB Garamond. Accessible by default: labels on icon buttons, visible focus, `prefers-reduced-motion` respected, works at 360px wide, links never smaller than 18px.
+- Font is EB Garamond. Accessible by default: labels on icon buttons, visible focus, `prefers-reduced-motion` respected, works at 360px wide, links never smaller than 18px, no reading text under 16px.
 
 ## Product facts
 - Slugs (bag keys add `:large` for the large size): aussie, beagle, cavalier, corgi, dachshund, french-bulldog, german-shepherd, golden, husky, pit-bull, pomeranian, poodle, pug, rottweiler, shiba, yorkie, bay-area-pin-board.
