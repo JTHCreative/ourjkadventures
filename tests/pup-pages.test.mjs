@@ -54,6 +54,8 @@ test('pup-club.html still has every spot the worker fills in, once each', () => 
     const all = template.match(new RegExp(re.source, 'g')) || [];
     assert.equal(all.length, 1, 'pup-club.html: the ' + name + ' spot');
   }
+  // without it, /pup-club/corgi would look for its pictures in /pup-club/assets/
+  assert.match(template, /<meta charset="utf-8">\n(<!--[^\n]*-->\n)?<base href="\/">\n/);
 });
 
 test('every pup has a breed, its few sentences and a search description, and none of them name a price', () => {
@@ -92,7 +94,7 @@ test('each pup page has its own title, description, canonical address, heading, 
     assert.ok(html.includes('<link rel="canonical" href="' + ORIGIN + '/pup-club/' + p.slug + '">'), p.slug + ': canonical');
     assert.match(html, new RegExp('data-pup-heading data-pack="the pack.">the ' + name + '.</h1>'));
     assert.ok(html.includes('data-pup-words data-pack="') && html.includes('>' + p.about + '</p>'), p.slug + ': words');
-    assert.ok(html.includes('<base href="/">'), p.slug + ': base');
+    assert.equal(html.split('<base href="/">').length, 2, p.slug + ': one base');
     const c = card(html);
     assert.equal(c['@type'], 'Product');
     assert.equal(c.name, name + ' enamel pin');

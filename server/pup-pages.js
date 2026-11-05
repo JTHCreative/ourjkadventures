@@ -11,7 +11,8 @@
 // card has no offer at all (the shop fails closed, and Google never shows a price for something nobody can buy).
 //
 // Plain text replacement, not HTMLRewriter: the page is our own file, and this way the tests can run it in node.
-// tests/pup-pages.test.mjs checks that every spot it fills is still in pup-club.html.
+// tests/pup-pages.test.mjs checks that every spot it fills is still in pup-club.html. pup-club.html has <base href="/">,
+// so its "assets/..." pictures and "shop.html" links work from /pup-club/corgi too.
 
 import { siteProducts, getCatalog } from './catalog.js';
 
@@ -71,7 +72,6 @@ export function pupProductData(p, catalog) {
 
 // the spots in pup-club.html this fills. each must be there exactly once (the tests check)
 export const SPOTS = {
-  head: /<meta charset="utf-8">\n/,
   title: /<title>[^<]*<\/title>/,
   description: /<meta name="description" content="[^"]*">/,
   canonical: /<link rel="canonical" href="[^"]*">/,
@@ -83,9 +83,6 @@ export const SPOTS = {
 export function fillPupPage(html, p, catalog) {
   const ld = JSON.stringify(pupProductData(p, catalog)).replace(/</g, '\\u003c');
   return html
-    // the board's pictures and links are written as "assets/..." and "shop.html": start them all from the front door,
-    // or /pup-club/corgi would look for /pup-club/assets/...
-    .replace(SPOTS.head, (m) => m + '<base href="/">\n')
     .replace(SPOTS.title, (m) => '<title data-pack="' + esc(m.replace(/<\/?title>/g, '')) + '">' + esc(pupTitle(p)) + '</title>')
     .replace(SPOTS.description, () => '<meta name="description" content="' + esc(p.summary || p.about || '') + '">')
     .replace(SPOTS.canonical, () => '<link rel="canonical" href="' + SITE + pupPath(p.slug) + '">')
