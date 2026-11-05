@@ -14,9 +14,13 @@ weight, a bit like a shop window with just a "coming soon" sign: people walk pas
 
 ### Draft: hometown series
 
-> pins for the places that made you. the town you grew up in, the one you moved to, the one you keep going back
-> to. we started making pins because we couldn't find any that felt like the places we loved, and this set is
-> where that started.
+Warm and proud, like telling your best friend about where you're from (owner's direction, 2026-11-05).
+
+> pins for the places that made you. the town you grew up in, the place you call home now, the spot where you
+> fell in love, the little corner of the world where your story got written. you know the one!
+>
+> we're so proud of where we come from, and we bet you are too. so we're making pins for those places, a little
+> piece of home to wear on your jacket or hang on your board, so it's always close by.
 >
 > this set is not in the shop yet. tap "i'm interested!" and we'll know which towns to make first.
 
