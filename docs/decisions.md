@@ -469,7 +469,9 @@ The site had no sitemap, and most page titles were just the page name ("shop. j+
 Google treats `pup-club.html#corgi` as the same page as `pup-club.html`, so no pin could show up in search
 on its own or with its price. Each pup now has its own address, `/pup-club/corgi`. Owner's calls, 2026-11-05:
 - **The board with the pup opened, not a separate page per pin.** `/pup-club/corgi` is the pup club board
-  with the corgi open and its own heading and words above it. One template (`pup-club.html`) that the Worker
+  with the corgi open and its own heading above it. The pup's words are in its card on the board; the pack's
+  intro line under the heading hides while a pup is open, so the words aren't said twice (owner's call). Google
+  runs the page's script, so it still reads them, and they're in the description and product data too. One template (`pup-club.html`) that the Worker
   fills in, like a form letter, so there's only one way to show a pup to keep in step. Tapping another pup
   changes the address (replace, not a new history step) and the heading; closing it goes back to `/pup-club`.
   Old `pup-club.html#corgi` links still work and move to the new address.

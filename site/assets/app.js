@@ -763,7 +763,8 @@
 
   // each pup has its own page, /pup-club/corgi (server/pup-pages.js). while a pup is open the address, the tab title
   // and the heading follow it, so a copied or shared link is to that pup; closing it goes back to the whole pack.
-  // the pack's own words wait in data-pack (the worker puts them there on a pup's page)
+  // the pack's own words wait in data-pack (the worker puts them there on a pup's page). the pup's words are in its
+  // card, so the intro line under the heading steps aside while a pup is open instead of saying them twice
   function pupTitle(p) {
     var name = pupName(p), breed = p.breed || p.name;
     var what = breed.indexOf(name) >= 0 ? breed : name + ' ' + breed;
@@ -784,7 +785,7 @@
       try { history.replaceState(null, '', path); } catch (e) {}
     }
     heading.textContent = p ? 'the ' + pupName(p) + '.' : heading.getAttribute('data-pack');
-    if (words) words.textContent = p ? (p.about || '') : words.getAttribute('data-pack');
+    if (words) { words.textContent = p ? '' : words.getAttribute('data-pack'); words.hidden = !!p; }
     if (title) document.title = p ? pupTitle(p) : title.getAttribute('data-pack');
   }
 

@@ -2,7 +2,7 @@
 // so a search engine can list each pin by itself, with its price and whether it's in stock.
 //
 // There is one page to keep, site/pup-club.html (the board). For /pup-club/corgi the worker reads that page and
-// fills in the corgi's own title, description, canonical address, heading and few sentences (from products.json),
+// fills in the corgi's own title, description, canonical address and heading (from products.json), and hides the pack's intro line,
 // so the board still works the same and opens the corgi. Like a form letter: one letter, a name filled in each time.
 //
 // It also writes a hidden product card for Google (schema.org Product, as JSON-LD) with the price and stock from
@@ -88,7 +88,8 @@ export function fillPupPage(html, p, catalog) {
     .replace(SPOTS.canonical, () => '<link rel="canonical" href="' + SITE + pupPath(p.slug) + '">')
     // the pack's own heading and words ride along, so the board can put them back when the pin is closed
     .replace(SPOTS.heading, (m, open, text, close) => open.replace('>', ' data-pack="' + text + '">') + esc('the ' + pupName(p) + '.') + close)
-    .replace(SPOTS.words, (m, open, text, close) => open.replace('>', ' data-pack="' + text + '">') + esc(p.about || '') + close)
+    // the pup's words are in its card on the board, so the pack's intro line steps aside instead of repeating them
+    .replace(SPOTS.words, (m, open, text, close) => open.replace('>', ' data-pack="' + text + '" hidden>') + close)
     .replace(SPOTS.end, () => '<script type="application/ld+json">' + ld + '</script>\n</head>');
 }
 

@@ -93,7 +93,9 @@ test('each pup page has its own title, description, canonical address, heading, 
     assert.ok(html.includes('<meta name="description" content="' + p.summary + '">'), p.slug + ': description');
     assert.ok(html.includes('<link rel="canonical" href="' + ORIGIN + '/pup-club/' + p.slug + '">'), p.slug + ': canonical');
     assert.match(html, new RegExp('data-pup-heading data-pack="the pack.">the ' + name + '.</h1>'));
-    assert.ok(html.includes('data-pup-words data-pack="') && html.includes('>' + p.about + '</p>'), p.slug + ': words');
+    // the words are in the pup's card (and the product card below), not repeated under the heading
+    assert.match(html, /data-pup-words data-pack="[^"]+" hidden><\/p>/, p.slug + ': intro line hidden');
+    assert.equal(card(html).description, p.about, p.slug + ': words in the product card');
     assert.equal(html.split('<base href="/">').length, 2, p.slug + ': one base');
     const c = card(html);
     assert.equal(c['@type'], 'Product');
