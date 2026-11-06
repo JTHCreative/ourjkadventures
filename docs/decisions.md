@@ -556,3 +556,27 @@ not reach the shop just now." Two fixes:
   own page are drawn from `products.json` with no sizes or prices and the shop counted as closed, so every button
   reads "coming soon", greyed out, with a note under the board. Nothing can be bought without Square (the shop
   still fails closed), and the page is never just an error.
+
+## Google Merchant Center through the Merchant API (2026-11-06)
+The owner wanted the shop on Google Shopping with stock that stays right, the products taken from the website.
+- **The website pushes, every 10 minutes.** A Cloudflare cron trigger (free) runs `syncMerchant`
+  (`server/merchant.js`), which builds Google's list from the same catalog `/api/catalog` uses and sends only
+  what changed. Merchant Center's own options were weaker: a feed file it fetches is read at most once a day, and
+  "automated feeds" (Google reading the pages) is slow and would list each pin twice next to ours. 10 minutes
+  matches "real time means within 10 minutes" above. Everything is sent again weekly, because Google drops a
+  product it hasn't heard about for 30 days.
+- **The Firebase service account is the login (owner's choice).** One key to look after instead of two. It asks
+  Google for a separate "content" pass (`googleToken` in `server/firebase.js`), so the Firestore pass and the
+  Merchant Center pass never mix. The key is added as a user in Merchant Center.
+- **Fails closed, like the shop.** Closed shop or nothing on the shelf: out of stock. Switched off or unlinked:
+  taken off Google. Square or Firestore unreadable: everything already on Google goes out of stock, and nothing
+  is taken down (so a short outage doesn't delete the listings and their approval).
+- **Production only.** Nothing is sent while `SQUARE_ENV` is sandbox, so test prices can't reach Google.
+- **No discounts.** No `salePrice`, `autoPricingMinPrice` or promotions are ever sent (a test checks), and the
+  setup steps say to leave Google's "automated discounts" off.
+- **What was sent is kept in Firestore** (`settings/merchant`), next to the other shop settings, so each run can
+  compare. Only the server reads it, like every other settings document.
+- **Pictures on white.** Google Shopping prefers a plain background to a see-through one, so
+  `scripts/merchant-pictures.py` makes 1000px JPEG copies on white in `site/assets/img/merchant/`.
+- **Shipping is sent as $5 to the US**, from `products.json`. Where else we ship is still the owner's call
+  (roadmap, "shipping and returns").
