@@ -42,6 +42,21 @@ export function pupImage(slug) { return SITE + '/assets/img/pins/' + slug + '.we
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+// our return policy, as on /returns, for Google (it can show "30-day returns" with the price). us only, within 30
+// days: a damaged or flawed pin is replaced or refunded with postage on us; any other pin can be swapped for one
+// of the same price, unworn on its card, with the customer paying to send it back (so an exchange, not a refund)
+export const RETURN_POLICY = {
+  "@type": "MerchantReturnPolicy",
+  "applicableCountry": "US",
+  "returnPolicyCategory": "https://schema.org/MerchantReturnFiniteReturnWindow",
+  "merchantReturnDays": 30,
+  "returnMethod": "https://schema.org/ReturnByMail",
+  "returnFees": "https://schema.org/ReturnFeesCustomerResponsibility",
+  "itemDefectReturnFees": "https://schema.org/FreeReturn",
+  "refundType": "https://schema.org/ExchangeRefund",
+  "merchantReturnLink": "https://ourjkadventures.com/returns"
+};
+
 // the offers for Google: one per size, only from what the catalog says can be sold right now
 export function pupOffers(catalog, slug) {
   if (!catalog || catalog.open !== true) return [];
@@ -56,7 +71,8 @@ export function pupOffers(catalog, slug) {
       priceCurrency: (row && row.currency) || catalog.currency || 'USD',
       availability: s.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
       itemCondition: 'https://schema.org/NewCondition',
-      url: SITE + pupPath(slug)
+      url: SITE + pupPath(slug),
+      hasMerchantReturnPolicy: RETURN_POLICY
     };
   });
 }

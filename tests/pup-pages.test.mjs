@@ -8,7 +8,7 @@ import worker from '../site/_worker.js';
 import { _resetCaches } from '../server/firebase.js';
 import { _resetShopCache } from '../server/shop.js';
 import { _resetCatalogCache } from '../server/catalog.js';
-import { SPOTS } from '../server/pup-pages.js';
+import { SPOTS, RETURN_POLICY } from '../server/pup-pages.js';
 import { _resetReviewCache } from '../server/reviews.js';
 import { fakeWorld, env as baseEnv } from './helpers.mjs';
 
@@ -222,4 +222,17 @@ test('only our pups get a page; a trailing slash moves to the plain address', as
   const head = await call('/pup-club/corgi', 'HEAD');
   assert.equal(head.status, 200);
   assert.equal(await head.text(), '');
+});
+
+test('each offer carries our return policy, the same one the home page and /returns state', async () => {
+  const call = setup();
+  for (const o of offersOf(await (await call('/pup-club/aussie')).text())) assert.deepEqual(o.hasMerchantReturnPolicy, RETURN_POLICY);
+  assert.equal(RETURN_POLICY.applicableCountry, 'US');
+  assert.equal(RETURN_POLICY.merchantReturnDays, 30);
+  assert.equal(RETURN_POLICY.merchantReturnLink, ORIGIN + '/returns');
+  const home = JSON.parse(read('site/index.html').match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+  assert.deepEqual(home['@graph'].find((x) => x['@type'] === 'Organization').hasMerchantReturnPolicy, RETURN_POLICY);
+  const page = read('site/returns.html');
+  assert.equal((page.match(/within 30 days of your order arriving/g) || []).length, 2, 'the page says 30 days for both damaged pins and swaps');
+  assert.match(page, /united states/);
 });
