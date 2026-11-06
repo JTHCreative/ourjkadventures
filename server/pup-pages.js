@@ -30,11 +30,16 @@ export function pupName(p) { return p.slug === 'golden' ? 'goldie' : p.name; }
 
 // "corgi dog enamel pin. j+k adventures", "aussie australian shepherd enamel pin. j+k adventures"
 export function pupTitle(p) {
+  return pupLabel(p) + ' enamel pin. ' + BRAND;
+}
+
+// "corgi dog", "aussie australian shepherd": the name and breed, also Google Shopping's title (server/merchant.js)
+export function pupLabel(p) {
   const name = pupName(p);
   const breed = p.breed || p.name;
   let what = breed.includes(name) ? breed : name + ' ' + breed;
   if (!what.includes(' ')) what += ' dog';
-  return what + ' enamel pin. ' + BRAND;
+  return what;
 }
 
 export function pupPath(slug) { return '/pup-club/' + slug; }

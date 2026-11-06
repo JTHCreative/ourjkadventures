@@ -14,7 +14,8 @@ const SKEW = 60; // seconds of clock difference we tolerate
 
 // kept between requests while this copy of the worker is warm
 let keyCache = { keys: null, until: 0 };
-let accessCache = { token: null, until: 0, account: null };
+// one pass per kind of permission (scope): Firebase's, and Merchant Center's (server/merchant.js)
+let accessCache = {};
 
 /* ---------- small helpers ---------- */
 function b64urlToBytes(s) {
@@ -99,15 +100,20 @@ function serviceAccount(env) {
   return sa;
 }
 
-async function accessToken(env, fetchFn) {
+function accessToken(env, fetchFn) { return googleToken(env, SCOPES, fetchFn); }
+
+// a short-lived pass (one hour) from Google for the service account, for the given scope. Like showing the staff
+// badge at the front desk and getting a day ticket for one department: the badge (the key) never leaves the server
+export async function googleToken(env, scope, fetchFn = fetch) {
   const sa = serviceAccount(env);
-  if (accessCache.token && accessCache.account === sa.client_email && accessCache.until > Date.now()) return accessCache.token;
+  const held = accessCache[scope];
+  if (held && held.account === sa.client_email && held.until > Date.now()) return held.token;
   const pem = sa.private_key.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
   const der = Uint8Array.from(atob(pem), (c) => c.charCodeAt(0));
   const key = await crypto.subtle.importKey('pkcs8', der, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']);
   const t = now();
   const unsigned = jsonB64url({ alg: 'RS256', typ: 'JWT' }) + '.' +
-    jsonB64url({ iss: sa.client_email, scope: SCOPES, aud: TOKEN_URL, iat: t, exp: t + 3600 });
+    jsonB64url({ iss: sa.client_email, scope, aud: TOKEN_URL, iat: t, exp: t + 3600 });
   const sig = new Uint8Array(await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, new TextEncoder().encode(unsigned)));
   const res = await fetchFn(TOKEN_URL, {
     method: 'POST',
@@ -117,8 +123,8 @@ async function accessToken(env, fetchFn) {
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok || !body.access_token) throw new Error('google token ' + res.status);
-  accessCache = { token: body.access_token, account: sa.client_email, until: Date.now() + ((body.expires_in || 3600) - 300) * 1000 };
-  return accessCache.token;
+  accessCache[scope] = { token: body.access_token, account: sa.client_email, until: Date.now() + ((body.expires_in || 3600) - 300) * 1000 };
+  return body.access_token;
 }
 
 /* ---------- Firestore (REST) ---------- */
@@ -278,4 +284,4 @@ export async function deleteAuthUser(env, uid, fetchFn = fetch) {
 }
 
 // for tests
-export function _resetCaches() { keyCache = { keys: null, until: 0 }; accessCache = { token: null, until: 0, account: null }; }
+export function _resetCaches() { keyCache = { keys: null, until: 0 }; accessCache = {}; }
