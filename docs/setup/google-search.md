@@ -11,7 +11,9 @@ Search Console is how you hand Google a copy.
 4. In the Cloudflare dashboard, open the `ourjkadventures.com` zone, then **DNS**, then **Records**, then
    **Add record**. Type `TXT`, name `@`, content: paste the line. Save.
 5. Back in Search Console, click **Verify**. If it says not yet, wait ten minutes and try again.
-6. In the left menu open **Sitemaps**. Type `sitemap.xml` and click **Submit**. Status should read
+6. In the left menu open **Sitemaps**. Type the full address, `https://ourjkadventures.com/sitemap.xml`, and
+   click **Submit**. (A Domain property needs the whole address with `https://`; if the box already shows
+   `https://ourjkadventures.com/` in front, just `sitemap.xml` is enough.) Status should read
    **Success** within a day or so, with about 26 pages discovered (ten pages plus one per pup).
 7. Optional check: open **URL inspection**, paste `https://ourjkadventures.com/pup-club`, then
    **Test live URL**. It should say the page can be indexed.
@@ -51,3 +53,9 @@ Prices in search results can take a few weeks to show, and Google decides when t
 ## When you add a page
 Add it to `site/sitemap.xml` (the test `tests/sitemap.test.mjs` fails until you do). Nothing needs
 resubmitting: Google rereads the sitemap by itself.
+
+## If a page says "soft 404" or "not available to Google"
+In URL Inspection, click **Test live URL**, then **View tested page**, **More info**, **Page resources**. If it
+lists something "blocked by robots.txt", Google couldn't load part of the page. `site/robots.txt` decides what
+Google may read; the public lists the pages draw from (`/api/catalog`, `/api/reviews`, `/api/reels`) are allowed
+on purpose. After a fix goes live, test again and click **Request indexing**.

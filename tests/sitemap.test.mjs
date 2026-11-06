@@ -62,6 +62,18 @@ test('robots.txt points at the sitemap and keeps crawlers out of the api and adm
   assert.match(robots, /^Disallow: \/admin$/m);
 });
 
+test('robots.txt lets google read the public lists the pages draw from, and nothing else under /api/', () => {
+  // google follows the longest rule that matches an address, Allow or Disallow
+  const rules = [...read('site/robots.txt').matchAll(/^(Allow|Disallow): (\S+)$/gm)].map((m) => [m[1], m[2]]);
+  const allowed = (path) => {
+    const hits = rules.filter(([, p]) => path.startsWith(p)).sort((a, b) => b[1].length - a[1].length);
+    return !hits.length || hits[0][0] === 'Allow';
+  };
+  // without the catalog the pup board is empty and google calls the page a dead end (a "soft 404")
+  for (const p of ['/api/catalog', '/api/reviews?slug=corgi', '/api/reviews/photo?id=x', '/api/reels', '/pup-club', '/pup-club/corgi', '/shop', '/products.json']) assert.ok(allowed(p), p + ' should be allowed');
+  for (const p of ['/api/checkout', '/api/account', '/api/admin', '/api/admin/shop', '/api/interest', '/api/notify', '/admin']) assert.ok(!allowed(p), p + ' should be blocked');
+});
+
 test('every public page says what a shared link shows, matching its title, description and address', () => {
   const prop = (html, p) => (html.match(new RegExp('<meta property="' + p + '" content="([^"]*)">')) || [])[1];
   for (const file of pages) {

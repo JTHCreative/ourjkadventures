@@ -544,3 +544,15 @@ every other 14px and 15px style with words in it went to 16px: form hints, the "
 set notes, prices in the featured ring, review names and notes, "See in 3D", "or with your email", the About
 page's reel captions and counts, and the owner page's tallies. Only the number badges inside fixed circles (the
 bag count, the owner page's order numbers) stay smaller, since bigger numbers wouldn't fit their circles.
+
+## Google may read the public lists under /api/ (2026-11-06)
+Google's live test called `/pup-club` a "soft 404" (a page that loads but looks empty or broken). The board
+fills itself from `/api/catalog`, and `robots.txt` blocked everything under `/api/`, so Google saw only "we could
+not reach the shop just now." Two fixes:
+- **`robots.txt` allows `/api/catalog`, `/api/reviews` and `/api/reels`**, the public lists the pages draw from.
+  Google follows the longest matching rule, so the rest of `/api/` (checkout, accounts, admin, votes, emails)
+  stays blocked. A test checks both sides.
+- **A backup for the board.** If `/api/catalog` doesn't answer, the pup board, the pin boards wall and the board's
+  own page are drawn from `products.json` with no sizes or prices and the shop counted as closed, so every button
+  reads "coming soon", greyed out, with a note under the board. Nothing can be bought without Square (the shop
+  still fails closed), and the page is never just an error.
