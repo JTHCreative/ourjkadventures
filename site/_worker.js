@@ -11,6 +11,7 @@
 //   INSTAGRAM_ACCESS_TOKEN, META_APP_SECRET, REEL_STORE  the About page's reels, see server/instagram.js
 //   RESEND_API_KEY, EMAIL_FROM, EMAIL_DAILY_LIMIT  "email me when it's here", see server/email.js
 //   REVIEW_PHOTOS                  the R2 bucket for review photos, see server/photos.js
+//   MERCHANT_ACCOUNT_ID, MERCHANT_DATA_SOURCE  Google Merchant Center, see server/merchant.js
 //
 // The account code lives in ../server so it is bundled into this worker but never published as a file.
 
@@ -25,6 +26,7 @@ import { stockCounts, squareHost, SQUARE_VERSION } from '../server/square.js';
 import { reelsRoute } from '../server/instagram.js';
 import { pupPageRoute } from '../server/pup-pages.js';
 import { staticOrNotFound } from '../server/not-found.js';
+import { syncMerchant } from '../server/merchant.js';
 
 const MAX_LINES = 30;
 const MAX_QTY = 20;
@@ -47,6 +49,14 @@ export default {
       return pupPageRoute(request, env, pup[1]);
     }
     return staticOrNotFound(request, env);
+  },
+
+  // the timer in wrangler.jsonc ("triggers"): every 10 minutes, tell Google Merchant Center what changed on the shelf.
+  // does nothing until MERCHANT_ACCOUNT_ID is set, and nothing while Square is in sandbox mode
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(syncMerchant(env).then((r) => {
+      if (r && !r.skipped && (r.lastChanged || r.lastRemoved)) console.log('merchant: sent ' + r.lastChanged + ', removed ' + r.lastRemoved);
+    }).catch((e) => console.log('merchant sync failed', e.message)));
   }
 };
 

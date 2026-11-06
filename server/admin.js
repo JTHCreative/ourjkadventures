@@ -17,6 +17,9 @@
 //   GET  /api/admin/notify   who is waiting for an "it's here" email, per product, and today's email count
 //   POST /api/admin/notify   { slug }  send "it's here" to everyone waiting for it (up to today's allowance)
 //   GET  /api/admin/instagram  does the key in cloudflare open @ourjkadventures, and how many reels (never the key)
+//   GET  /api/admin/merchant   google merchant center: what was last sent, when, and what google says about each product
+//   POST /api/admin/merchant   { action: "send" }      send everything to google now, changed or not
+//                              { action: "register" }  the one-time link between our google cloud project and merchant center
 //
 // Cloudflare setting (Settings > Variables and secrets):
 //   ADMIN_EMAILS   plain text, comma separated, e.g. ourjkadventures@gmail.com
@@ -29,6 +32,7 @@ import { squareConfigured, squareMode, listVariations, stockCounts } from './squ
 import { instagramStatus } from './instagram.js';
 import { readAvailability, setAvailable, readInterest } from './interest.js';
 import { notifySummary, sendItsHere } from './notify.js';
+import { merchantStatus, merchantLive, syncMerchant, registerMerchant } from './merchant.js';
 
 function json(body, status) {
   return new Response(JSON.stringify(body), {
@@ -135,6 +139,25 @@ export async function admin(request, env, fetchFn = fetch) {
     if (route === 'instagram') {
       if (request.method !== 'GET') return json({ error: 'method' }, 405);
       return json(await instagramStatus(env, fetchFn));
+    }
+
+    if (route === 'merchant') {
+      if (request.method === 'GET') return json(await merchantStatus(env, fetchFn));
+      if (request.method !== 'POST') return json({ error: 'method' }, 405);
+      const body = await readJson(request);
+      if (!merchantLive(env)) return json({ error: 'not live', ...(await merchantStatus(env, fetchFn)) }, 409);
+      if (body.action === 'send') {
+        const run = await syncMerchant(env, { force: true, origin: url.origin, fetchFn });
+        return json({ run, ...(await merchantStatus(env, fetchFn)) });
+      }
+      if (body.action === 'register') {
+        try { await registerMerchant(env, user.email, fetchFn); } catch (e) {
+          console.log('merchant register', e.message);
+          return json({ error: 'register', detail: e.message }, 502);
+        }
+        return json({ registered: true, ...(await merchantStatus(env, fetchFn)) });
+      }
+      return json({ error: 'action' }, 400);
     }
 
     return json({ error: 'not found' }, 404);

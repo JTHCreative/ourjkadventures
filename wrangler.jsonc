@@ -15,6 +15,9 @@
   "r2_buckets": [{ "binding": "REVIEW_PHOTOS", "bucket_name": "review-photos" }],
   // the J+K Adventures Facebook Page's ID (not secret): the website reaches @ourjkadventures through this Page
   "vars": { "INSTAGRAM_PAGE_ID": "1209633565574678" },
+  // every 10 minutes the worker tells Google Merchant Center what changed on the shelf (server/merchant.js).
+  // it does nothing until MERCHANT_ACCOUNT_ID is set in Cloudflare (docs/setup/merchant-center.md)
+  "triggers": { "crons": ["*/10 * * * *"] },
   "observability": { "enabled": true },
   "keep_vars": true
 }

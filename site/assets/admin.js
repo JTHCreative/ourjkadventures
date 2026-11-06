@@ -598,6 +598,77 @@ async function loadInstagram() {
   try { paintInstagram(await api('GET', '/api/admin/instagram')); } catch (e) { $('[data-instagram-state]').textContent = RESTING; }
 }
 
+/* ---------- google shopping: what merchant center has from us (server/merchant.js) ---------- */
+function ago(iso) {
+  const min = Math.round((Date.now() - Date.parse(iso)) / 60000);
+  if (!(min >= 1)) return 'just now';
+  if (min < 60) return min === 1 ? 'a minute ago' : min + ' minutes ago';
+  const h = Math.round(min / 60);
+  return h < 48 ? (h === 1 ? 'an hour ago' : h + ' hours ago') : Math.round(h / 24) + ' days ago';
+}
+
+function googleSays(g) {
+  if (!g) return 'google hasn\'t looked yet.';
+  if (g.disapproved) return 'google said no.';
+  if (g.approved) return 'showing on google.';
+  if (g.pending) return 'google is looking.';
+  return 'google hasn\'t decided.';
+}
+
+function paintMerchant(s) {
+  const state = $('[data-merchant-state]');
+  const list = $('[data-merchant-list]');
+  const actions = $('[data-merchant-actions]');
+  list.textContent = '';
+  actions.hidden = true;
+  if (!s.configured) {
+    state.textContent = 'google shopping is not set up yet: MERCHANT_ACCOUNT_ID is missing in cloudflare. see docs/setup/merchant-center.md.';
+    return;
+  }
+  if (!s.live) {
+    state.textContent = 'set up, but square is in sandbox mode, so nothing goes to google. test prices never reach it.';
+    return;
+  }
+  actions.hidden = false;
+  const lines = [];
+  if (!s.lastRun) lines.push('nothing sent to google yet. the first send happens within 10 minutes, or press "send to google now".');
+  else lines.push((s.listed === 1 ? 'one product' : s.listed + ' products') + ' sent to google. last checked ' + ago(s.lastRun) + '.');
+  if (s.lastError) lines.push('the last check had a problem (google said: ' + s.lastError + ').');
+  if (s.googleError) lines.push('we couldn\'t ask google how the products are doing just now (' + s.googleError + ').');
+  state.textContent = lines.join(' ');
+  (s.products || []).forEach((p) => {
+    const row = el('div', 'admin-review');
+    row.appendChild(el('span', 'admin-review-pin', p.title));
+    row.appendChild(el('span', 'caption', money(p.price_cents) + ', ' + (p.availability === 'IN_STOCK' ? 'in stock' : 'out of stock') + '. ' + googleSays(p.google)));
+    ((p.google && p.google.issues) || []).forEach((i) => {
+      row.appendChild(el('span', 'caption', (i.severity === 'DISAPPROVED' ? 'to fix: ' : 'worth a look: ') + i.description + (i.resolution ? ' (' + i.resolution + ')' : '')));
+    });
+    list.appendChild(row);
+  });
+}
+
+function wireMerchant() {
+  const note = $('[data-merchant-note]');
+  const press = (btn, body, done) => btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    note.textContent = 'one moment.';
+    try {
+      const s = await api('POST', '/api/admin/merchant', body);
+      paintMerchant(s);
+      note.textContent = done(s);
+    } catch (e) {
+      note.textContent = e.data && e.data.detail ? 'google said: ' + e.data.detail : "that didn't work. try again in a moment.";
+    }
+    btn.disabled = false;
+  });
+  press($('[data-merchant-send]'), { action: 'send' }, (s) => s.lastError ? 'sent, with a problem (see above).' : 'sent. google can take a little while to update.');
+  press($('[data-merchant-register]'), { action: 'register' }, () => 'linked. you only need to do this once.');
+}
+
+async function loadMerchant() {
+  try { paintMerchant(await api('GET', '/api/admin/merchant')); } catch (e) { $('[data-merchant-state]').textContent = RESTING; }
+}
+
 /* ---------- start ---------- */
 function showSignIn() {
   gate(NOT_OWNER);
@@ -638,6 +709,8 @@ async function open() {
   loadNotify();
   loadReviews();
   loadInstagram();
+  wireMerchant();
+  loadMerchant();
 }
 
 (async function start() {
