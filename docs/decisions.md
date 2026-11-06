@@ -556,3 +556,16 @@ not reach the shop just now." Two fixes:
   own page are drawn from `products.json` with no sizes or prices and the shop counted as closed, so every button
   reads "coming soon", greyed out, with a note under the board. Nothing can be bought without Square (the shop
   still fails closed), and the page is never just an error.
+
+## Returns and exchanges (2026-11-06)
+A `/returns` page, matching what the owner set in Google (United States, returns for defective products only,
+exchanges accepted) with a 30-day window:
+- **Damaged or flawed:** within 30 days of arriving, email a photo and the order number; a replacement, a
+  different pin or a refund, whichever they'd like; we pay any postage back.
+- **Any other pin:** no refund, but a swap for a different pin of the same price within 30 days, unworn on its
+  card. The customer pays to send it back, we pay to send the new one.
+- **Pin boards follow the same rules. Refunds go back to the card, through Square. US shipping only.**
+The same policy is in the hidden data for Google (`RETURN_POLICY` in `server/pup-pages.js`, and the
+Organization on the home page; a test keeps them equal): `ExchangeRefund` with the customer paying return
+postage, and free returns for defects. The postage details and "same price" swaps were drafted for the owner to
+confirm.

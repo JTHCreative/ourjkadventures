@@ -117,5 +117,6 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [x] Coming-soon pages (2026-11-05): hometown series and chinese zodiac each have a short, warm paragraph in place of one line (owner's words, see `seo-next.md`). Still to ask: the first hometown towns, and whether the zodiac comes out all at once
 - [x] "Page not found" page (2026-11-05): `site/404.html` for any address we don't have, shown by the worker (`server/not-found.js`). Cloudflare's own `not_found_handling` setting was tried and dropped: it answered a browser's visit to `/pup-club/corgi` with "not found" before the worker could build the page
 - [x] Sitemap dates from git: `python3 scripts/sitemap-dates.py` (`--check` to only look). Owner: by hand, or a GitHub Action?
-- [ ] Shipping and returns in the product data (`shippingDetails`, `hasMerchantReturnPolicy`), once the owner says where we ship and what the return policy is. Google lists them as recommended, not required
+- [x] Returns (2026-11-06): `/returns` page in the footer and sitemap, and `hasMerchantReturnPolicy` on each pup's offer and the home page's Organization (US only, 30 days: damaged or flawed pins replaced or refunded, others swapped). Matches the owner's Google settings
+- [ ] Shipping in the product data (`shippingDetails`): needs the owner's handling and delivery times. Google lists it as recommended, not required
 - [ ] The pup club intro says "pins from $12", a price typed into the page. Prices should come from Square only: reword it or fill it from the catalog
