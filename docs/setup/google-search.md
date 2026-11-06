@@ -53,3 +53,9 @@ Prices in search results can take a few weeks to show, and Google decides when t
 ## When you add a page
 Add it to `site/sitemap.xml` (the test `tests/sitemap.test.mjs` fails until you do). Nothing needs
 resubmitting: Google rereads the sitemap by itself.
+
+## If a page says "soft 404" or "not available to Google"
+In URL Inspection, click **Test live URL**, then **View tested page**, **More info**, **Page resources**. If it
+lists something "blocked by robots.txt", Google couldn't load part of the page. `site/robots.txt` decides what
+Google may read; the public lists the pages draw from (`/api/catalog`, `/api/reviews`, `/api/reels`) are allowed
+on purpose. After a fix goes live, test again and click **Request indexing**.
