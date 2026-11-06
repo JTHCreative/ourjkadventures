@@ -1595,9 +1595,7 @@
     var featured = document.querySelector('[data-featured]');
     var wanted = document.querySelector('[data-wanted]');
     if (!pupGrid && !boardSlot && !boardBuy && !featured && !wanted) return;
-    loadCatalog().then(function () {
-      if (featured) buildFeatured(featured);
-      if (wanted) buildWanted(wanted);
+    function draw() {
       if (boardBuy) {
         boardBuy.textContent = '';
         var bb = catalog.items['bay-area-pin-board'];
@@ -1615,11 +1613,39 @@
         if (b) boardSlot.appendChild(boardCard(b));
         else boardSlot.appendChild(el('p', 'notice', 'the board is out for a walk too. check back soon.'));
       }
+    }
+    loadCatalog().then(function () {
+      if (featured) buildFeatured(featured);
+      if (wanted) buildWanted(wanted);
+      draw();
     }).catch(function () {
+      // the shop's live list (/api/catalog) didn't answer. still show the pups and the board from products.json,
+      // with nothing for sale (no sizes, no prices, the shop counts as closed), so the page is never just an
+      // error: an empty board reads as a dead page to people, and to google (a "soft 404")
       var msg = 'we could not reach the shop just now. try again in a moment, or write to us at ' + CONTACT_EMAIL + '.';
-      if (pupGrid) { pupGrid.textContent = ''; pupGrid.appendChild(el('p', 'notice', msg)); }
-      if (boardSlot) { boardSlot.textContent = ''; boardSlot.appendChild(el('p', 'notice', msg)); }
-      if (boardBuy) { boardBuy.textContent = ''; boardBuy.appendChild(el('p', 'notice', msg)); }
+      function sorry() {
+        if (pupGrid) { pupGrid.textContent = ''; pupGrid.appendChild(el('p', 'notice', msg)); }
+        if (boardSlot) { boardSlot.textContent = ''; boardSlot.appendChild(el('p', 'notice', msg)); }
+        if (boardBuy) { boardBuy.textContent = ''; boardBuy.appendChild(el('p', 'notice', msg)); }
+      }
+      fetch('/products.json').then(function (r) {
+        if (!r.ok) throw new Error('products ' + r.status);
+        return r.json();
+      }).then(function (j) {
+        catalog.open = false;
+        catalog.items = {};
+        catalog.byKey = {};
+        (j.items || []).forEach(function (p) {
+          var copy = {};
+          Object.keys(p).forEach(function (k) { copy[k] = p[k]; });
+          copy.sizes = [];
+          catalog.items[p.slug] = copy;
+        });
+        draw();
+        [pupGrid, boardSlot, boardBuy].forEach(function (box) {
+          if (box) box.appendChild(el('p', 'notice', 'we could not reach the shop just now, so nothing can go in the bag. try again in a moment.'));
+        });
+      }).catch(sorry);
     });
   }
 
