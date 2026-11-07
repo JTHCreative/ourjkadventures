@@ -388,6 +388,8 @@ order, raised gold lines, a taller gold rim, and the post and rubber clutch copi
 - **Goldie, same month:** a new goldie model from new art (open mouth, brown eyes, red outlines for the gold). The
   art draws the eyes as circles and ellipses, so the script now reads `<circle>` and `<ellipse>` as well as paths,
   with their transforms. The model is 674 KB, down from 1.8 MB; `?v=` went to 5.
+- **Rottweiler, same month:** its first 3D model, made the same way from the owner's new art, 510 KB, and a new
+  picture to match. A new model needs no `?v=` change (no browser has an old copy); the picture's went to 4.
 
 
 ## 2026-11 Reels on backing cards
