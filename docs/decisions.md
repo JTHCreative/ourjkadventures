@@ -385,6 +385,9 @@ order, raised gold lines, a taller gold rim, and the post and rubber clutch copi
 - **Update, same month:** new art with thinner plating (dark mouth and nose with gold outlines, gold arcs over
   the eyes). The script now also reads outline-only shapes (`fill: none`): they add gold but no enamel, and a red
   line on an open curve follows the curve instead of closing into a loop. The model is 975 KB; `?v=` went to 4.
+- **Goldie, same month:** a new goldie model from new art (open mouth, brown eyes, red outlines for the gold). The
+  art draws the eyes as circles and ellipses, so the script now reads `<circle>` and `<ellipse>` as well as paths,
+  with their transforms. The model is 674 KB, down from 1.8 MB; `?v=` went to 5.
 
 
 ## 2026-11 Reels on backing cards

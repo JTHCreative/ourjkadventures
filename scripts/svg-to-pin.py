@@ -4,6 +4,7 @@
 How the SVG is read:
   - anything filled red (#ff0000), or outlined in red, becomes raised gold metal; a red line on an open
     curve (fill: none) stays an open curve
+  - paths, circles and ellipses are all read, in drawing order
   - every other fill colour becomes a glossy enamel layer of that colour, stacked in drawing order
   - the outline of everything is the pin's gold back plate, with the post and rubber clutch from an
     existing model behind it
@@ -28,7 +29,7 @@ import shapely
 import shapely.affinity
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.ops import unary_union
-from svgelements import Path, Move, Close
+from svgelements import Path, Move, Close, Matrix
 
 PIN_HEIGHT_M = 0.03833        # every pin on the site is this tall, edge of the gold rim to edge
 DONOR = 'site/assets/3d/corgi.glb'   # where the post and rubber clutch come from
@@ -104,6 +105,24 @@ def path_polygon(d, tol=1.5):
         shape = p if shape is None else shape.symmetric_difference(p)
     # drop points closer than a quarter of a drawing unit to the line (about 0.01 mm on the pin)
     return shape.simplify(0.25) if shape is not None else None
+
+
+def element_d(el):
+    """A <path>, <circle> or <ellipse> as path data (with its transform applied); None for anything else."""
+    tag = el.tag.split('}')[-1]
+    if tag == 'path':
+        return el.get('d') or ''
+    if tag not in ('circle', 'ellipse'):
+        return None
+    cx, cy = float(el.get('cx', 0)), float(el.get('cy', 0))
+    rx = float(el.get('r') if tag == 'circle' else el.get('rx', 0))
+    ry = float(el.get('r') if tag == 'circle' else el.get('ry', 0))
+    d = 'M%f,%f A%f,%f 0 1 0 %f,%f A%f,%f 0 1 0 %f,%f Z' % (cx - rx, cy, rx, ry, cx + rx, cy, rx, ry, cx - rx, cy)
+    if el.get('transform'):
+        path = Path(d) * Matrix(el.get('transform'))
+        path.reify()
+        d = path.d()
+    return d
 
 
 def path_lines(d, tol=1.5):
@@ -191,8 +210,10 @@ def main(svg_path, slug, out_path):
     styles = read_classes(root)
 
     enamel, gold, fills = [], [], []
-    for el in root.iter('{http://www.w3.org/2000/svg}path'):
-        d = el.get('d') or ''
+    for el in root.iter():
+        d = element_d(el)
+        if d is None:
+            continue
         st = styles.get((el.get('class') or '').strip(), {})
         has_fill = st.get('fill', '').lower() != 'none'   # "none" = an outline only, no enamel inside
         if has_fill:
