@@ -9,7 +9,7 @@
   ['aussie', 'beagle', 'cavalier', 'corgi', 'dachshund', 'french-bulldog', 'german-shepherd', 'golden', 'husky', 'pit-bull',
     'pomeranian', 'poodle', 'pug', 'rottweiler', 'shiba', 'yorkie'].forEach(function (s) {
     // ?v= changes whenever pin pictures are redone, so browsers don't keep showing an old one for a week (see _headers)
-    PIN_IMG[s] = 'assets/img/pins/' + s + '.webp?v=3';
+    PIN_IMG[s] = 'assets/img/pins/' + s + '.webp?v=4';
   });
 
   /* ---------- storage that survives a blocked localStorage ---------- */
@@ -662,7 +662,7 @@
 
   /* ---------- see in 3D ---------- */
   var MODEL_3D = {};
-  ['aussie', 'beagle', 'corgi', 'german-shepherd', 'golden', 'husky', 'pit-bull', 'pomeranian', 'pug', 'shiba'].forEach(function (s) {
+  ['aussie', 'beagle', 'corgi', 'german-shepherd', 'golden', 'husky', 'pit-bull', 'pomeranian', 'pug', 'rottweiler', 'shiba'].forEach(function (s) {
     // ?v= changes whenever the model files are redone: /assets/3d/ is cached as never-changing (see _headers)
     MODEL_3D[s] = 'assets/3d/' + s + '.glb?v=5';
   });
