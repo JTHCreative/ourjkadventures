@@ -390,6 +390,11 @@ order, raised gold lines, a taller gold rim, and the post and rubber clutch copi
   with their transforms. The model is 674 KB, down from 1.8 MB; `?v=` went to 5.
 - **Rottweiler, same month:** its first 3D model, made the same way from the owner's new art, 510 KB, and a new
   picture to match. A new model needs no `?v=` change (no browser has an old copy); the picture's went to 4.
+- **Doodle, same month:** its first 3D model, 575 KB, from the owner's doodle SVG. The first copy of that SVG had a
+  white square behind the whole drawing with the dog cut out, so the script now skips any shape reaching all four
+  edges of the drawing.
+- **Goldie again, same month:** new goldie art (dark eyes, floppy ears with gold lines along them), so a new model,
+  501 KB, and picture. Both `?v=` numbers went to 6, since browsers have the earlier goldie files saved.
 
 
 ## 2026-11 Reels on backing cards
@@ -577,3 +582,16 @@ The owner wanted a way to say "this pin is being made" that sits between "not in
   apart rather than as one three-way setting so turning pre-order off puts the pin back exactly where it was:
   in the shop if available was on, back to "i'm interested" if it was off. When the pins arrive: pre-order off,
   available on, then send "it's here" from `/admin` as before.
+
+## The poodle became the doodle (2026-11-08)
+The owner swapped the poodle pin for a doodle, with new artwork and no 3D model yet. Its slug changed too
+(`poodle` to `doodle`), so the address, the bag key and the owner page all say doodle. Old `/pup-club/poodle`
+links move to `/pup-club/doodle` with a permanent (301) redirect, and old `pup-club.html#poodle` links open the
+doodle (`RENAMED_PUPS` in `_worker.js` and `app.js`). Everything stored in Firestore under the old slug stays
+with the poodle: the Square link (the owner relinks the doodle on `/admin`), its available switch, its
+"i'm interested" tally, its email list and its reviews. Until it's relinked, the doodle shows as sold out, so the
+shop still fails closed.
+
+Later the same day: the doodle got its 3D model and the owner's final picture (black outline, replacing the first
+one; picture `?v=` went to 5). A `poodle` in a bag saved before the change now becomes a `doodle` instead of
+showing as an unknown item, and the owner's relinking steps are in `docs/setup/square.md`.

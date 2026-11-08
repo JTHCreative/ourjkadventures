@@ -219,6 +219,12 @@ test('only our pups get a page; a trailing slash moves to the plain address', as
   const slash = await call('/pup-club/corgi/');
   assert.equal(slash.status, 301);
   assert.equal(slash.headers.get('Location'), 'https://x.test/pup-club/corgi');
+  const renamed = await call('/pup-club/poodle');
+  assert.equal(renamed.status, 301, 'the poodle became the doodle');
+  assert.equal(renamed.headers.get('Location'), 'https://x.test/pup-club/doodle');
+  const renamedSlash = await call('/pup-club/poodle/');
+  assert.equal(renamedSlash.status, 301);
+  assert.equal(renamedSlash.headers.get('Location'), 'https://x.test/pup-club/doodle');
   const head = await call('/pup-club/corgi', 'HEAD');
   assert.equal(head.status, 200);
   assert.equal(await head.text(), '');
