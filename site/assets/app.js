@@ -9,7 +9,7 @@
   ['aussie', 'beagle', 'cavalier', 'corgi', 'dachshund', 'doodle', 'french-bulldog', 'german-shepherd', 'golden', 'husky',
     'pit-bull', 'pomeranian', 'pug', 'rottweiler', 'shiba', 'yorkie'].forEach(function (s) {
     // ?v= changes whenever pin pictures are redone, so browsers don't keep showing an old one for a week (see _headers)
-    PIN_IMG[s] = 'assets/img/pins/' + s + '.webp?v=5';
+    PIN_IMG[s] = 'assets/img/pins/' + s + '.webp?v=6';
   });
 
   /* ---------- storage that survives a blocked localStorage ---------- */
@@ -671,7 +671,7 @@
   var MODEL_3D = {};
   ['aussie', 'beagle', 'corgi', 'doodle', 'german-shepherd', 'golden', 'husky', 'pit-bull', 'pomeranian', 'pug', 'rottweiler', 'shiba'].forEach(function (s) {
     // ?v= changes whenever the model files are redone: /assets/3d/ is cached as never-changing (see _headers)
-    MODEL_3D[s] = 'assets/3d/' + s + '.glb?v=5';
+    MODEL_3D[s] = 'assets/3d/' + s + '.glb?v=6';
   });
   var MV_SRC = 'https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js';
   var mvPromise = null;
