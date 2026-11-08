@@ -390,6 +390,9 @@ order, raised gold lines, a taller gold rim, and the post and rubber clutch copi
   with their transforms. The model is 674 KB, down from 1.8 MB; `?v=` went to 5.
 - **Rottweiler, same month:** its first 3D model, made the same way from the owner's new art, 510 KB, and a new
   picture to match. A new model needs no `?v=` change (no browser has an old copy); the picture's went to 4.
+- **Doodle, same month:** its first 3D model, 575 KB, from the owner's doodle SVG. The first copy of that SVG had a
+  white square behind the whole drawing with the dog cut out, so the script now skips any shape reaching all four
+  edges of the drawing.
 
 
 ## 2026-11 Reels on backing cards
@@ -570,3 +573,7 @@ doodle (`RENAMED_PUPS` in `_worker.js` and `app.js`). Everything stored in Fires
 with the poodle: the Square link (the owner relinks the doodle on `/admin`), its available switch, its
 "i'm interested" tally, its email list and its reviews. Until it's relinked, the doodle shows as sold out, so the
 shop still fails closed.
+
+Later the same day: the doodle got its 3D model and the owner's final picture (black outline, replacing the first
+one; picture `?v=` went to 5). A `poodle` in a bag saved before the change now becomes a `doodle` instead of
+showing as an unknown item, and the owner's relinking steps are in `docs/setup/square.md`.

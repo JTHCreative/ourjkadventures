@@ -9,7 +9,7 @@
   ['aussie', 'beagle', 'cavalier', 'corgi', 'dachshund', 'doodle', 'french-bulldog', 'german-shepherd', 'golden', 'husky',
     'pit-bull', 'pomeranian', 'pug', 'rottweiler', 'shiba', 'yorkie'].forEach(function (s) {
     // ?v= changes whenever pin pictures are redone, so browsers don't keep showing an old one for a week (see _headers)
-    PIN_IMG[s] = 'assets/img/pins/' + s + '.webp?v=4';
+    PIN_IMG[s] = 'assets/img/pins/' + s + '.webp?v=5';
   });
 
   /* ---------- storage that survives a blocked localStorage ---------- */
@@ -79,6 +79,9 @@
     return s;
   }
 
+  // pups whose name changed: an old link or a bag saved before the change still finds the new one
+  var RENAMED_PUPS = { poodle: 'doodle' };
+
   /* ---------- the bag: lives in this browser until checkout ---------- */
   var cart = {};
   var drawer, scrim, bodyEl, footEl, countEls, lastFocus;
@@ -87,10 +90,14 @@
     try {
       var o = JSON.parse(read('jka_cart') || '{}');
       cart = {};
+      var renamed = false;
       Object.keys(o).forEach(function (s) {
         var q = Math.floor(Number(o[s]));
-        if (/^[a-z0-9-]{1,40}(:large)?$/.test(s) && q > 0) cart[s] = Math.min(q, 20);
+        var k = s.replace(/^[a-z0-9-]+/, function (slug) { return RENAMED_PUPS[slug] || slug; });
+        if (k !== s) renamed = true;
+        if (/^[a-z0-9-]{1,40}(:large)?$/.test(k) && q > 0) cart[k] = Math.min((cart[k] || 0) + q, 20);
       });
+      if (renamed) saveCart();
     } catch (e) { cart = {}; }
   }
   function saveCart() { save('jka_cart', Object.keys(cart).length ? JSON.stringify(cart) : null); }
@@ -662,7 +669,7 @@
 
   /* ---------- see in 3D ---------- */
   var MODEL_3D = {};
-  ['aussie', 'beagle', 'corgi', 'german-shepherd', 'golden', 'husky', 'pit-bull', 'pomeranian', 'pug', 'rottweiler', 'shiba'].forEach(function (s) {
+  ['aussie', 'beagle', 'corgi', 'doodle', 'german-shepherd', 'golden', 'husky', 'pit-bull', 'pomeranian', 'pug', 'rottweiler', 'shiba'].forEach(function (s) {
     // ?v= changes whenever the model files are redone: /assets/3d/ is cached as never-changing (see _headers)
     MODEL_3D[s] = 'assets/3d/' + s + '.glb?v=5';
   });
@@ -1522,8 +1529,6 @@
 
   // a pup's own page, /pup-club/corgi, opens that pup straight away. so does an older link like pup-club.html#corgi,
   // which then moves to the pup's own address
-  // pups whose name changed: an old link still opens the new one
-  var RENAMED_PUPS = { poodle: 'doodle' };
   function openPupFromAddress(grid) {
     var m = /^\/pup-club\/([a-z0-9-]+)$/.exec(location.pathname);
     var slug = m ? m[1] : decodeURIComponent((location.hash || '').slice(1));
