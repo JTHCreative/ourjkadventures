@@ -561,3 +561,12 @@ not reach the shop just now." Two fixes:
   own page are drawn from `products.json` with no sizes or prices and the shop counted as closed, so every button
   reads "coming soon", greyed out, with a note under the board. Nothing can be bought without Square (the shop
   still fails closed), and the page is never just an error.
+
+## The poodle became the doodle (2026-11-08)
+The owner swapped the poodle pin for a doodle, with new artwork and no 3D model yet. Its slug changed too
+(`poodle` to `doodle`), so the address, the bag key and the owner page all say doodle. Old `/pup-club/poodle`
+links move to `/pup-club/doodle` with a permanent (301) redirect, and old `pup-club.html#poodle` links open the
+doodle (`RENAMED_PUPS` in `_worker.js` and `app.js`). Everything stored in Firestore under the old slug stays
+with the poodle: the Square link (the owner relinks the doodle on `/admin`), its available switch, its
+"i'm interested" tally, its email list and its reviews. Until it's relinked, the doodle shows as sold out, so the
+shop still fails closed.

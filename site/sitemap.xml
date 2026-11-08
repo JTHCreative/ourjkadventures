@@ -28,13 +28,13 @@
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/cavalier.webp</image:loc></image:image>
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/corgi.webp</image:loc></image:image>
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/dachshund.webp</image:loc></image:image>
+    <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/doodle.webp</image:loc></image:image>
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/french-bulldog.webp</image:loc></image:image>
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/german-shepherd.webp</image:loc></image:image>
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/golden.webp</image:loc></image:image>
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/husky.webp</image:loc></image:image>
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/pit-bull.webp</image:loc></image:image>
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/pomeranian.webp</image:loc></image:image>
-    <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/poodle.webp</image:loc></image:image>
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/pug.webp</image:loc></image:image>
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/rottweiler.webp</image:loc></image:image>
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/shiba.webp</image:loc></image:image>
@@ -66,6 +66,11 @@
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/dachshund.webp</image:loc></image:image>
   </url>
   <url>
+    <loc>https://ourjkadventures.com/pup-club/doodle</loc>
+    <lastmod>2026-11-05</lastmod>
+    <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/doodle.webp</image:loc></image:image>
+  </url>
+  <url>
     <loc>https://ourjkadventures.com/pup-club/french-bulldog</loc>
     <lastmod>2026-11-05</lastmod>
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/french-bulldog.webp</image:loc></image:image>
@@ -94,11 +99,6 @@
     <loc>https://ourjkadventures.com/pup-club/pomeranian</loc>
     <lastmod>2026-11-05</lastmod>
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/pomeranian.webp</image:loc></image:image>
-  </url>
-  <url>
-    <loc>https://ourjkadventures.com/pup-club/poodle</loc>
-    <lastmod>2026-11-05</lastmod>
-    <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/poodle.webp</image:loc></image:image>
   </url>
   <url>
     <loc>https://ourjkadventures.com/pup-club/pug</loc>

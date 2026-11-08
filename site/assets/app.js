@@ -6,8 +6,8 @@
 
   var CONTACT_EMAIL = 'support@ourjkadventures.com';
   var PIN_IMG = {};
-  ['aussie', 'beagle', 'cavalier', 'corgi', 'dachshund', 'french-bulldog', 'german-shepherd', 'golden', 'husky', 'pit-bull',
-    'pomeranian', 'poodle', 'pug', 'rottweiler', 'shiba', 'yorkie'].forEach(function (s) {
+  ['aussie', 'beagle', 'cavalier', 'corgi', 'dachshund', 'doodle', 'french-bulldog', 'german-shepherd', 'golden', 'husky',
+    'pit-bull', 'pomeranian', 'pug', 'rottweiler', 'shiba', 'yorkie'].forEach(function (s) {
     // ?v= changes whenever pin pictures are redone, so browsers don't keep showing an old one for a week (see _headers)
     PIN_IMG[s] = 'assets/img/pins/' + s + '.webp?v=4';
   });
@@ -317,12 +317,12 @@
   }
 
   /* ---------- the shop ---------- */
-  var PUP_ORDER = ['aussie', 'beagle', 'cavalier', 'corgi', 'dachshund', 'french-bulldog', 'german-shepherd', 'golden', 'husky',
-    'pit-bull', 'pomeranian', 'poodle', 'pug', 'rottweiler', 'shiba', 'yorkie'];
+  var PUP_ORDER = ['aussie', 'beagle', 'cavalier', 'corgi', 'dachshund', 'doodle', 'french-bulldog', 'german-shepherd', 'golden',
+    'husky', 'pit-bull', 'pomeranian', 'pug', 'rottweiler', 'shiba', 'yorkie'];
   var PUP_BREED = {
     'aussie': 'australian shepherd', 'beagle': 'beagle', 'cavalier': 'cavalier king charles spaniel', 'corgi': 'corgi',
-    'dachshund': 'dachshund', 'french-bulldog': 'french bulldog', 'german-shepherd': 'german shepherd', 'golden': 'golden retriever',
-    'husky': 'siberian husky', 'pit-bull': 'pit bull', 'pomeranian': 'pomeranian', 'poodle': 'poodle', 'pug': 'pug',
+    'dachshund': 'dachshund', 'doodle': 'doodle', 'french-bulldog': 'french bulldog', 'german-shepherd': 'german shepherd', 'golden': 'golden retriever',
+    'husky': 'siberian husky', 'pit-bull': 'pit bull', 'pomeranian': 'pomeranian', 'pug': 'pug',
     'rottweiler': 'rottweiler', 'shiba': 'shiba inu', 'yorkie': 'yorkshire terrier'
   };
 
@@ -1522,9 +1522,12 @@
 
   // a pup's own page, /pup-club/corgi, opens that pup straight away. so does an older link like pup-club.html#corgi,
   // which then moves to the pup's own address
+  // pups whose name changed: an old link still opens the new one
+  var RENAMED_PUPS = { poodle: 'doodle' };
   function openPupFromAddress(grid) {
     var m = /^\/pup-club\/([a-z0-9-]+)$/.exec(location.pathname);
     var slug = m ? m[1] : decodeURIComponent((location.hash || '').slice(1));
+    slug = RENAMED_PUPS[slug] || slug;
     var p = slug && catalog.items[slug];
     if (!p || p.kind !== 'pin') return;
     var btn = Array.prototype.find.call(grid.querySelectorAll('.pup-pin'), function (b) { return b.getAttribute('data-slug') === slug; });
