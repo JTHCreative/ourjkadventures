@@ -393,6 +393,8 @@ order, raised gold lines, a taller gold rim, and the post and rubber clutch copi
 - **Doodle, same month:** its first 3D model, 575 KB, from the owner's doodle SVG. The first copy of that SVG had a
   white square behind the whole drawing with the dog cut out, so the script now skips any shape reaching all four
   edges of the drawing.
+- **Goldie again, same month:** new goldie art (dark eyes, floppy ears with gold lines along them), so a new model,
+  501 KB, and picture. Both `?v=` numbers went to 6, since browsers have the earlier goldie files saved.
 
 
 ## 2026-11 Reels on backing cards
