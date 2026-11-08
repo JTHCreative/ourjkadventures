@@ -10,7 +10,7 @@
 //   ADMIN_EMAILS                   who may use /admin, see server/admin.js
 //   INSTAGRAM_ACCESS_TOKEN, META_APP_SECRET, REEL_STORE  the About page's reels, see server/instagram.js
 //   RESEND_API_KEY, EMAIL_FROM, EMAIL_DAILY_LIMIT  "email me when it's here", see server/email.js
-//   REVIEW_PHOTOS                  the R2 bucket for review photos, see server/photos.js
+//   REVIEW_PHOTOS                  the R2 bucket for review photos and the owner's product photos, see server/photos.js and server/media.js
 //
 // The account code lives in ../server so it is bundled into this worker but never published as a file.
 
@@ -23,6 +23,7 @@ import { interestRoute } from '../server/interest.js';
 import { notifyRoute } from '../server/notify.js';
 import { stockCounts, squareHost, SQUARE_VERSION } from '../server/square.js';
 import { reelsRoute } from '../server/instagram.js';
+import { mediaRoute } from '../server/media.js';
 import { pupPageRoute } from '../server/pup-pages.js';
 import { staticOrNotFound } from '../server/not-found.js';
 
@@ -39,6 +40,7 @@ export default {
     if (url.pathname === '/api/account' || url.pathname === '/api/account/orders') return account(request, env);
     if (url.pathname === '/api/reviews' || url.pathname === '/api/reviews/photo') return reviews(request, env);
     if (url.pathname === '/api/reels') return reelsRoute(request, env);
+    if (url.pathname === '/api/media' || url.pathname === '/api/media/photo') return mediaRoute(request, env);
     if (url.pathname === '/api/interest') return interestRoute(request, env, fetch, noteInterest);
     if (url.pathname === '/api/notify' || url.pathname.startsWith('/api/notify/')) return notifyRoute(request, env);
     if (url.pathname === '/api/admin' || url.pathname.startsWith('/api/admin/')) return admin(request, env);

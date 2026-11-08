@@ -31,11 +31,12 @@ export function photoString(list) {
   return list.map((p) => p.id + '.' + p.w + 'x' + p.h).join(',');
 }
 
-function newPhotoId() {
+export function newPhotoId() {
   const b = crypto.getRandomValues(new Uint8Array(16));
   return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 }
-const key = (id) => 'reviews/' + id + '.jpg';
+// review photos live under reviews/, the owner's product photos (server/media.js) under media/
+const key = (id, folder = 'reviews') => folder + '/' + id + '.jpg';
 
 // A JPEG is a row of labelled blocks. Keep the picture and its colour profile; drop the camera's notes
 // (APP1 EXIF and XMP, APP13 and the other APP blocks, comments). Returns null if it isn't a sound JPEG.
@@ -107,21 +108,21 @@ export function planPhotos(env, input, beforeString) {
   return { list: list.map(({ id, w, h }) => ({ id, w, h })), add, remove: before.filter((p) => !seen.has(p.id)).map((p) => p.id) };
 }
 
-export async function storePhotos(env, add) {
+export async function storePhotos(env, add, folder) {
   for (const p of add) {
-    await env.REVIEW_PHOTOS.put(key(p.id), p.bytes, { httpMetadata: { contentType: 'image/jpeg' } });
+    await env.REVIEW_PHOTOS.put(key(p.id, folder), p.bytes, { httpMetadata: { contentType: 'image/jpeg' } });
   }
 }
 
 // never stops anything else: a photo left behind is only a little wasted space
-export async function deletePhotos(env, ids) {
+export async function deletePhotos(env, ids, folder) {
   if (!photosOn(env) || !ids || !ids.length) return;
-  try { await env.REVIEW_PHOTOS.delete(ids.map(key)); } catch (e) { console.log('photo delete failed', e.message); }
+  try { await env.REVIEW_PHOTOS.delete(ids.map((id) => key(id, folder))); } catch (e) { console.log('photo delete failed', e.message); }
 }
 
-export async function photoResponse(env, id, cache) {
+export async function photoResponse(env, id, cache, folder) {
   if (!photosOn(env) || !isPhotoId(id)) return new Response('not found', { status: 404 });
-  const obj = await env.REVIEW_PHOTOS.get(key(id));
+  const obj = await env.REVIEW_PHOTOS.get(key(id, folder));
   if (!obj) return new Response('not found', { status: 404 });
   return new Response(obj.body, {
     headers: {

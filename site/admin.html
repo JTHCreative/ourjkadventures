@@ -103,6 +103,31 @@
         </form>
       </section>
 
+      <section class="card clean admin-card" aria-labelledby="admin-media-title">
+        <h2 class="admin-title" id="admin-media-title">product photos</h2>
+        <p class="caption">your own photos of a product, shown under the pup board with the photos from approved reviews (yours first). they show as soon as they're uploaded, within ten minutes. each is shrunk to 1600px and the camera's hidden notes, like where it was taken, are dropped.</p>
+        <p class="body-sm" data-media-note role="status">one moment.</p>
+        <form class="admin-media-form" data-media-form hidden>
+          <div class="field">
+            <label for="media-product">product</label>
+            <select id="media-product" data-media-product></select>
+          </div>
+          <div class="field">
+            <label for="media-file">photos</label>
+            <input id="media-file" type="file" accept="image/*" multiple data-media-file>
+          </div>
+          <div class="field">
+            <label for="media-alt">a few words about it (read aloud to people who can't see it)</label>
+            <input id="media-alt" type="text" maxlength="150" placeholder="the corgi pin on a denim jacket" data-media-alt>
+          </div>
+          <div class="admin-actions">
+            <button class="jka-btn jka-btn--sm" type="submit">upload</button>
+            <span class="caption" data-media-saved role="status"></span>
+          </div>
+        </form>
+        <div class="admin-media-list" data-media-list></div>
+      </section>
+
       <section class="card clean admin-card" aria-labelledby="admin-instagram-title">
         <h2 class="admin-title" id="admin-instagram-title">instagram</h2>
         <p class="body-sm" data-instagram-state role="status">one moment.</p>

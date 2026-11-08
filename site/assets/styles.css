@@ -727,11 +727,45 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .photo-view .icon-btn { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--line-strong); border-radius: var(--radius-pill); background: var(--surface); cursor: pointer; }
 .photo-view .icon-btn svg { width: 20px; height: 20px; }
 .photo-view .icon-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+/* the owner's product photos on /admin: upload, then each product's photos with a remove button */
+.admin-media-form { display: flex; flex-direction: column; gap: var(--space-3); }
+.admin-media-form[hidden] { display: none; }
+.admin-media-form select { width: 100%; min-height: 44px; padding: var(--space-2) var(--space-3); font: inherit; font-size: 16px; color: var(--ink); background: var(--surface); border: 1.5px solid var(--line-strong); border-radius: var(--radius-sm); }
+.admin-media-form select:focus-visible, .admin-media-form input[type="file"]:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.admin-media-form input[type="file"] { font: inherit; font-size: 16px; }
+.admin-media-group { display: flex; flex-direction: column; gap: var(--space-2); padding-top: var(--space-4); border-top: 1.5px solid var(--line); }
+.admin-media-group h3 { font-size: 18px; line-height: 24px; font-weight: 500; }
+.admin-media-photos { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.admin-media-photo { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); width: 120px; }
+.admin-media-photo img { width: 120px; height: 120px; object-fit: cover; display: block; border: 1px solid var(--line); border-radius: var(--radius-sm); }
+.admin-media-photo .caption { overflow-wrap: anywhere; }
 .admin-review-photos { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .admin-review-photos a { line-height: 0; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--line); }
 .admin-review-photos img { width: 96px; height: 96px; object-fit: cover; display: block; }
 @media (prefers-reduced-motion: reduce) { .photo-pick-item.is-working { animation: none; opacity: 0.6; } }
 .kind-words[hidden] { display: none; }
+
+/* ---------- photos under the pup board: ours first, then the ones from reviews ---------- */
+/* it sits after .pup-stage, so the sticky board lets go at the bottom of the reviews, as before, and the photos
+   run the full width underneath */
+.pup-media { margin-top: var(--space-6); display: flex; flex-direction: column; gap: var(--space-4); }
+.pup-media[hidden] { display: none; }
+.pup-media-head { display: flex; flex-direction: column; gap: var(--space-1); }
+.pup-media-title { font-size: 26px; line-height: 32px; }
+.pup-media-words { font-size: 17px; line-height: 25px; color: var(--ink-muted); }
+.media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: var(--space-3); }
+.media-tile { position: relative; display: block; width: 100%; aspect-ratio: 1 / 1; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-sunken); overflow: hidden; cursor: zoom-in; line-height: 0; }
+.media-tile .media-photo { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.3s ease; }
+.media-tile:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+@media (hover: hover) { .media-tile:hover .media-photo { transform: scale(1.04); } }
+/* on the whole pack, a little copy of the pin in the corner says which pup the photo is of */
+.media-pin { position: absolute; left: 6px; bottom: 6px; width: 44px; height: 44px; object-fit: contain; pointer-events: none; filter: drop-shadow(0 1px 1px rgba(58,53,50,.35)) drop-shadow(0 3px 6px rgba(58,53,50,.3)); }
+.pup-media .link-btn { align-self: center; }
+@media (max-width: 760px) {
+  .media-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: var(--space-2); }
+  .media-pin { width: 36px; height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) { .media-tile .media-photo { transition: none; } .media-tile:hover .media-photo { transform: none; } }
 
 @media (max-width: 760px) {
   .pup-stage { flex-direction: column; align-items: stretch; }

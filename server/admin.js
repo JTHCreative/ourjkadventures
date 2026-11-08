@@ -18,6 +18,9 @@
 //                             shows "being made now" and "email me when it's here", no "i'm interested"
 //   GET  /api/admin/notify   who is waiting for an "it's here" email, per product, and today's email count
 //   POST /api/admin/notify   { slug }  send "it's here" to everyone waiting for it (up to today's allowance)
+//   GET  /api/admin/media    the owner's own photos for the photos section under the pup board (server/media.js)
+//   POST /api/admin/media    { slug, jpeg: "<base64>", alt }  add one (shrunk to a 1600px JPEG in the browser first)
+//   DELETE /api/admin/media?id=…  take one down
 //   GET  /api/admin/instagram  does the key in cloudflare open @ourjkadventures, and how many reels (never the key)
 //
 // Cloudflare setting (Settings > Variables and secrets):
@@ -31,6 +34,7 @@ import { squareConfigured, squareMode, listVariations, stockCounts } from './squ
 import { instagramStatus } from './instagram.js';
 import { readAvailability, setAvailable, readPreorder, setPreorder, readInterest } from './interest.js';
 import { notifySummary, sendItsHere } from './notify.js';
+import { adminMedia, addMedia, removeMedia } from './media.js';
 
 function json(body, status) {
   return new Response(JSON.stringify(body), {
@@ -143,6 +147,27 @@ export async function admin(request, env, fetchFn = fetch) {
       const result = await sendItsHere(env, origin, body.slug, fetchFn);
       if (result.error) return json(result, result.status || 400);
       return json({ ...result, ...(await notifySummary(env, origin, fetchFn)) });
+    }
+
+    if (route === 'media') {
+      // the website's products ride along, for the upload form's product list
+      const products = (await siteProducts(env, request.url)).items || [];
+      const withProducts = async (extra) => json({
+        ...extra, ...(await adminMedia(env, fetchFn)),
+        products: products.map((p) => ({ slug: p.slug, name: p.name, kind: p.kind, series: p.series || '' }))
+      });
+      if (request.method === 'GET') return withProducts({});
+      if (request.method === 'DELETE') {
+        const result = await removeMedia(env, url.searchParams.get('id'), fetchFn);
+        if (result.error) return json(result, result.status || 400);
+        return withProducts(result);
+      }
+      if (request.method !== 'POST') return json({ error: 'method' }, 405);
+      if (Number(request.headers.get('Content-Length') || 0) > 2 * 1024 * 1024) return json({ error: 'too big' }, 413);
+      const body = await readJson(request);
+      const result = await addMedia(env, body, new Set(products.map((p) => p.slug)), user.email, fetchFn);
+      if (result.error) return json(result, result.status || 400);
+      return withProducts(result);
     }
 
     if (route === 'instagram') {

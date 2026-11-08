@@ -584,6 +584,102 @@ async function loadReviews() {
   }
 }
 
+/* ---------- product photos: the owner's own, shown under the pup board (server/media.js) ---------- */
+// photos go up one at a time, each shrunk in the browser first by app.js (the same as review photos)
+let mediaProducts = [];
+function paintMedia(data) {
+  const note = $('[data-media-note]');
+  const form = $('[data-media-form]');
+  const list = $('[data-media-list]');
+  list.textContent = '';
+  if (!data.on) {
+    note.textContent = 'photos are not set up yet: the website needs the review-photos bucket (see docs/setup/reviews.md).';
+    form.hidden = true;
+    return;
+  }
+  form.hidden = false;
+  const n = data.photos.length;
+  note.textContent = n ? (n === 1 ? 'one photo up.' : n + ' photos up.') + ' up to ' + data.max + ' per product.' : 'no photos up yet. up to ' + data.max + ' per product.';
+  const bySlug = {};
+  data.photos.forEach((ph) => { (bySlug[ph.slug] = bySlug[ph.slug] || []).push(ph); });
+  mediaProducts.filter((p) => bySlug[p.slug]).forEach((p) => {
+    const group = el('section', 'admin-media-group');
+    group.appendChild(el('h3', null, shownName(p) + ' (' + bySlug[p.slug].length + ')'));
+    const row = el('div', 'admin-media-photos');
+    bySlug[p.slug].forEach((ph) => {
+      const item = el('figure', 'admin-media-photo');
+      const img = el('img');
+      img.src = ph.src;
+      img.alt = ph.alt || 'a photo of the ' + shownName(p);
+      img.width = 120;
+      img.height = 120;
+      img.loading = 'lazy';
+      item.appendChild(img);
+      item.appendChild(el('figcaption', 'caption', ph.alt || '(no words yet.)'));
+      const rm = el('button', 'link-btn', 'remove');
+      rm.type = 'button';
+      rm.setAttribute('aria-label', 'remove this photo of the ' + shownName(p));
+      rm.addEventListener('click', async () => {
+        if (!confirm('take this photo down? it can\'t be undone.')) return;
+        rm.disabled = true;
+        try { paintMedia(await api('DELETE', '/api/admin/media?id=' + encodeURIComponent(ph.id))); } catch (e) {
+          rm.disabled = false;
+          note.textContent = "that didn't come down. try again in a moment.";
+        }
+      });
+      item.appendChild(rm);
+      row.appendChild(item);
+    });
+    group.appendChild(row);
+    list.appendChild(group);
+  });
+}
+function wireMedia() {
+  const form = $('[data-media-form]');
+  const saved = $('[data-media-saved]');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const files = Array.from($('[data-media-file]').files || []);
+    const slug = $('[data-media-product]').value;
+    if (!files.length) { saved.textContent = 'pick a photo first.'; return; }
+    if (!window.JKA || !window.JKA.shrinkPhoto) { saved.textContent = 'the page did not finish loading. reload and try again.'; return; }
+    const btn = form.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    let done = 0, last = null;
+    const problems = [];
+    for (const file of files) {
+      saved.textContent = 'uploading ' + (done + 1) + ' of ' + files.length + '.';
+      try {
+        const pic = await window.JKA.shrinkPhoto(file);
+        last = await api('POST', '/api/admin/media', { slug, jpeg: pic.jpeg, alt: $('[data-media-alt]').value });
+        done++;
+      } catch (err) {
+        problems.push(err.data && err.data.error === 'too many' ? 'that product already has ' + err.data.max + ' photos.' : file.name + " didn't upload.");
+        if (err.data && err.data.error === 'too many') break;
+      }
+    }
+    btn.disabled = false;
+    if (last) paintMedia(last);
+    if (done) { form.reset(); $('[data-media-product]').value = slug; }
+    saved.textContent = (done ? (done === 1 ? 'one photo up.' : done + ' photos up.') : '') + (problems.length ? ' ' + problems.join(' ') : '');
+  });
+}
+async function loadMedia() {
+  try {
+    const data = await api('GET', '/api/admin/media');
+    // the pup board shows pup club pins, so those come first in the list
+    mediaProducts = (data.products || []).slice().sort((a, b) => (a.series === 'pup-club' ? 0 : 1) - (b.series === 'pup-club' ? 0 : 1));
+    const pick = $('[data-media-product]');
+    pick.textContent = '';
+    mediaProducts.forEach((p) => {
+      const o = el('option', null, shownName(p) + (p.series === 'pup-club' ? '' : ' (not on the pup board)'));
+      o.value = p.slug;
+      pick.appendChild(o);
+    });
+    paintMedia(data);
+  } catch (e) { $('[data-media-note]').textContent = RESTING; }
+}
+
 /* ---------- instagram: the account whose reels show on the about page ---------- */
 function paintInstagram(s) {
   const state = $('[data-instagram-state]');
@@ -662,6 +758,8 @@ async function open() {
   wireFeatured();
   loadFeatured();
   loadNotify();
+  wireMedia();
+  loadMedia();
   loadReviews();
   loadInstagram();
 }

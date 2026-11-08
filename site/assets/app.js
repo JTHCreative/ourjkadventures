@@ -823,6 +823,7 @@
     pupAddress(null);
     panel.hidden = true;
     panel.textContent = '';
+    loadMedia(null);
     var on = document.querySelector('.pup-pin[aria-current]');
     if (on) { on.removeAttribute('aria-current'); on.focus(); }
   }
@@ -874,6 +875,7 @@
     panel.appendChild(sheet);
     panel.appendChild(reviewBlock(p, starLine));
     panel.hidden = false;
+    loadMedia(p);
     if (window.matchMedia && window.matchMedia('(max-width: 760px)').matches) {
       panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -950,7 +952,7 @@
     var root = el('div', 'v3d photo-view');
     root.setAttribute('role', 'dialog');
     root.setAttribute('aria-modal', 'true');
-    root.setAttribute('aria-label', 'review photo');
+    root.setAttribute('aria-label', 'photo');
     root.setAttribute('aria-hidden', 'true');
     var card = el('div', 'v3d-card photo-view-card');
     var head = el('div', 'v3d-head');
@@ -987,8 +989,9 @@
       var pic = pv.pics[pv.at];
       pv.img.src = pic.src;
       if (pic.w && pic.h) { pv.img.width = pic.w; pv.img.height = pic.h; } else { pv.img.removeAttribute('width'); pv.img.removeAttribute('height'); }
-      pv.img.alt = photoAlt(pv.name, pv.at, pv.pics.length);
-      pv.count.textContent = pv.pics.length > 1 ? 'photo ' + (pv.at + 1) + ' of ' + pv.pics.length + '.' : '';
+      pv.img.alt = pic.alt || photoAlt(pv.name, pv.at, pv.pics.length);
+      // the photos section's pictures say who they're from ("from us." or "from juniper h.'s review.")
+      pv.count.textContent = [pv.pics.length > 1 ? 'photo ' + (pv.at + 1) + ' of ' + pv.pics.length + '.' : '', pic.credit || ''].join(' ').trim();
     }
     pv.show = show;
     prev.addEventListener('click', function () { show(pv.at - 1); });
@@ -1020,6 +1023,87 @@
     pv.root.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
     if (pv.last && pv.last.focus) pv.last.focus();
+  }
+
+  /* ---------- photos under the pup board: ours (uploaded on /admin), then the ones from reviews (server/media.js) ---------- */
+  // with a pup open it shows that pup's photos; with none open, the whole pack's, each with a little pin in the corner.
+  // only the newest answer is painted, so tapping pups quickly never leaves the wrong pup's photos showing
+  var MEDIA_FIRST = 12;
+  var mediaAsk = 0;
+  function mediaPupName(slug) {
+    var p = catalog && catalog.items[slug];
+    return slug === 'golden' ? 'goldie' : (p && p.name) || PUP_BREED[slug] || slug.replace(/-/g, ' ');
+  }
+  function loadMedia(p) {
+    var box = document.querySelector('[data-media]');
+    if (!box) return;
+    var ask = ++mediaAsk;
+    fetch('/api/media' + (p ? '?slug=' + encodeURIComponent(p.slug) : ''))
+      .then(function (r) { if (!r.ok) throw new Error('media'); return r.json(); })
+      .then(function (data) {
+        if (ask !== mediaAsk) return;
+        // the pup club board shows pup club pins only
+        var pics = (data.photos || []).filter(function (ph) { return PIN_IMG[ph.slug]; });
+        paintMedia(box, p, pics);
+      })
+      .catch(function () { if (ask === mediaAsk) box.hidden = true; });
+  }
+  function paintMedia(box, p, photos) {
+    var grid = box.querySelector('[data-media-grid]');
+    var title = box.querySelector('[data-media-title]');
+    var words = box.querySelector('[data-media-words]');
+    var more = box.querySelector('.media-more');
+    if (more) more.remove();
+    grid.textContent = '';
+    if (!photos.length) { box.hidden = true; return; }
+    title.textContent = p ? 'photos of the ' + pupName(p) : 'photos from the pack';
+    var fromUs = photos.some(function (ph) { return ph.from === 'shop'; });
+    var fromYou = photos.some(function (ph) { return ph.from === 'review'; });
+    words.textContent = fromUs && fromYou ? 'a few from us, and the ones collectors shared with their reviews.'
+      : fromUs ? 'a few we took ourselves.' : 'shared by collectors with their reviews. thank you!';
+    var pics = photos.map(function (ph) {
+      var pin = mediaPupName(ph.slug);
+      var alt = ph.from === 'shop' ? (ph.alt || 'a photo of the ' + pin + ' pin, from us')
+        : 'a photo of the ' + pin + ' pin from ' + ph.name + '\'s review';
+      var credit = (p ? '' : 'the ' + pin + ' pin, ') + (ph.from === 'shop' ? 'from us.' : 'from ' + ph.name + '\'s review.');
+      return { src: ph.src, w: ph.w, h: ph.h, slug: ph.slug, alt: alt, credit: credit };
+    });
+    function tile(pic, i) {
+      var b = el('button', 'media-tile');
+      b.type = 'button';
+      b.setAttribute('aria-label', 'open ' + pic.alt);
+      var img = el('img', 'media-photo');
+      img.alt = '';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      if (pic.w && pic.h) { img.width = pic.w; img.height = pic.h; }
+      img.src = pic.src;
+      b.appendChild(img);
+      if (!p && PIN_IMG[pic.slug]) {
+        var badge = el('img', 'media-pin');
+        badge.src = PIN_IMG[pic.slug];
+        badge.alt = '';
+        badge.width = 44;
+        badge.height = 44;
+        badge.loading = 'lazy';
+        b.appendChild(badge);
+      }
+      b.addEventListener('click', function () { openPhotos(pics, i, '', b); });
+      return b;
+    }
+    pics.slice(0, MEDIA_FIRST).forEach(function (pic, i) { grid.appendChild(tile(pic, i)); });
+    if (pics.length > MEDIA_FIRST) {
+      var all = el('button', 'link-btn media-more', 'show all ' + pics.length + ' photos.');
+      all.type = 'button';
+      all.addEventListener('click', function () {
+        all.remove();
+        pics.slice(MEDIA_FIRST).forEach(function (pic, k) { grid.appendChild(tile(pic, MEDIA_FIRST + k)); });
+        var next = grid.children[MEDIA_FIRST];
+        if (next) next.focus();
+      });
+      box.appendChild(all);
+    }
+    box.hidden = false;
   }
 
   // Before a photo leaves the phone: shrink it (long side 1600px) and save it as a JPEG. Drawing it fresh like
@@ -1543,6 +1627,7 @@
       shown++;
     });
     if (!shown) grid.appendChild(el('p', 'notice', 'the pack is out for a walk. check back soon.'));
+    else loadMedia(null);
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && !(v3d && v3d.root.classList.contains('open')) && !(pv && pv.root.classList.contains('open'))) closePup();
     });
@@ -1885,6 +1970,8 @@
     initRoom();
     initZoom();
   }
+  // /admin shrinks the owner's product photos the same way as review photos (site/assets/admin.js)
+  window.JKA = { shrinkPhoto: shrinkPhoto };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();

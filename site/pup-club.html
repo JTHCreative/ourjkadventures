@@ -66,6 +66,15 @@
       </div>
       <aside class="pup-panel" id="pup-panel" aria-label="pin details" hidden></aside>
     </div>
+    <!-- below the board and its side cards, across the whole width: our own photos (uploaded on /admin) and the ones
+         collectors shared with their reviews. app.js fills it from /api/media; it stays hidden while there are none -->
+    <section class="card clean pup-media" data-media aria-labelledby="pup-media-title" hidden>
+      <div class="pup-media-head">
+        <h2 class="pup-media-title" id="pup-media-title" data-media-title>photos from the pack</h2>
+        <p class="pup-media-words" data-media-words>a few from us, and the ones collectors shared with their reviews.</p>
+      </div>
+      <div class="media-grid" data-media-grid></div>
+    </section>
   </div>
 </section>
 </main>
