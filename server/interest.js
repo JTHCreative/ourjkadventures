@@ -19,6 +19,7 @@
 // Firestore, all server only (firestore.rules blocks browsers). "<mode>" is the Square mode, so practising in the
 // sandbox never touches the real tallies:
 //   settings/available_<mode>          { aussie: true, corgi: false, ... }   missing means available
+//   settings/preorder_<mode>           { corgi: true, ... }                   missing means not on pre-order
 //   interest_<mode>/{slug}             { slug, count }                        the public tally
 //   interest_votes_<mode>/{slug}_{h}   { slug, at, ipDoc }                    one per ticket per pin. ipDoc says which
 //                                                                             door count to give back if it's taken back
@@ -32,6 +33,7 @@ const COOKIE = 'jka_voter';
 const YEAR = 365 * 24 * 60 * 60;
 
 function availableDoc(env) { return 'settings/available_' + squareMode(env); }
+function preorderDoc(env) { return 'settings/preorder_' + squareMode(env); }
 function tallies(env) { return 'interest_' + squareMode(env); }
 function votes(env) { return 'interest_votes_' + squareMode(env); }
 function ips(env) { return 'interest_ips_' + squareMode(env); }
@@ -50,6 +52,35 @@ export async function setAvailable(env, slug, available, fetchFn = fetch) {
   const doc = await readAvailability(env, fetchFn);
   doc[slug] = available === true;
   await firestoreSet(env, availableDoc(env), doc, fetchFn);
+}
+
+/* ---------- pre-order (set by the owner) ---------- */
+// Between "not in the shop yet" and "in the shop": the pin is being made. Like a "coming soon" sign in the window:
+// nothing to buy and nothing left to vote on, but you can leave your email for when it arrives.
+// Pre-order wins over the available switch, so turning it on takes a pin off sale whatever that switch says.
+// { corgi: true, ... }
+export async function readPreorder(env, fetchFn = fetch) {
+  const doc = (await firestoreGet(env, preorderDoc(env), fetchFn)) || {};
+  const out = {};
+  for (const [k, v] of Object.entries(doc)) if (v === true) out[k] = true;
+  return out;
+}
+export function isPreorder(preorder, slug) { return !!preorder && preorder[slug] === true; }
+
+export async function setPreorder(env, slug, on, fetchFn = fetch) {
+  const doc = await readPreorder(env, fetchFn);
+  if (on === true) doc[slug] = true;
+  else delete doc[slug];
+  await firestoreSet(env, preorderDoc(env), doc, fetchFn);
+}
+
+// what the shop goes by: both switches together. available here means for sale, so a pre-order pin counts as false.
+// { available: { corgi: false, ... }, preorder: { corgi: true, ... } }
+export async function readShopStates(env, fetchFn = fetch) {
+  const [availability, preorder] = await Promise.all([readAvailability(env, fetchFn), readPreorder(env, fetchFn)]);
+  const available = { ...availability };
+  for (const slug of Object.keys(preorder)) available[slug] = false;
+  return { available, preorder };
 }
 
 /* ---------- the tallies ---------- */
@@ -122,8 +153,10 @@ export async function interestRoute(request, env, fetchFn = fetch, onCounted) {
 
   try {
     if (!(await productSlugs(request, env)).includes(slug)) return json({ error: 'slug' }, 400, headers);
-    // a product that's in the shop takes no votes: there's nothing to wait for
-    if (isAvailable(await readAvailability(env, fetchFn), slug)) return json({ error: 'available' }, 409, headers);
+    // a product that's in the shop takes no votes: there's nothing to wait for. nor one that's being made already
+    const states = await readShopStates(env, fetchFn);
+    if (isPreorder(states.preorder, slug)) return json({ error: 'preorder' }, 409, headers);
+    if (isAvailable(states.available, slug)) return json({ error: 'available' }, 409, headers);
 
     const tallyPath = tallies(env) + '/' + encodeURIComponent(slug);
     const countNow = async () => { const d = await firestoreGet(env, tallyPath, fetchFn); return (d && d.count) || 0; };

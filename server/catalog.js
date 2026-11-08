@@ -4,7 +4,8 @@
 //                      (settings/square_production, or settings/square_sandbox while testing)
 //   3. Square          the price and how many are on the shelf
 //   4. Firestore again whether the owner marked each product available (server/interest.js). One that isn't is
-//                      never for sale here; it carries its "i'm interested" tally instead
+//                      never for sale here; it carries its "i'm interested" tally instead. One on pre-order (being
+//                      made) is never for sale either, and shows no tally: only "email me when it's here"
 // The result is kept for a minute, like reading the stock list once a minute instead of on every visit.
 //
 //   GET /api/catalog   for the website: products, sizes, prices, stock, whether the shop is open, and which
@@ -15,7 +16,7 @@
 import { configured, firestoreGet, firestoreSet } from './firebase.js';
 import { isShopOpen } from './shop.js';
 import { squareConfigured, squareMode, getVariations, stockCounts } from './square.js';
-import { readAvailability, isAvailable, readInterest } from './interest.js';
+import { readShopStates, isAvailable, isPreorder, readInterest } from './interest.js';
 import { emailConfigured } from './email.js';
 
 const CACHE_MS = 60 * 1000;
@@ -80,11 +81,12 @@ async function build(env, origin, fetchFn) {
   let variations = {};
   let counts = {};
   let availability = {};
+  let preorder = {};
   let ok = true;
   try {
     if (configured(env)) {
       links = await readLinks(env, fetchFn);
-      availability = await readAvailability(env, fetchFn);
+      ({ available: availability, preorder } = await readShopStates(env, fetchFn));
     }
     const ids = [...new Set(Object.values(links))];
     if (ids.length && squareConfigured(env)) {
@@ -108,7 +110,8 @@ async function build(env, origin, fetchFn) {
   const items = (products.items || []).map((p) => {
     const sizes = [];
     const available = isAvailable(availability, p.slug);
-    // not available: no sizes, no price and nothing in byKey, so checkout can't sell it either
+    const onPreorder = isPreorder(preorder, p.slug);
+    // not available (pre-order included): no sizes, no price and nothing in byKey, so checkout can't sell it either
     for (const k of available ? siteKeys({ items: [p] }) : []) {
       const v = variations[links[k.key]];
       if (!v || !v.sellable || v.price_cents === null) continue;
@@ -120,7 +123,7 @@ async function build(env, origin, fetchFn) {
       slug: p.slug, name: p.name, kind: p.kind, series: p.series || '', description: p.description || '', sizes,
       // a pup's breed and its few sentences, shown on the board and on its own page (server/pup-pages.js)
       ...(p.breed ? { breed: p.breed } : {}), ...(p.about ? { about: p.about } : {}),
-      available, interest: available ? 0 : interest[p.slug] || 0
+      available, preorder: onPreorder, interest: available || onPreorder ? 0 : interest[p.slug] || 0
     };
   });
 
@@ -192,13 +195,13 @@ export async function catalogRoute(request, env, fetchFn = fetch) {
   }
 }
 
-// the owner changed something (an available switch): read everything fresh on the next visit
+// the owner changed something (an available or pre-order switch): read everything fresh on the next visit
 export function forgetCatalog() { cache = { value: null, until: 0, mode: null }; }
 
 // a vote just landed: the shop's one-minute memory shows the new tally at once instead of a minute later
 export function noteInterest(slug, count) {
   const item = cache.value && cache.value.items.find((p) => p.slug === slug);
-  if (item && !item.available) item.interest = count;
+  if (item && !item.available && !item.preorder) item.interest = count;
 }
 
 // for tests
