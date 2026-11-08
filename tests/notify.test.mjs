@@ -53,10 +53,10 @@ function setup({ open = true, unavailable = ['corgi'], resend = true, limit } = 
     return w.fetchFn(url, opts);
   };
   globalThis.fetch = fetchFn;
-  // the site's files: products.json, and an email picture for every product except the poodle
+  // the site's files: products.json, and an email picture for every product except the doodle
   const ASSETS = { fetch: async (req) => {
     const path = new URL(req.url).pathname;
-    if (path.startsWith('/assets/img/email/')) return new Response(path.endsWith('/poodle.png') ? 'no' : 'png', { status: path.endsWith('/poodle.png') ? 404 : 200 });
+    if (path.startsWith('/assets/img/email/')) return new Response(path.endsWith('/doodle.png') ? 'no' : 'png', { status: path.endsWith('/doodle.png') ? 404 : 200 });
     return Response.json(products);
   } };
   const env = { ...baseEnv, ADMIN_EMAILS: OWNER, ASSETS };
@@ -187,10 +187,10 @@ test('a big list goes out over more than one day', async () => {
 });
 
 test('the stop link takes an address off every list, from the page or a mail app\'s one-click button', async () => {
-  const s = setup({ unavailable: ['corgi', 'poodle'] });
+  const s = setup({ unavailable: ['corgi', 'doodle'] });
   await signUp(s, 'corgi', 'pup@example.com');
-  await signUp(s, 'poodle', 'pup@example.com');
-  await signUp(s, 'poodle', 'other@example.com');
+  await signUp(s, 'doodle', 'pup@example.com');
+  await signUp(s, 'doodle', 'other@example.com');
   await flip(s, 'corgi', true);
   await pressSend(s, 'corgi');
   const stop = codeIn(s.sent[s.sent.length - 1].text, 'stop');
@@ -204,14 +204,14 @@ test('the stop link takes an address off every list, from the page or a mail app
 });
 
 test('a product without an email picture still gets its email, just without the picture', async () => {
-  const s = setup({ unavailable: ['poodle'] });
-  await signUp(s, 'poodle', 'pup@example.com');
-  await flip(s, 'poodle', true);
-  assert.equal((await (await pressSend(s, 'poodle')).json()).sent, 1);
+  const s = setup({ unavailable: ['doodle'] });
+  await signUp(s, 'doodle', 'pup@example.com');
+  await flip(s, 'doodle', true);
+  assert.equal((await (await pressSend(s, 'doodle')).json()).sent, 1);
   const m = s.sent[0];
-  assert.equal(m.subject, 'the poodle pin is here!');
+  assert.equal(m.subject, 'the doodle pin is here!');
   assert.ok(m.html.includes('email/logo.png'));
-  assert.ok(!m.html.includes('email/poodle.png'));
+  assert.ok(!m.html.includes('email/doodle.png'));
 });
 
 test('the owner\'s preview is the real email, with a goldie by that name', async () => {

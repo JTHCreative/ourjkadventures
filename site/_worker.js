@@ -28,6 +28,8 @@ import { staticOrNotFound } from '../server/not-found.js';
 
 const MAX_LINES = 30;
 const MAX_QTY = 20;
+// old pup club addresses that now live under a new name
+const RENAMED_PUPS = { poodle: 'doodle' };
 
 export default {
   async fetch(request, env) {
@@ -43,7 +45,9 @@ export default {
     // a pup club pin's own page, e.g. /pup-club/corgi (server/pup-pages.js)
     const pup = /^\/pup-club\/([a-z0-9-]+)(\/?)$/.exec(url.pathname);
     if (pup && (request.method === 'GET' || request.method === 'HEAD')) {
-      if (pup[2]) return Response.redirect(url.origin + '/pup-club/' + pup[1] + url.search, 301);
+      // a trailing slash, or a pup whose name changed (the poodle became the doodle), moves to the right address
+      const slug = RENAMED_PUPS[pup[1]] || pup[1];
+      if (pup[2] || slug !== pup[1]) return Response.redirect(url.origin + '/pup-club/' + slug + url.search, 301);
       return pupPageRoute(request, env, pup[1]);
     }
     return staticOrNotFound(request, env);

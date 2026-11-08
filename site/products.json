@@ -54,6 +54,16 @@
       "summary": "our dachshund enamel pin, long and low and entirely sure of themselves. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
+      "slug": "doodle",
+      "name": "doodle",
+      "kind": "pin",
+      "series": "pup-club",
+      "sizes": ["standard"],
+      "breed": "doodle",
+      "about": "a doodle, a curly mop of a pup with a heart to match. part teddy bear, part best friend and always up for one more game of fetch.",
+      "summary": "our doodle enamel pin, a curly mop of a pup with a heart to match. one of sixteen dog breed pins in the j+k adventures pup club."
+    },
+    {
       "slug": "french-bulldog",
       "name": "french bulldog",
       "kind": "pin",
@@ -112,16 +122,6 @@
       "breed": "pomeranian",
       "about": "a pomeranian, a small cloud with a big opinion. fluffed up like they are twice the size, and expecting you to agree.",
       "summary": "our pomeranian enamel pin, a small cloud with a big opinion. one of sixteen dog breed pins in the j+k adventures pup club."
-    },
-    {
-      "slug": "poodle",
-      "name": "poodle",
-      "kind": "pin",
-      "series": "pup-club",
-      "sizes": ["standard"],
-      "breed": "poodle",
-      "about": "a poodle, quick and clever and a little bit fancy. learns the trick on the second try, then shows everyone else how it is done.",
-      "summary": "our poodle enamel pin, quick and clever and a little bit fancy. one of sixteen dog breed pins in the j+k adventures pup club."
     },
     {
       "slug": "pug",
