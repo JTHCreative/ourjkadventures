@@ -4,7 +4,7 @@
 How the SVG is read:
   - anything filled red (#ff0000), or outlined in red, becomes raised gold metal; a red line on an open
     curve (fill: none) stays an open curve
-  - paths, circles and ellipses are all read, in drawing order
+  - paths, circles and ellipses are all read, in drawing order; a background filling the whole drawing is skipped
   - every other fill colour becomes a glossy enamel layer of that colour, stacked in drawing order
   - the outline of everything is the pin's gold back plate, with the post and rubber clutch from an
     existing model behind it
@@ -208,6 +208,8 @@ def read_glb(path):
 def main(svg_path, slug, out_path):
     root = ET.parse(svg_path).getroot()
     styles = read_classes(root)
+    vb = [float(v) for v in (root.get('viewBox') or '0 0 0 0').replace(',', ' ').split()]
+    canvas = Polygon([(vb[0], vb[1]), (vb[0] + vb[2], vb[1]), (vb[0] + vb[2], vb[1] + vb[3]), (vb[0], vb[1] + vb[3])])
 
     enamel, gold, fills = [], [], []
     for el in root.iter():
@@ -218,6 +220,9 @@ def main(svg_path, slug, out_path):
         has_fill = st.get('fill', '').lower() != 'none'   # "none" = an outline only, no enamel inside
         if has_fill:
             shape = path_polygon(d)
+            # a shape reaching all four edges of the drawing is a background (often with the pin cut out), not enamel
+            if shape is not None and canvas.area and shape.envelope.buffer(1).contains(canvas):
+                continue
             if shape is not None and shape.area >= 50:   # skip stray slivers from the drawing program
                 fill = hex_rgb(st['fill']) if 'fill' in st else (0, 0, 0)
                 if fill == RED:

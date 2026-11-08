@@ -75,6 +75,20 @@ On `/admin`, flip **shop open**. Every visitor sees it within a minute. Flip it 
 - Tax: the checkout adds sales tax from `TAX_PERCENT` in Cloudflare, not from the tax set on each item in Square, so tax isn't added twice.
 - Stock is checked fresh at checkout, so the website won't sell a pin the booth sold a moment ago.
 
+### When a pin is renamed (poodle became doodle, 2026-11)
+The website files a pin's settings under its short name, so a renamed pin starts fresh. After the poodle became
+the doodle:
+1. On `/admin`, under **products and square**, open **pins** > **pup club** and find **doodle**. Pick its Square
+   item (the one the poodle used) and press **save links**. Until then the doodle shows as sold out.
+2. If you had switched the poodle off ("not in the shop yet"), switch the doodle off too.
+3. If the poodle was one of your **featured** picks, pick the doodle there instead.
+4. Optional: rename the item in Square too (for example "Doodle Pin"), since Square's payment page shows Square's
+   own name.
+
+Anything saved for the poodle stays under the old name and isn't shown: its "i'm interested" count, the
+"email me when it's here" list, and any reviews. Old links to `/pup-club/poodle` forward to `/pup-club/doodle`,
+and a poodle already in someone's bag turns into a doodle.
+
 ### Still to do in phase 2: the webhook (not built yet)
 1. Developer console > your app > **Webhooks** > **Add subscription**:
    - URL: `https://yourdomain.com/api/square-webhook`
