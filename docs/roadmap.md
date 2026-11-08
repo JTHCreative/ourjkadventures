@@ -94,6 +94,7 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [x] Shop page (2026-11-03): featured carousel on top (owner picks up to eight in-stock products on `/admin`), then pins (a button per set) and pin boards
 - [ ] Owner: on `/admin`, pick the first featured products once the shop's items are linked and in stock
 - [x] "i'm interested" (2026-11-04): an available switch per product on `/admin`. Switched off, it's off sale and shows an "i'm interested" button, open or closed; one vote per browser, at most 10 per pin per day from one connection. Public counts on each product and a "most asked for" card on the shop page; every tally on `/admin`
+- [x] Pre-order (2026-11-08): a pre-order switch per product on `/admin`, beside available. On, the pin is off sale, takes no votes, and shows "being made now. coming soon." with the "email me when it's here" box
 - [x] "i'm interested" is an on/off toggle (2026-11-04): tapping again takes the vote back, one off the tally
 - [ ] Owner: switch off on `/admin` any product that isn't made yet, so it collects interest instead of reading "coming soon" or "sold out"
 - [x] The bay area pin board uses the same "i'm interested" and "email me when it's here" as the pins (2026-11-04): its switch is under "pin boards" on `/admin`, and its page shows the button when it's off. Tests cover the whole loop for the board. Owner: switch it off on `/admin` while it isn't in Square yet

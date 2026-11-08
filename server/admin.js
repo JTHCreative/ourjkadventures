@@ -14,6 +14,8 @@
 //   GET  /api/admin/featured  products that could go in the shop's featured carousel, their stock, and the picks
 //   POST /api/admin/featured  { slugs: ["corgi", "aussie", ...] }  at most eight; a new pick must be in stock
 //   POST /api/admin/availability  { slug, available: true|false }  not available: off sale, shows "i'm interested"
+//   POST /api/admin/preorder  { slug, preorder: true|false }  pre-order: off sale (whatever the available switch says),
+//                             shows "being made now" and "email me when it's here", no "i'm interested"
 //   GET  /api/admin/notify   who is waiting for an "it's here" email, per product, and today's email count
 //   POST /api/admin/notify   { slug }  send "it's here" to everyone waiting for it (up to today's allowance)
 //   GET  /api/admin/instagram  does the key in cloudflare open @ourjkadventures, and how many reels (never the key)
@@ -27,7 +29,7 @@ import { pendingReviews, setReviewStatus, REVIEW_STATUSES, ownerPhoto } from './
 import { siteProducts, siteKeys, readLinks, saveLinks, freshCatalog, readFeatured, saveFeatured, stockOf, MAX_FEATURED, forgetCatalog } from './catalog.js';
 import { squareConfigured, squareMode, listVariations, stockCounts } from './square.js';
 import { instagramStatus } from './instagram.js';
-import { readAvailability, setAvailable, readInterest } from './interest.js';
+import { readAvailability, setAvailable, readPreorder, setPreorder, readInterest } from './interest.js';
 import { notifySummary, sendItsHere } from './notify.js';
 
 function json(body, status) {
@@ -122,6 +124,17 @@ export async function admin(request, env, fetchFn = fetch) {
       return json({ slug: body.slug, available: body.available });
     }
 
+    if (route === 'preorder') {
+      if (request.method !== 'POST') return json({ error: 'method' }, 405);
+      const body = await readJson(request);
+      if (typeof body.preorder !== 'boolean') return json({ error: 'preorder must be true or false' }, 400);
+      const slugs = new Set((await siteProducts(env, request.url)).items.map((p) => p.slug));
+      if (typeof body.slug !== 'string' || !slugs.has(body.slug)) return json({ error: 'unknown product' }, 400);
+      await setPreorder(env, body.slug, body.preorder, fetchFn);
+      forgetCatalog();
+      return json({ slug: body.slug, preorder: body.preorder });
+    }
+
     if (route === 'notify') {
       const origin = new URL(request.url).origin;
       if (request.method === 'GET') return json(await notifySummary(env, origin, fetchFn));
@@ -166,8 +179,12 @@ async function productLinks(request, env, fetchFn) {
   }
   // every product's switch and tally, available or not, so the owner sees what people asked for even after it arrives
   const availability = await readAvailability(env, fetchFn);
-  const available = Object.fromEntries([...new Set(keys.map((k) => k.slug))].map((s) => [s, availability[s] !== false]));
-  return { mode: squareMode(env), products: keys, links, square, squareError, available, interest: await readInterest(env, fetchFn) };
+  const slugs = [...new Set(keys.map((k) => k.slug))];
+  const available = Object.fromEntries(slugs.map((s) => [s, availability[s] !== false]));
+  // the pre-order switch, as set. it wins over available, so the page shows both as they are
+  const onPreorder = await readPreorder(env, fetchFn);
+  const preorder = Object.fromEntries(slugs.map((s) => [s, onPreorder[s] === true]));
+  return { mode: squareMode(env), products: keys, links, square, squareError, available, preorder, interest: await readInterest(env, fetchFn) };
 }
 
 async function changeLinks(request, env, wanted, fetchFn) {
@@ -199,7 +216,7 @@ async function featuredChoices(request, env, fetchFn) {
     // false when Square or Firestore didn't answer, so every stock number below would read 0
     stockKnown: ok && squareConfigured(env),
     featured,
-    products: value.items.map((p) => ({ slug: p.slug, name: p.name, kind: p.kind, series: p.series, available: p.available, linked: p.sizes.length > 0, stock: stockOf(p) }))
+    products: value.items.map((p) => ({ slug: p.slug, name: p.name, kind: p.kind, series: p.series, available: p.available, preorder: p.preorder, linked: p.sizes.length > 0, stock: stockOf(p) }))
   };
 }
 

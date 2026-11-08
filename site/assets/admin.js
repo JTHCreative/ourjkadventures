@@ -69,7 +69,9 @@ function shownName(p) { return p.slug === 'golden' ? 'goldie' : p.name; }
 // "1 person is interested." / "4 people are interested."
 function peopleWords(n) { return !n ? 'no one has asked yet.' : n === 1 ? '1 person is interested.' : n + ' people are interested.'; }
 // the line under each product's name: what the switch means for it right now, and its tally
-function availableWords(on, n) {
+function availableWords(on, n, pre) {
+  // pre-order wins over the available switch
+  if (pre) return 'pre-order: shows "being made now. coming soon." and the email box. not for sale, no "i\'m interested".' + (n ? ' ' + peopleWords(n) : '');
   if (on) return n ? 'in the shop. ' + (n === 1 ? '1 person' : n + ' people') + ' asked for it before it arrived.' : 'in the shop.';
   return 'not in the shop. shows "i\'m interested". ' + peopleWords(n || 0);
 }
@@ -84,6 +86,7 @@ function paintProducts(data) {
   const note = $('[data-products-note]');
   const form = $('[data-products-form]');
   const available = data.available || {};
+  const preorder = data.preorder || {};
   const interest = data.interest || {};
   paintInterest(data);
   mode.textContent = data.mode === 'sandbox' ? 'connected to square sandbox, the practice account.' : 'connected to your square account.';
@@ -127,37 +130,46 @@ function paintProducts(data) {
     const box = el('div', 'link-product');
     const head = el('div', 'link-product-head');
     const name = el('span', 'link-product-name', shownName(p));
-    const sw = el('button', 'switch switch--sm');
-    sw.type = 'button';
-    sw.setAttribute('role', 'switch');
-    sw.setAttribute('aria-label', shownName(p) + ' available');
-    sw.appendChild(el('span', 'switch-knob'));
-    sw.firstChild.setAttribute('aria-hidden', 'true');
-    const swWord = el('span', 'caption', 'available');
-    swWord.setAttribute('aria-hidden', 'true');
-    const swWrap = el('span', 'link-product-switch');
-    swWrap.append(swWord, sw);
-    head.append(name, swWrap);
+    // a small labelled switch, like the shop switch. saves at once and leaves any square picks not yet saved alone
+    const makeSwitch = (word, label) => {
+      const sw = el('button', 'switch switch--sm');
+      sw.type = 'button';
+      sw.setAttribute('role', 'switch');
+      sw.setAttribute('aria-label', shownName(p) + ' ' + label);
+      sw.appendChild(el('span', 'switch-knob'));
+      sw.firstChild.setAttribute('aria-hidden', 'true');
+      const swWord = el('span', 'caption', word);
+      swWord.setAttribute('aria-hidden', 'true');
+      const wrap = el('span', 'link-product-switch');
+      wrap.append(swWord, sw);
+      return { sw, wrap };
+    };
+    const avail = makeSwitch('available', 'available');
+    const pre = makeSwitch('pre-order', 'on pre-order');
+    const switches = el('span', 'link-product-switches');
+    switches.append(avail.wrap, pre.wrap);
+    head.append(name, switches);
     const words = el('p', 'caption link-product-note');
     words.setAttribute('role', 'status');
     let on = available[p.slug] !== false;
+    let preOn = preorder[p.slug] === true;
     const show = (extra) => {
-      sw.setAttribute('aria-checked', on ? 'true' : 'false');
-      box.classList.toggle('is-unavailable', !on);
-      words.textContent = availableWords(on, interest[p.slug] || 0) + (extra ? ' ' + extra : '');
-      // the heading's "n not available" count listens for this
+      avail.sw.setAttribute('aria-checked', on ? 'true' : 'false');
+      pre.sw.setAttribute('aria-checked', preOn ? 'true' : 'false');
+      box.classList.toggle('is-unavailable', !on && !preOn);
+      box.classList.toggle('is-preorder', preOn);
+      words.textContent = availableWords(on, interest[p.slug] || 0, preOn) + (extra ? ' ' + extra : '');
+      // the heading's "n not available" and "n on pre-order" counts listen for this
       box.dispatchEvent(new Event('change', { bubbles: true }));
     };
     show();
-    // saves at once, like the shop switch, and leaves any square picks not yet saved alone
-    sw.addEventListener('click', async () => {
-      const want = !on;
-      sw.disabled = true;
+    const flip = async (path, field, want, done) => {
+      avail.sw.disabled = true;
+      pre.sw.disabled = true;
       words.textContent = 'saving.';
       try {
-        await api('POST', '/api/admin/availability', { slug: p.slug, available: want });
-        on = want;
-        available[p.slug] = want;
+        await api('POST', path, { slug: p.slug, [field]: want });
+        done();
         show('saved.');
         paintInterest(data);
         // in or out of the shop changes what can be featured, and what can be emailed about
@@ -166,7 +178,16 @@ function paintProducts(data) {
       } catch (e) {
         show("that didn't save. try again in a moment.");
       }
-      sw.disabled = false;
+      avail.sw.disabled = false;
+      pre.sw.disabled = false;
+    };
+    avail.sw.addEventListener('click', () => {
+      const want = !on;
+      flip('/api/admin/availability', 'available', want, () => { on = want; available[p.slug] = want; });
+    });
+    pre.sw.addEventListener('click', () => {
+      const want = !preOn;
+      flip('/api/admin/preorder', 'preorder', want, () => { preOn = want; preorder[p.slug] = want; });
     });
     box.append(head, words);
     if (linking) keys.forEach((k) => box.appendChild(linkRow(k, keys.length === 1)));
@@ -196,6 +217,8 @@ function paintProducts(data) {
       const bits = [];
       if (sels.length) bits.push(sels.filter((s) => s.value).length + ' of ' + sels.length + ' linked');
       if (off) bits.push(off + ' not available');
+      const pre = body.querySelectorAll('.link-product.is-preorder').length;
+      if (pre) bits.push(pre + ' on pre-order');
       count.textContent = bits.join(' · ');
     };
     body.addEventListener('change', recount);
@@ -260,7 +283,7 @@ function paintInterest(data) {
   const list = el('ol', 'interest-admin');
   rows.forEach(([slug, n]) => {
     const li = el('li', null);
-    li.append(el('span', 'feature-name', names[slug]), el('span', 'caption', peopleWords(n) + ((data.available || {})[slug] === false ? '' : ' in the shop now.')));
+    li.append(el('span', 'feature-name', names[slug]), el('span', 'caption', peopleWords(n) + ((data.preorder || {})[slug] ? ' on pre-order now.' : (data.available || {})[slug] === false ? '' : ' in the shop now.')));
     list.appendChild(li);
   });
   box.appendChild(list);
@@ -326,7 +349,9 @@ function paintNotify(data, done) {
     const actions = el('div', 'admin-actions');
     const note = el('span', 'caption');
     note.setAttribute('role', 'status');
-    if (!r.available) {
+    if (r.preorder) {
+      note.textContent = 'when it\'s here, switch pre-order off and available on above, then send.';
+    } else if (!r.available) {
       note.textContent = 'switch it on above when it\'s here, then send.';
     } else if (r.waiting) {
       const send = el('button', 'jka-btn jka-btn--sm', 'send "it\'s here" to ' + r.waiting);
@@ -378,6 +403,7 @@ let picks = [];
 let featuredMax = 8;
 
 function stockWords(p, picked) {
+  if (p.preorder) return 'on pre-order';
   if (p.available === false) return 'not available';
   if (!p.linked) return 'not linked to square';
   if (p.stock > 0) return p.stock + ' in stock';

@@ -22,7 +22,7 @@
 
 import { configured, firestoreGet, firestoreSet, firestoreQuery, firestoreCommit } from './firebase.js';
 import { squareMode } from './square.js';
-import { readAvailability, isAvailable, scramble } from './interest.js';
+import { readShopStates, isAvailable, isPreorder, scramble } from './interest.js';
 import { readShopSwitch } from './shop.js';
 import { emailConfigured, emailsLeftToday, sentToday, dailyLimit, sendBatch, escapeHtml } from './email.js';
 
@@ -186,8 +186,8 @@ async function signUp(env, request, body, fetchFn) {
   if (!email) return [{ error: 'email' }, 400];
   const p = typeof body.slug === 'string' && (await products(env, request.url)).find((x) => x.slug === body.slug);
   if (!p) return [{ error: 'slug' }, 400];
-  // only for products that aren't here yet
-  if (isAvailable(await readAvailability(env, fetchFn), p.slug)) return [{ error: 'available' }, 409];
+  // only for products that aren't here yet (not available, or on pre-order)
+  if (isAvailable((await readShopStates(env, fetchFn)).available, p.slug)) return [{ error: 'available' }, 409];
 
   const who = await scramble(env, 'email|' + email);
   const path = list(env) + '/' + encodeURIComponent(p.slug + '_' + who);
@@ -219,7 +219,7 @@ async function stop(env, code, fetchFn) {
 // who is waiting for what, today's email count, and a preview of each "it's here" email
 export async function notifySummary(env, origin, fetchFn = fetch) {
   const items = await products(env, origin);
-  const availability = await readAvailability(env, fetchFn);
+  const { available: availability, preorder } = await readShopStates(env, fetchFn);
   const rows = {};
   // who's on each list, oldest sign-up first. only ever sent to the owner (server/admin.js checks first)
   const people = {};
@@ -233,7 +233,7 @@ export async function notifySummary(env, origin, fetchFn = fetch) {
   for (const p of items.filter((x) => rows[x.slug])) {
     const pictures = { logo: pics.logo, product: (await hasPicture(env, origin, p.slug)) ? pics.product(p.slug) : null };
     const preview = itsHereEmail(p, origin + productPath(p), origin + '/email.html?stop=...', pictures);
-    out.push({ slug: p.slug, name: productNoun(p), available: isAvailable(availability, p.slug), waiting: rows[p.slug], people: people[p.slug], preview });
+    out.push({ slug: p.slug, name: productNoun(p), available: isAvailable(availability, p.slug), preorder: isPreorder(preorder, p.slug), waiting: rows[p.slug], people: people[p.slug], preview });
   }
   out.sort((a, b) => b.waiting - a.waiting);
   return {
@@ -250,7 +250,8 @@ export async function sendItsHere(env, origin, slug, fetchFn = fetch) {
   const p = (await products(env, origin)).find((x) => x.slug === slug);
   if (!p) return { error: 'unknown product' };
   // "it's in the shop now" has to be true when it lands
-  if (!isAvailable(await readAvailability(env, fetchFn), slug)) return { error: 'not available' };
+  // (a pin on pre-order isn't here yet either)
+  if (!isAvailable((await readShopStates(env, fetchFn)).available, slug)) return { error: 'not available' };
   if (!(await readShopSwitch(env, fetchFn)).open) return { error: 'shop closed' };
 
   const waiting = await firestoreQuery(env, list(env), { slug }, 5000, fetchFn);

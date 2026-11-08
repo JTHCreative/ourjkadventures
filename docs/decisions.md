@@ -567,6 +567,22 @@ not reach the shop just now." Two fixes:
   reads "coming soon", greyed out, with a note under the board. Nothing can be bought without Square (the shop
   still fails closed), and the page is never just an error.
 
+## Pre-order: a third state between "not available" and "in the shop" (2026-11-08)
+The owner wanted a way to say "this pin is being made" that sits between "not in the shop yet" (the
+"i'm interested" vote, used to decide what to make) and "in the shop" (in stock or sold out). A second switch,
+**pre-order**, sits beside "available" on `/admin` and is saved in `settings/preorder_<square mode>`.
+- **No paying ahead.** A pin on pre-order shows "being made now. coming soon." and the "email me when it's here"
+  box, nothing to buy. Taking money for pins that don't exist yet would mean skipping the stock check at checkout,
+  splitting orders and promising ship dates; the email list gets people the pin without any of that. If paying
+  ahead is wanted later, it's a separate decision.
+- **No vote.** Once a pin is being made, there's nothing left to vote on, so the "i'm interested" button and the
+  public count go away (the server refuses votes too). The tally stays on `/admin`, and anyone already on the
+  email list stays on it.
+- **Pre-order wins.** With pre-order on, the pin is off sale whatever the available switch says. The two are kept
+  apart rather than as one three-way setting so turning pre-order off puts the pin back exactly where it was:
+  in the shop if available was on, back to "i'm interested" if it was off. When the pins arrive: pre-order off,
+  available on, then send "it's here" from `/admin` as before.
+
 ## The poodle became the doodle (2026-11-08)
 The owner swapped the poodle pin for a doodle, with new artwork and no 3D model yet. Its slug changed too
 (`poodle` to `doodle`), so the address, the bag key and the owner page all say doodle. Old `/pup-club/poodle`

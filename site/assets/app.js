@@ -420,6 +420,9 @@
           // lots of taps from one connection today (a shared wifi, say): this one wasn't added, and that's fine
           paint('we have counted plenty from this connection today. thank you all the same.');
           btn.disabled = true;
+        } else if (j.error === 'preorder') {
+          paint('this one is being made now. refresh the page to leave your email for it.');
+          btn.disabled = true;
         } else if (j.status_code === 409) {
           paint('this one just arrived in the shop. refresh the page to see it.');
           btn.disabled = true;
@@ -433,6 +436,19 @@
     area.appendChild(btn);
     area.appendChild(after);
     paint();
+    return area;
+  }
+
+  /* ---------- pre-order: the owner says it's being made (see server/interest.js) ---------- */
+  // same shape as buyArea. no price, no button to buy and no vote: just that it's on its way, and (when the
+  // site's email is set up) the box to be emailed when it arrives
+  function preorderArea(p) {
+    var area = el('div', 'buy');
+    area.appendChild(el('p', 'price', ''));
+    area.appendChild(el('p', 'caption stock-line', 'being made now. coming soon.'));
+    var after = el('div', 'notify');
+    after.appendChild(notifyBox(p, ''));
+    area.appendChild(after);
     return area;
   }
 
@@ -468,9 +484,13 @@
   // the line under a tapped "i'm interested": "thank you!", and when the site's email is set up,
   // "be notified when it's available:" with one email box. checked on the spot (looks like an email, a common
   // typo, a domain that takes mail), then on the list. nothing is sent until the pin arrives
-  function notifyBox(p) {
+  // lead: the words before the box ("thank you!" after a tap; nothing for a pin on pre-order)
+  function notifyBox(p, lead) {
+    if (lead === undefined) lead = 'thank you!';
     var box = el('div', 'notify-thanks');
-    var words = el('p', 'notify-words', 'thank you!' + (catalog.email ? ' be notified when it\'s available:' : ''));
+    var ask = lead ? ' be notified when it\'s available:' : 'be notified when it\'s here:';
+    var words = el('p', 'notify-words', lead + (catalog.email ? ask : ''));
+    if (!lead && !catalog.email) words.hidden = true;
     box.appendChild(words);
     if (!catalog.email) return box;
     var form = el('form', 'notify-form');
@@ -498,7 +518,7 @@
       note.textContent = text;
       form.hidden = !keepForm;
       // the box is done with: "be notified when it's available:" would point at nothing
-      if (!keepForm) words.textContent = 'thank you!';
+      if (!keepForm) { words.textContent = lead; words.hidden = !lead; }
       go.disabled = false;
     }
     // the address we already offered a fix for: pressing notify me again keeps it as typed
@@ -595,6 +615,7 @@
 
   // the buy button, the price and the stock line for one size, kept in step when the size changes
   function buyArea(p, btnClass) {
+    if (p.preorder) return preorderArea(p);
     if (p.available === false) return interestArea(p, btnClass);
     var area = el('div', 'buy');
     var price = el('p', 'price', '');
@@ -1568,7 +1589,7 @@
   function buildWanted(box) {
     var list = box.querySelector('[data-wanted-list]');
     var rows = Object.keys(catalog.items).map(function (s) { return catalog.items[s]; })
-      .filter(function (p) { return p.available === false && p.interest > 0; })
+      .filter(function (p) { return p.available === false && !p.preorder && p.interest > 0; })
       .sort(function (a, b) { return b.interest - a.interest; }).slice(0, WANTED_MAX);
     if (!list || !rows.length) { box.hidden = true; return; }
     list.textContent = '';
