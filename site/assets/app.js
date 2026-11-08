@@ -1026,7 +1026,7 @@
   }
 
   /* ---------- photos under the pup board: ours (uploaded on /admin), then the ones from reviews (server/media.js) ---------- */
-  // with a pup open it shows that pup's photos; with none open, the whole pack's, each with a little pin in the corner.
+  // only while a pup is open, and only that pup's photos: with no pup open the section stays hidden.
   // only the newest answer is painted, so tapping pups quickly never leaves the wrong pup's photos showing
   var MEDIA_FIRST = 12;
   var mediaAsk = 0;
@@ -1038,7 +1038,9 @@
     var box = document.querySelector('[data-media]');
     if (!box) return;
     var ask = ++mediaAsk;
-    fetch('/api/media' + (p ? '?slug=' + encodeURIComponent(p.slug) : ''))
+    if (!p) { box.hidden = true; return; }
+    box.hidden = true;
+    fetch('/api/media?slug=' + encodeURIComponent(p.slug))
       .then(function (r) { if (!r.ok) throw new Error('media'); return r.json(); })
       .then(function (data) {
         if (ask !== mediaAsk) return;
@@ -1056,7 +1058,7 @@
     if (more) more.remove();
     grid.textContent = '';
     if (!photos.length) { box.hidden = true; return; }
-    title.textContent = p ? 'photos of the ' + pupName(p) : 'photos from the pack';
+    title.textContent = 'photos of the ' + pupName(p);
     var fromUs = photos.some(function (ph) { return ph.from === 'shop'; });
     var fromYou = photos.some(function (ph) { return ph.from === 'review'; });
     words.textContent = fromUs && fromYou ? 'a few from us, and the ones collectors shared with their reviews.'
@@ -1065,7 +1067,7 @@
       var pin = mediaPupName(ph.slug);
       var alt = ph.from === 'shop' ? (ph.alt || 'a photo of the ' + pin + ' pin, from us')
         : 'a photo of the ' + pin + ' pin from ' + ph.name + '\'s review';
-      var credit = (p ? '' : 'the ' + pin + ' pin, ') + (ph.from === 'shop' ? 'from us.' : 'from ' + ph.name + '\'s review.');
+      var credit = ph.from === 'shop' ? 'from us.' : 'from ' + ph.name + '\'s review.';
       return { src: ph.src, w: ph.w, h: ph.h, slug: ph.slug, alt: alt, credit: credit };
     });
     function tile(pic, i) {
@@ -1079,15 +1081,6 @@
       if (pic.w && pic.h) { img.width = pic.w; img.height = pic.h; }
       img.src = pic.src;
       b.appendChild(img);
-      if (!p && PIN_IMG[pic.slug]) {
-        var badge = el('img', 'media-pin');
-        badge.src = PIN_IMG[pic.slug];
-        badge.alt = '';
-        badge.width = 44;
-        badge.height = 44;
-        badge.loading = 'lazy';
-        b.appendChild(badge);
-      }
       b.addEventListener('click', function () { openPhotos(pics, i, '', b); });
       return b;
     }
@@ -1627,7 +1620,6 @@
       shown++;
     });
     if (!shown) grid.appendChild(el('p', 'notice', 'the pack is out for a walk. check back soon.'));
-    else loadMedia(null);
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && !(v3d && v3d.root.classList.contains('open')) && !(pv && pv.root.classList.contains('open'))) closePup();
     });

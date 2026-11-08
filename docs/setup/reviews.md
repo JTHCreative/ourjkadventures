@@ -40,7 +40,7 @@ review's `status` from `pending` to `approved` or `hidden`. To remove a review c
 document there.
 
 ## Your own product photos
-Under the pup board there's a photos section: your own photos first, then every photo from approved reviews.
+When someone opens a pup on the board, a photos section shows under it: your own photos of that pup first, then every photo from its approved reviews.
 To add yours:
 1. Open `/admin` and find **product photos**.
 2. Pick the product, choose one or more photos, and (optional, but kind) type a few words about them, like

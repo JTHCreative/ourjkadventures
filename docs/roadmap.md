@@ -104,7 +104,7 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [x] Review photos (2026-11-05): up to 4 per review, accounts and guests, kept in Cloudflare R2, shrunk and stripped of camera notes in the browser and checked again on the server, private until the owner approves the review
 - [x] Owner: create the `review-photos` R2 bucket before the photo change is merged (done 2026-11-05: Standard, automatic location)
 - [ ] Owner: after merging, leave a review with a photo from your own account, approve it on `/admin`, and check it shows on the pin
-- [x] Photos under the pup board (2026-11-08): a full-width card below the board and its side cards with the owner's own photos (uploaded per product on `/admin`, up to 24 each) and every photo from approved reviews. The whole pack's with no pup open, one pup's when one is. Same R2 bucket, under `media/` (`server/media.js`)
+- [x] Photos under the pup board (2026-11-08): a full-width card below the board and its side cards with the owner's own photos (uploaded per product on `/admin`, up to 24 each) and every photo from approved reviews. Only while a pup is open, and only that pup's (hidden on the bare board). Same R2 bucket, under `media/` (`server/media.js`)
 - [ ] Owner: after merging, upload a photo for one pup under **product photos** on `/admin` and check it shows under the board (`setup/reviews.md`)
 - [ ] Later, if the photos section gets heavy: small thumbnails for the grid (today it loads the 1600px photos, lazily)
 - [ ] Owner: Resend account, domain records and `RESEND_API_KEY` in Cloudflare (`setup/email.md`), then try steps 7 to 11

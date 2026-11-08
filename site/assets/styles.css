@@ -758,12 +758,9 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .media-tile .media-photo { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.3s ease; }
 .media-tile:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 @media (hover: hover) { .media-tile:hover .media-photo { transform: scale(1.04); } }
-/* on the whole pack, a little copy of the pin in the corner says which pup the photo is of */
-.media-pin { position: absolute; left: 6px; bottom: 6px; width: 44px; height: 44px; object-fit: contain; pointer-events: none; filter: drop-shadow(0 1px 1px rgba(58,53,50,.35)) drop-shadow(0 3px 6px rgba(58,53,50,.3)); }
 .pup-media .link-btn { align-self: center; }
 @media (max-width: 760px) {
   .media-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: var(--space-2); }
-  .media-pin { width: 36px; height: 36px; }
 }
 @media (prefers-reduced-motion: reduce) { .media-tile .media-photo { transition: none; } .media-tile:hover .media-photo { transform: none; } }
 

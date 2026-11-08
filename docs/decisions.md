@@ -601,8 +601,8 @@ The owner asked for a photos section on the pup club page, under the board and i
 width, with every review photo plus photos the owner uploads per product. It sits after `.pup-stage` (the board
 and side cards' row), so the board's sticky behaviour is untouched: it still holds still while the pin card and
 reviews scroll past and lets go at the bottom of the reviews, and the photos start under that.
-- **Which photos:** with no pup open, the whole pack's (each tile with a little copy of the pin in the corner);
-  with a pup open, that pup's. The owner's photos come first, newest first, then review photos, newest review first.
+- **Which photos:** only the open pup's. With no pup open the section stays hidden (the owner's call, the same
+  day: at first it showed the whole pack's photos too). The owner's photos come first, newest first, then review photos, newest review first.
   The first 12 show, then "show all N photos." Tapping one opens the same big view as review photos.
 - **Review photos are only listed, never copied.** They stay where they are and keep their rule: shown only once
   the review is approved. Hide a review and its photos leave the section too.
