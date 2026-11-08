@@ -43,7 +43,8 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
     the Square variation (`catalog_object_id` + quantity, no name or price, so Square charges its own
     price and lowers its own stock), optional `order.taxes` from `TAX_PERCENT`, a `shipping_fee` for the
     shipping choice the customer picked in the bag (the browser sends only its id, `ground`, `priority` or
-    `express`; the price comes from `shipping` in `products.json`; none sent means the first),
+    `express`; the price comes from `shipping` in `products.json`; none sent means the first; ground is free, with no shipping line and a
+    `payment_note` instead, when the pins come to $40 or more and there's no board in the order),
     `ask_for_shipping_address`, `redirect_url` = `/thank-you.html`
   - uses `connect.squareupsandbox.com` when `SQUARE_ENV=sandbox`
   - Square API version is pinned in `SQUARE_VERSION` in `server/square.js`

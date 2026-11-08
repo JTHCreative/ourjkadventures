@@ -1,7 +1,7 @@
 {
   "currency": "USD",
   "shipping": [
-    { "id": "ground", "name": "ground", "cents": 700, "days": "2 to 5 days" },
+    { "id": "ground", "name": "ground", "cents": 700, "days": "2 to 5 days", "free_over_cents": 4000 },
     { "id": "priority", "name": "priority", "cents": 1300, "days": "1 to 3 days" },
     { "id": "express", "name": "express", "cents": 3600, "days": "1 to 2 days" }
   ],

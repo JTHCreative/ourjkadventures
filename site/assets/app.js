@@ -245,11 +245,23 @@
     for (var i = 0; i < catalog.shipping.length; i++) if (catalog.shipping[i].id === saved) return catalog.shipping[i];
     return catalog.shipping[0];
   }
+  // the same rule the server uses (server/catalog.js shippingCharge): free when the pins come to the free line,
+  // and only when everything in the bag is a pin. here it's only for showing; the server decides what's charged
+  function shipCents(o) {
+    if (!o.free_over_cents) return o.cents;
+    var pins = 0, onlyPins = true;
+    Object.keys(cart).forEach(function (k) {
+      var en = catalog.byKey[k];
+      if (!buyable(en)) return;
+      if (en.product.kind === 'pin') pins += en.size.price_cents * cart[k]; else onlyPins = false;
+    });
+    return onlyPins && pins >= o.free_over_cents ? 0 : o.cents;
+  }
   function paintShipping(sum) {
     var box = el('fieldset', 'ship');
     box.appendChild(el('legend', null, 'shipping'));
     var grand = el('span');
-    function paintGrand() { grand.textContent = money((sum + shipChoice().cents) / 100, catalog.currency); }
+    function paintGrand() { grand.textContent = money((sum + shipCents(shipChoice())) / 100, catalog.currency); }
     catalog.shipping.forEach(function (o) {
       var row = el('label', 'ship-opt');
       var radio = el('input');
@@ -262,9 +274,20 @@
       if (o.days) words.appendChild(el('span', 'ship-days', o.days));
       row.appendChild(radio);
       row.appendChild(words);
-      row.appendChild(el('span', 'ship-price', money(o.cents / 100, catalog.currency)));
+      var cents = shipCents(o);
+      row.appendChild(el('span', 'ship-price', cents === 0 ? 'free' : money(cents / 100, catalog.currency)));
       box.appendChild(row);
     });
+    // the standing policy, said plainly once. no countdown to it
+    var freeOne = catalog.shipping.filter(function (o) { return o.free_over_cents; })[0];
+    if (freeOne) {
+      var line = money(freeOne.free_over_cents / 100, catalog.currency).replace(/\.00$/, '');
+      var notPin = Object.keys(cart).some(function (k) { var en = catalog.byKey[k]; return buyable(en) && en.product.kind !== 'pin'; });
+      box.appendChild(el('p', 'caption', shipCents(freeOne) === 0
+        ? freeOne.name + ' shipping is on us, since your pins come to ' + line + ' or more.'
+        : notPin ? freeOne.name + ' shipping is free on orders of just pins that come to ' + line + ' or more.'
+        : freeOne.name + ' shipping is free when your pins come to ' + line + ' or more.'));
+    }
     footEl.appendChild(box);
     var total = el('div', 'total');
     total.appendChild(el('span', null, 'total'));

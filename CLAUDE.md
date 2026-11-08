@@ -62,7 +62,11 @@ an everyday analogy when a concept is technical.
 - Shipping: the customer picks one of three fixed choices in the bag: ground $7 (2 to 5 days), priority $13
   (1 to 3 days), express $36 (1 to 2 days), all USPS, set in `products.json` (`shipping`). The browser sends only
   the choice's id; the server sets the price on Square's shipping line. No choice sent means ground. Not live
-  carrier rates (see `docs/decisions.md`).
+  carrier rates (see `docs/decisions.md`). Ground is free when the pins in the order come to $40 or more at
+  Square prices (`free_over_cents` on ground; `shippingCharge` in `server/catalog.js`): boards don't count, and an
+  order with a board in it pays for ground until the board has its own shipping prices. Free ground sends no
+  shipping line, and a `payment_note` ("free ground shipping ...") tells the owner how to send it. A standing
+  shipping policy, not a discount (see `docs/decisions.md`); the bag says it once, with no countdown to it.
 - Stock shows as a plain "N in stock." while the shop is open, never as urgency.
 - Each product has an available switch on `/admin` (`settings/available_<square mode>`; missing means available). Switched off, it's off sale even if linked and in stock, and shows "not in the shop yet." with its count ("1 is interested." / "N are interested.") and an "i'm interested!" button, open or closed. Once tapped, a line under it says "thank you! be notified when it's available:" with an email box. One vote per browser (cookie), at most 10 per pin per day per IP, both stored only scrambled; tapping again takes the vote back (one off the tally). The shop page's "most asked for" card lists the top six. See `docs/decisions.md`.
 - Each product also has a pre-order switch on `/admin` beside available (`settings/preorder_<square mode>`; missing means off), for pins being made. On, it wins over available: off sale, no "i'm interested" button or public count (the server refuses votes), and it shows "being made now. coming soon." with the "be notified when it's here:" email box. No paying ahead. Turning it off puts the pin back wherever the available switch says. See `docs/decisions.md`.

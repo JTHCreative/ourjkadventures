@@ -116,7 +116,7 @@ async function build(env, origin, fetchFn) {
       const v = variations[links[k.key]];
       if (!v || !v.sellable || v.price_cents === null) continue;
       const stock = v.marked_sold_out ? 0 : (counts[v.id] || 0);
-      byKey[k.key] = { variation_id: v.id, price_cents: v.price_cents, currency: v.currency, stock, marked_sold_out: v.marked_sold_out, slug: p.slug, size: k.size };
+      byKey[k.key] = { variation_id: v.id, price_cents: v.price_cents, currency: v.currency, stock, marked_sold_out: v.marked_sold_out, slug: p.slug, size: k.size, kind: p.kind };
       sizes.push({ size: k.size, key: k.key, price_cents: v.price_cents, stock });
     }
     return {
@@ -155,7 +155,21 @@ export function shippingOptions(products) {
   const list = Array.isArray(products && products.shipping) ? products.shipping : [];
   return list
     .filter((o) => o && typeof o.id === 'string' && Number.isInteger(o.cents) && o.cents >= 0)
-    .map((o) => ({ id: o.id, name: String(o.name || o.id), cents: o.cents, days: String(o.days || '') }));
+    .map((o) => ({
+      id: o.id, name: String(o.name || o.id), cents: o.cents, days: String(o.days || ''),
+      // free when the pins in the order come to this much or more (ground: $40). boards don't count toward it
+      ...(Number.isInteger(o.free_over_cents) && o.free_over_cents > 0 ? { free_over_cents: o.free_over_cents } : {})
+    }));
+}
+
+// what shipping costs for this order: the choice's price, or nothing when its free line is reached.
+// lines: [{ kind, price_cents, qty }] from our own catalog (Square prices), never from the browser.
+// counts pins only, and an order with a board in it pays for shipping until the board has its own prices
+export function shippingCharge(option, lines) {
+  const pins = lines.filter((l) => l.kind === 'pin').reduce((n, l) => n + l.price_cents * l.qty, 0);
+  const onlyPins = lines.every((l) => l.kind === 'pin');
+  const free = Boolean(option.free_over_cents) && onlyPins && pins >= option.free_over_cents;
+  return { cents: free ? 0 : option.cents, free };
 }
 
 // a fresh look, skipping the one-minute memory, for the owner's page. ok is false if Square or Firestore didn't answer

@@ -18,7 +18,7 @@ import { account, noteOrder } from '../server/account.js';
 import { reviews } from '../server/reviews.js';
 import { configured as firebaseConfigured, userFromRequest } from '../server/firebase.js';
 import { admin } from '../server/admin.js';
-import { getCatalog, catalogRoute, noteInterest } from '../server/catalog.js';
+import { getCatalog, catalogRoute, noteInterest, shippingCharge } from '../server/catalog.js';
 import { interestRoute } from '../server/interest.js';
 import { notifyRoute } from '../server/notify.js';
 import { stockCounts, squareHost, SQUARE_VERSION } from '../server/square.js';
@@ -126,11 +126,16 @@ async function checkout(request, env, url) {
     redirect_url: url.origin + '/thank-you.html',
     ask_for_shipping_address: true
   };
-  // Square shows this one line on its page and on the receipt, so it says which choice they made
-  options.shipping_fee = {
-    name: ship.name + ' shipping' + (ship.days ? ' (' + ship.days + ')' : ''),
-    charge: { amount: ship.cents, currency: currency }
-  };
+  // Square shows this one line on its page and on the receipt, so it says which choice they made.
+  // free ground (pins over $40): no shipping line to charge, and a note on the payment says how to send it
+  const charge = shippingCharge(ship, keys.map((k) => ({ kind: catalog.byKey[k].kind, price_cents: catalog.byKey[k].price_cents, qty: qtyByKey[k] })));
+  const shipWords = ship.name + ' shipping' + (ship.days ? ' (' + ship.days + ')' : '');
+  let paymentNote = null;
+  if (charge.free) {
+    paymentNote = 'free ' + shipWords;
+  } else {
+    options.shipping_fee = { name: shipWords, charge: { amount: charge.cents, currency: currency } };
+  }
   if (env.SUPPORT_EMAIL) options.merchant_support_email = env.SUPPORT_EMAIL;
   const prefill = buyer && buyer.email ? { buyer_email: buyer.email } : null;
 
@@ -147,6 +152,7 @@ async function checkout(request, env, url) {
         idempotency_key: crypto.randomUUID(),
         order: order,
         checkout_options: options,
+        ...(paymentNote ? { payment_note: paymentNote } : {}),
         ...(prefill ? { pre_populated_data: prefill } : {})
       })
     });

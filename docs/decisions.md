@@ -612,3 +612,18 @@ The owner wanted customers to pick how fast their order ships and pay for that, 
   ground.
 - **Later:** revisit live rates if the Bay Area board (bigger and heavier) goes on sale, or if shipping
   abroad starts.
+
+## Free ground shipping on $40 of pins (2026-11-08)
+The owner asked for free ground shipping once an order reaches $40. Flagged first against the "no discounts"
+rule, and the owner confirmed it.
+- **Why it isn't a discount:** no pin's price moves, and it's a standing house policy, always on, not a promotion
+  window, so it never teaches anyone to wait. It's how we price shipping, not what a pin is worth. It doesn't
+  open the door to promo codes, percent-off or sale prices; those are still never.
+- **Pins only.** Only pins count toward the $40, at Square's prices, worked out on the server. A board (planned at
+  $80) would clear $40 by itself and costs $20 to $60 to ship by size (dimensional weight), so it doesn't count,
+  and an order with a board in it pays for ground until the board gets its own shipping prices.
+- **Ground only.** Priority and express always cost what they cost.
+- **Said once, calmly.** The bag says "ground shipping is free when your pins come to $40 or more." (or "is on
+  us" once it is). No "add $8 more" countdown, which would be the sales nudge the voice rules avoid.
+- **On Square:** a free order has no shipping line (rather than a $0 one), and the payment carries a note,
+  "free ground shipping (2 to 5 days)", so the owner knows how to send it.
