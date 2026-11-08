@@ -54,6 +54,11 @@ Prices in search results can take a few weeks to show, and Google decides when t
 Add it to `site/sitemap.xml` (the test `tests/sitemap.test.mjs` fails until you do). Nothing needs
 resubmitting: Google rereads the sitemap by itself.
 
+## When a pin is renamed
+The old page address forwards to the new one for good (a "301"), which tells Google to move its listing over, so
+nothing needs doing. To speed it up, open **URL inspection** in Search Console, paste the new address (for the
+doodle, `https://ourjkadventures.com/pup-club/doodle`) and press **request indexing**.
+
 ## If a page says "soft 404" or "not available to Google"
 In URL Inspection, click **Test live URL**, then **View tested page**, **More info**, **Page resources**. If it
 lists something "blocked by robots.txt", Google couldn't load part of the page. `site/robots.txt` decides what
