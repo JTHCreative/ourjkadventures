@@ -30,6 +30,7 @@ Work top to bottom. Each phase ships on its own. Tick boxes as you go and add no
 - [ ] Owner: Square access token with `ITEMS_READ` and `INVENTORY_READ` in Cloudflare (`setup/square.md`, step A)
 - [ ] `/api/square-webhook`: verifies `x-square-hmacsha256-signature` (HMAC-SHA256 of notification URL + raw body with the signature key), handles `order.updated` / `payment.updated`, idempotent on event ID. In this phase it only logs; phase 4 uses it for charges
 - [x] Sold-out pins show "sold out" automatically; in-stock ones show "N in stock."
+- [x] Shipping choice in the bag (2026-11-08): ground $7, priority $13, express $36, priced on the server from `products.json`, sent to Square as the shipping line. Fixed prices, not live carrier rates (see decisions)
 - [x] Owner steps in `setup/square.md`
 
 **Done when:** selling a pin on the Square Reader lowers the count the website shows, and a sold-out item can't be checked out.

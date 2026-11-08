@@ -77,6 +77,14 @@ async function checkout(request, env, url) {
   // the open sign (settings/shop in Firestore, flipped on /admin). closed, or unreadable, means nobody checks out
   if (!catalog.open) return json({ error: 'shop closed' }, 403);
 
+  // the shipping choice: the browser names one (ground, priority, express), the price is ours (products.json).
+  // no choice at all (a bag opened before the choice existed) means the first one, ground
+  const shipOptions = catalog.shipping || [];
+  if (!shipOptions.length) return json({ error: 'shipping' }, 500);
+  const shipId = body.shipping === undefined ? shipOptions[0].id : body.shipping;
+  const ship = shipOptions.find((o) => o.id === shipId);
+  if (!ship) return json({ error: 'bad shipping' }, 400);
+
   const qtyByKey = {};
   for (const w of wanted) {
     const key = w && w.key;
@@ -118,12 +126,11 @@ async function checkout(request, env, url) {
     redirect_url: url.origin + '/thank-you.html',
     ask_for_shipping_address: true
   };
-  if (catalog.shipping_cents > 0) {
-    options.shipping_fee = {
-      name: catalog.shipping_label || 'shipping',
-      charge: { amount: catalog.shipping_cents, currency: currency }
-    };
-  }
+  // Square shows this one line on its page and on the receipt, so it says which choice they made
+  options.shipping_fee = {
+    name: ship.name + ' shipping' + (ship.days ? ' (' + ship.days + ')' : ''),
+    charge: { amount: ship.cents, currency: currency }
+  };
   if (env.SUPPORT_EMAIL) options.merchant_support_email = env.SUPPORT_EMAIL;
   const prefill = buyer && buyer.email ? { buyer_email: buyer.email } : null;
 

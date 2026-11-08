@@ -24,7 +24,7 @@
   }
 
   /* ---------- the catalog (/api/catalog) ---------- */
-  var catalog = { currency: 'USD', open: false, items: {}, byKey: {}, featured: [] };
+  var catalog = { currency: 'USD', open: false, items: {}, byKey: {}, featured: [], shipping: [] };
   var catalogPromise = null;
   function loadCatalog(fresh) {
     if (catalogPromise && !fresh) return catalogPromise;
@@ -40,6 +40,8 @@
       catalog.featured = Array.isArray(j.featured) ? j.featured : [];
       // whether "email me when it's here" is offered (the site's email is set up)
       catalog.email = j.email === true;
+      // the shipping choices for the bag (ground, priority, express). the server keeps the prices honest
+      catalog.shipping = Array.isArray(j.shipping) ? j.shipping : [];
       (j.items || []).forEach(function (p) {
         p.sizes = p.sizes || [];
         catalog.items[p.slug] = p;
@@ -224,16 +226,52 @@
     total.appendChild(el('span', null, 'subtotal'));
     total.appendChild(el('span', null, money(sum / 100, catalog.currency)));
     footEl.appendChild(total);
-    footEl.appendChild(el('p', 'caption', 'shipping and tax are added at checkout.'));
-    if (!catalog.open) {
-      footEl.appendChild(el('p', 'caption', 'the shop opens soon. your bag will keep these for you.'));
+    if (!catalog.open || !ready || !catalog.shipping.length) {
+      footEl.appendChild(el('p', 'caption', 'shipping and tax are added at checkout.'));
+      if (!catalog.open) footEl.appendChild(el('p', 'caption', 'the shop opens soon. your bag will keep these for you.'));
       return;
     }
-    if (!ready) return;
+    paintShipping(sum);
     var go = el('button', 'jka-btn', 'check out');
     go.type = 'button';
     go.addEventListener('click', checkout);
     footEl.appendChild(go);
+  }
+
+  // the shipping choice: one radio per option from /api/catalog, remembered in this browser.
+  // the price shown here is only for the customer to see: the server charges its own (products.json)
+  function shipChoice() {
+    var saved = read('jka_ship');
+    for (var i = 0; i < catalog.shipping.length; i++) if (catalog.shipping[i].id === saved) return catalog.shipping[i];
+    return catalog.shipping[0];
+  }
+  function paintShipping(sum) {
+    var box = el('fieldset', 'ship');
+    box.appendChild(el('legend', null, 'shipping'));
+    var grand = el('span');
+    function paintGrand() { grand.textContent = money((sum + shipChoice().cents) / 100, catalog.currency); }
+    catalog.shipping.forEach(function (o) {
+      var row = el('label', 'ship-opt');
+      var radio = el('input');
+      radio.type = 'radio';
+      radio.name = 'jka-ship';
+      radio.value = o.id;
+      radio.checked = o.id === shipChoice().id;
+      radio.addEventListener('change', function () { if (radio.checked) { save('jka_ship', o.id); paintGrand(); } });
+      var words = el('span', 'ship-name', o.name);
+      if (o.days) words.appendChild(el('span', 'ship-days', o.days));
+      row.appendChild(radio);
+      row.appendChild(words);
+      row.appendChild(el('span', 'ship-price', money(o.cents / 100, catalog.currency)));
+      box.appendChild(row);
+    });
+    footEl.appendChild(box);
+    var total = el('div', 'total');
+    total.appendChild(el('span', null, 'total'));
+    total.appendChild(grand);
+    paintGrand();
+    footEl.appendChild(total);
+    footEl.appendChild(el('p', 'caption', 'tax is added at checkout.'));
   }
 
   function refreshCart(fresh) {
@@ -268,7 +306,7 @@
     signInTicket().then(function (token) {
       var headers = { 'Content-Type': 'application/json' };
       if (token) headers.Authorization = 'Bearer ' + token;
-      return fetch('/api/checkout', { method: 'POST', headers: headers, body: JSON.stringify({ items: items }) });
+      return fetch('/api/checkout', { method: 'POST', headers: headers, body: JSON.stringify({ items: items, shipping: shipChoice().id }) });
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
         if (r.status === 409 || r.status === 403) {
