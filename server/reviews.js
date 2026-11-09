@@ -80,6 +80,18 @@ export async function pinReviews(env, slug, fetchFn = fetch) {
   return { count: list.length, average: list.length ? Math.round((sum / list.length) * 10) / 10 : null, reviews: list.map(publicView) };
 }
 
+// every photo on an approved review, newest review first, for the photos section under the pup board
+// (server/media.js). [] when reviews aren't set up
+export async function approvedReviewPhotos(env, fetchFn = fetch) {
+  if (!configured(env)) return [];
+  const out = [];
+  for (const r of await approved(env, fetchFn)) {
+    const view = publicView(r);
+    view.photos.forEach((p) => out.push({ ...p, slug: view.slug, name: view.name, date: view.date }));
+  }
+  return out;
+}
+
 async function pinSlugs(request, env) {
   const res = await env.ASSETS.fetch(new Request(new URL('/products.json', request.url)));
   if (!res.ok) throw new Error('catalog ' + res.status);

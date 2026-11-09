@@ -627,3 +627,19 @@ rule, and the owner confirmed it.
   us" once it is). No "add $8 more" countdown, which would be the sales nudge the voice rules avoid.
 - **On Square:** a free order has no shipping line (rather than a $0 one), and the payment carries a note,
   "free ground shipping (2 to 5 days)", so the owner knows how to send it.
+
+## Photos under the pup board (2026-11-08)
+The owner asked for a photos section on the pup club page, under the board and its side cards, running the full
+width, with every review photo plus photos the owner uploads per product. It sits after `.pup-stage` (the board
+and side cards' row), so the board's sticky behaviour is untouched: it still holds still while the pin card and
+reviews scroll past and lets go at the bottom of the reviews, and the photos start under that.
+- **Which photos:** only the open pup's. With no pup open the section stays hidden (the owner's call, the same
+  day: at first it showed the whole pack's photos too). The owner's photos come first, newest first, then review photos, newest review first.
+  The first 12 show, then "show all N photos." Tapping one opens the same big view as review photos.
+- **Review photos are only listed, never copied.** They stay where they are and keep their rule: shown only once
+  the review is approved. Hide a review and its photos leave the section too.
+- **Owner photos reuse the review-photos R2 bucket** (under `media/`, reviews are under `reviews/`), so there's no
+  new service or setting. They're listed in Firestore `media/{photo id}` (server only, like everything else) and
+  are public as soon as they're uploaded. Shrunk to a 1600px JPEG in the browser and cleaned again on the server,
+  the same as review photos. Up to 24 per product. Each can have a few words, read aloud to people who can't see it.
+- Any product can have photos (the upload list has them all), but the pup board only shows pup club pins'.

@@ -39,6 +39,17 @@ The Firebase console still works as a backup: **Firestore Database > Data > revi
 review's `status` from `pending` to `approved` or `hidden`. To remove a review completely, delete its
 document there.
 
+## Your own product photos
+When someone opens a pup on the board, a photos section shows under it: your own photos of that pup first, then every photo from its approved reviews.
+To add yours:
+1. Open `/admin` and find **product photos**.
+2. Pick the product, choose one or more photos, and (optional, but kind) type a few words about them, like
+   "the corgi pin on a denim jacket". Those words are read aloud to people who can't see the picture.
+3. Press **upload**. They show under the board within about 10 minutes.
+4. To take one down, press **remove** under it.
+
+Up to 24 photos per product. They go in the same `review-photos` bucket, so there's nothing new to set up.
+
 ## What to approve
 - Screen for spam, rudeness, private details (someone's address or phone), or things that aren't about the pin.
 - For photos, also look for faces of other people, kids, house numbers, street signs, or anything that
