@@ -1091,19 +1091,48 @@
   // only the newest answer is painted, so tapping pups quickly never leaves the wrong pup's photos showing
   var MEDIA_FIRST = 12;
   var mediaAsk = 0;
-  // the card fades and rises into place as it scrolls into view, and fades back out as it scrolls away, like a
-  // light on a sensor that comes on as you walk up. an IntersectionObserver is the browser telling us when the card
-  // comes on or goes off screen, so nothing runs on every scroll. with "reduce motion" on (or an older browser) the
-  // photos simply stay put, no animation
+  // the card fades and rises into place as it scrolls up into view, and fades back out as it scrolls down out of it,
+  // in step with the scroll itself: stop halfway and it stays halfway, like a dimmer rather than a light switch.
+  // the rule: anything in the bottom 12% of the window is part way faded (fully gone at the bottom edge), anything
+  // above that is solid. the card follows its top edge; each photo follows its own, a little later the further right
+  // it sits, so they still arrive one after another. the numbers are worked out once per screen frame
+  // (requestAnimationFrame), only while the section is showing. with "reduce motion" on, the photos simply stay put
+  var FADE_BAND = 0.12;
   var mediaWatch = null;
   function watchMedia(box) {
-    if (mediaWatch || !window.IntersectionObserver) return;
+    if (mediaWatch) { mediaWatch(); return; }
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     box.classList.add('can-reveal');
-    mediaWatch = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) { box.classList.toggle('is-in', en.isIntersecting); });
-    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
-    mediaWatch.observe(box);
+    var queued = false;
+    function reveal(node) { var v = parseFloat(node.style.getPropertyValue('--reveal')); return isNaN(v) ? 1 : v; }
+    function amount(top, vh, band) { return Math.max(0, Math.min(1, (vh - top) / band)); }
+    function paint() {
+      queued = false;
+      if (box.hidden) return;
+      var vh = window.innerHeight || document.documentElement.clientHeight;
+      var band = Math.max(80, vh * FADE_BAND);
+      // measured where each would sit without its slide (the slide itself moves it, and must not feed back in).
+      // the slide distances match styles.css: 32px for the card, 16px for a photo
+      var boxShift = (1 - reveal(box)) * 32;
+      var boxP = amount(box.getBoundingClientRect().top - boxShift, vh, band);
+      box.style.setProperty('--reveal', boxP.toFixed(3));
+      var grid = box.querySelector('[data-media-grid]');
+      var g = grid.getBoundingClientRect();
+      Array.prototype.forEach.call(grid.children, function (t) {
+        var r = t.getBoundingClientRect();
+        var top = r.top - boxShift - (1 - reveal(t)) * 16;
+        // up to a third of the band later for the photo at the far right of its row
+        var lag = g.width ? ((r.left - g.left) / g.width) * band * 0.35 : 0;
+        t.style.setProperty('--reveal', amount(top + lag, vh, band).toFixed(3));
+      });
+    }
+    function queue() { if (!queued) { queued = true; requestAnimationFrame(paint); } }
+    window.addEventListener('scroll', queue, { passive: true });
+    window.addEventListener('resize', queue);
+    // the cards above can grow without a scroll (reviews arriving, a pup opening), which moves the photos too
+    if (window.ResizeObserver) new ResizeObserver(queue).observe(document.body);
+    mediaWatch = queue;
+    queue();
   }
   function mediaPupName(slug) {
     var p = catalog && catalog.items[slug];
@@ -1145,8 +1174,6 @@
       var b = el('button', 'media-tile');
       b.type = 'button';
       b.setAttribute('aria-label', 'open ' + pic.alt);
-      // each photo arrives a beat after the one before it (the later ones after "show all" start their own ripple)
-      b.style.setProperty('--i', String(Math.min(i % MEDIA_FIRST, 11)));
       var img = el('img', 'media-photo');
       img.alt = '';
       img.loading = 'lazy';

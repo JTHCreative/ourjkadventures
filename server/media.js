@@ -13,7 +13,9 @@ import { configured, firestoreQuery, firestoreSet, firestoreGet, firestoreDelete
 import { photosOn, parsePhotos, photoString, readPhoto, newPhotoId, storePhotos, deletePhotos, photoResponse, isPhotoId } from './photos.js';
 import { approvedReviewPhotos } from './reviews.js';
 
-export const MAX_MEDIA_PER_PRODUCT = 24;
+export const MAX_MEDIA_PER_PRODUCT = 50; // was 24 until 2026-11-09
+// the whole list is read in one go: 50 a product for all 17 products is 850, so this leaves room for new products
+const MAX_LISTED = 2000;
 const MAX_ALT = 150;
 // each Cloudflare location keeps its own copy of the owner's list, and an upload only refreshes the copy where it
 // landed, so the others catch up when theirs runs out: one minute, so a new photo shows everywhere within a minute
@@ -39,7 +41,7 @@ export function cleanAlt(s) {
 // the owner's photos, newest first: [{ id, w, h, slug, alt, date }]
 export async function ownerMedia(env, fetchFn = fetch) {
   if (mediaCache.list && Date.now() < mediaCache.until) return mediaCache.list;
-  const rows = await firestoreQuery(env, FOLDER, {}, 1000, fetchFn);
+  const rows = await firestoreQuery(env, FOLDER, {}, MAX_LISTED, fetchFn);
   const list = rows.map((r) => {
     const p = parsePhotos(r.photo)[0];
     if (!p || p.id !== r.id || typeof r.slug !== 'string') return null;
