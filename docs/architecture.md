@@ -41,7 +41,10 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
     than is there (409, with the real counts). Square's "sold out" tick counts as none
   - creates a Square payment link: `POST /v2/online-checkout/payment-links` with line items that point at
     the Square variation (`catalog_object_id` + quantity, no name or price, so Square charges its own
-    price and lowers its own stock), optional `order.taxes` from `TAX_PERCENT`, a flat `shipping_fee`,
+    price and lowers its own stock), optional `order.taxes` from `TAX_PERCENT`, a `shipping_fee` for the
+    shipping choice the customer picked in the bag (the browser sends only its id, `ground`, `priority` or
+    `express`; the price comes from `shipping` in `products.json`; none sent means the first; ground is free, with no shipping line and a
+    `payment_note` instead, when the pins come to $40 or more and there's no board in the order),
     `ask_for_shipping_address`, `redirect_url` = `/thank-you.html`
   - uses `connect.squareupsandbox.com` when `SQUARE_ENV=sandbox`
   - Square API version is pinned in `SQUARE_VERSION` in `server/square.js`
@@ -182,7 +185,8 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
 - **Fonts:** Google Fonts (EB Garamond).
 
 ### Known gaps
-- Shipping is a $5 flat placeholder in `products.json`. The owner must confirm.
+- Shipping is three fixed choices (ground $7, priority $13, express $36), not live carrier rates. See
+  `docs/decisions.md`.
 - No Square webhook yet, so order history reads Square on demand.
 - The contact email can wrap mid-word at narrow widths.
 

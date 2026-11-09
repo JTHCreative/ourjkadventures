@@ -24,10 +24,10 @@ function setup(shopOpen, links = { aussie: 'V_AUS', 'aussie:large': 'V_AUS_L', p
   const env = { ...baseEnv, ASSETS: { fetch: async () => Response.json(products) } };
   return { ...w, env };
 }
-const checkout = (env, items, token) => worker.fetch(new Request('https://x.test/api/checkout', {
+const checkout = (env, items, token, extra = {}) => worker.fetch(new Request('https://x.test/api/checkout', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
-  body: JSON.stringify({ items: items || [{ key: 'aussie', qty: 1 }] })
+  body: JSON.stringify({ items: items || [{ key: 'aussie', qty: 1 }], ...extra })
 }), env);
 const catalog = async (env) => (await worker.fetch(new Request('https://x.test/api/catalog'), env)).json();
 
@@ -89,7 +89,62 @@ test('checkout points at the Square items, so Square lowers the stock, and never
     { catalog_object_id: 'V_AUS_L', quantity: '1' }
   ]);
   assert.equal(JSON.stringify(sq.links[0].order).includes('price'), false);
-  assert.equal(sq.links[0].checkout_options.shipping_fee.charge.amount, products.shipping_cents);
+  // no shipping choice sent (a bag from before the choice existed): the first one, ground, free on $51 of pins
+  assert.equal(sq.links[0].payment_note, 'free ground shipping (2 to 5 days)');
+  const small = await checkout(env, [{ key: 'aussie', qty: 1 }]);
+  assert.equal(small.status, 200);
+  assert.deepEqual(sq.links[1].checkout_options.shipping_fee, {
+    name: 'ground shipping (2 to 5 days)', charge: { amount: 700, currency: 'USD' }
+  });
+});
+
+test('the catalog lists the shipping choices, and checkout charges the one picked at our price', async () => {
+  const { env, sq } = setup(true);
+  const c = await catalog(env);
+  assert.deepEqual(c.shipping.map((o) => [o.id, o.cents]), [['ground', 700], ['priority', 1300], ['express', 3600]]);
+  assert.deepEqual(c.shipping.map((o) => [o.id, o.cents]), products.shipping.map((o) => [o.id, o.cents]));
+  for (const [id, cents] of [['ground', 700], ['priority', 1300], ['express', 3600]]) {
+    const r = await checkout(env, null, null, { shipping: id });
+    assert.equal(r.status, 200, id);
+    assert.equal(sq.links.at(-1).checkout_options.shipping_fee.charge.amount, cents);
+    assert.ok(sq.links.at(-1).checkout_options.shipping_fee.name.startsWith(id + ' shipping'));
+  }
+});
+
+test('ground is free when the pins come to $40, counted at Square prices; the others still cost', async () => {
+  const { env, sq } = setup(true);
+  const c = await catalog(env);
+  assert.equal(c.shipping.find((o) => o.id === 'ground').free_over_cents, 4000);
+  // $12 + $12 + $15 = $39: just under, ground costs
+  assert.equal((await checkout(env, [{ key: 'aussie', qty: 2 }, { key: 'aussie:large', qty: 1 }])).status, 200);
+  assert.equal(sq.links.at(-1).checkout_options.shipping_fee.charge.amount, 700);
+  assert.equal(sq.links.at(-1).payment_note, undefined);
+  // $45 of pins: no shipping line to pay, and a note on the payment so the owner knows to send it ground
+  assert.equal((await checkout(env, [{ key: 'aussie:large', qty: 3 }])).status, 200);
+  assert.equal(sq.links.at(-1).checkout_options.shipping_fee, undefined);
+  assert.equal(sq.links.at(-1).payment_note, 'free ground shipping (2 to 5 days)');
+  // priority and express are never free
+  assert.equal((await checkout(env, [{ key: 'aussie:large', qty: 3 }], null, { shipping: 'priority' })).status, 200);
+  assert.equal(sq.links.at(-1).checkout_options.shipping_fee.charge.amount, 1300);
+});
+
+test('the board does not count toward free ground, and an order with a board pays for ground', async () => {
+  const { env, sq } = setup(true, { aussie: 'V_AUS', 'aussie:large': 'V_AUS_L', 'bay-area-pin-board': 'V_AUS_L' });
+  assert.equal((await checkout(env, [{ key: 'bay-area-pin-board', qty: 3 }])).status, 200);
+  assert.equal(sq.links.at(-1).checkout_options.shipping_fee.charge.amount, 700);
+  assert.equal((await checkout(env, [{ key: 'aussie:large', qty: 3 }, { key: 'bay-area-pin-board', qty: 1 }])).status, 200);
+  assert.equal(sq.links.at(-1).checkout_options.shipping_fee.charge.amount, 700);
+});
+
+test('checkout refuses a shipping choice we do not offer, and ignores any price sent with it', async () => {
+  const { env, sq } = setup(true);
+  for (const shipping of ['free', '', null, 3600, { id: 'express' }]) {
+    assert.equal((await checkout(env, null, null, { shipping })).status, 400, JSON.stringify(shipping));
+  }
+  assert.equal(sq.links.length, 0);
+  const r = await checkout(env, null, null, { shipping: 'express', shipping_cents: 1, price: 1 });
+  assert.equal(r.status, 200);
+  assert.equal(sq.links[0].checkout_options.shipping_fee.charge.amount, 3600);
 });
 
 test('checkout refuses more than is on the shelf, checked fresh', async () => {

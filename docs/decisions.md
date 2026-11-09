@@ -596,6 +596,38 @@ Later the same day: the doodle got its 3D model and the owner's final picture (b
 one; picture `?v=` went to 5). A `poodle` in a bag saved before the change now becomes a `doodle` instead of
 showing as an unknown item, and the owner's relinking steps are in `docs/setup/square.md`.
 
+## Shipping: three fixed choices, not live carrier rates (2026-11-08)
+The owner wanted customers to pick how fast their order ships and pay for that, instead of one flat $5.
+- **Fixed prices, not live rates.** Square's payment links take exactly one shipping fee, decided before
+  Square's page opens, and can't look up carrier rates. Live rates would mean a rate service (Shippo, EasyPost
+  or similar), an address form before checkout, parcel weights for every product, and a way to catch customers
+  who change the address on Square's page after quoting. For light, similar-sized pins, three fixed choices get
+  most of the benefit with none of that.
+- **The prices:** ground $7 (2 to 5 days), priority $13 (1 to 3 days), express $36 (1 to 2 days), all USPS.
+  Priority and Express roughly cover a flat rate envelope at USPS's commercial price (holiday prices through
+  January 17, 2027: $11.97 and $33.46). Ground is set a little under the cross-country cost (about $9 plus the
+  mailer), so a $12 pin doesn't carry $10 shipping; nearby orders cost less than $7 to send.
+- **Prices stay on the server.** They live in `products.json` (`shipping`). The browser sends only `ground`,
+  `priority` or `express`; anything else is refused, and no choice at all (a bag opened before this) means
+  ground.
+- **Later:** revisit live rates if the Bay Area board (bigger and heavier) goes on sale, or if shipping
+  abroad starts.
+
+## Free ground shipping on $40 of pins (2026-11-08)
+The owner asked for free ground shipping once an order reaches $40. Flagged first against the "no discounts"
+rule, and the owner confirmed it.
+- **Why it isn't a discount:** no pin's price moves, and it's a standing house policy, always on, not a promotion
+  window, so it never teaches anyone to wait. It's how we price shipping, not what a pin is worth. It doesn't
+  open the door to promo codes, percent-off or sale prices; those are still never.
+- **Pins only.** Only pins count toward the $40, at Square's prices, worked out on the server. A board (planned at
+  $80) would clear $40 by itself and costs $20 to $60 to ship by size (dimensional weight), so it doesn't count,
+  and an order with a board in it pays for ground until the board gets its own shipping prices.
+- **Ground only.** Priority and express always cost what they cost.
+- **Said once, calmly.** The bag says "ground shipping is free when your pins come to $40 or more." (or "is on
+  us" once it is). No "add $8 more" countdown, which would be the sales nudge the voice rules avoid.
+- **On Square:** a free order has no shipping line (rather than a $0 one), and the payment carries a note,
+  "free ground shipping (2 to 5 days)", so the owner knows how to send it.
+
 ## Photos under the pup board (2026-11-08)
 The owner asked for a photos section on the pup club page, under the board and its side cards, running the full
 width, with every review photo plus photos the owner uploads per product. It sits after `.pup-stage` (the board
