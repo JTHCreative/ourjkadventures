@@ -16,7 +16,8 @@ service cloud.firestore {
     // their scrambled vote records (interest_<mode>, interest_votes_<mode>, interest_ips_<mode>) fall under
     // the rule below: only the server counts votes, so nobody can add to a tally from a browser.
     // the same goes for "email me when it's here" (notify_<mode>, notify_ips_<mode>) and the daily email count
-    // (email_days): addresses are only ever read by the server.
+    // (email_days): addresses are only ever read by the server. pin requests (pin_requests_<mode>,
+    // pin_request_ips_<mode>) are server only too.
 
     // customers, their order notes, reviews and everything else: server only
     match /{document=**} {
