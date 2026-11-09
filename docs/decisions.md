@@ -802,3 +802,25 @@ The owner saw the bag's button stuck on "one moment." after a gift checkout. Squ
 restored as-is by the back button. Now the button says "taking you to square." once the link is made, a "go to the
 payment page" link appears if Square hasn't opened after 8 seconds, and a page restored by the back button repaints
 the bag (address and gift note kept, `sessionStorage`) so it's ready to try again.
+
+## /admin in the middle half of the page (2026-11-09)
+The owner asked for the menu and the sections to sit in the middle 50% of the screen, with 25% margins on both
+sides. From 1100px wide, `.admin` is half the page's width with no side padding of its own, so the cards land at
+exactly 25% to 75%. Below 1100px half would be too narrow to use (550px or less), so it keeps a 720px column, and on
+a phone the usual 16px gutters.
+
+## "i'm interested" and "email when it's here" are one section on /admin (2026-11-09)
+The owner asked to combine the two. They were about the same products from two sides: the tally of taps, and the
+list of people who left an email after tapping. Now "interest and emails" has one row per product with either, most
+asked for first: the tally (only when there is one), whether it's in the shop, on pre-order or not yet, then its
+email list with the send button (or what to switch on first), who's waiting with the copy button, and the email
+preview. Today's email count sits at the top. Both are still loaded separately (the products list and the email
+lists), and whichever arrives repaints the section, so nothing waits on the other. The server side is unchanged.
+
+## Gift cards live inside "orders to ship" (2026-11-09)
+The owner asked to combine "orders to ship" and "gift cards to write" on `/admin`. Every gift card belongs to an
+order waiting to ship, so it's now shown inside that order: a dashed "card to write" box with the note and a "card
+written" button, just above the tracking box. Marking an order shipped also clears its card on the server (the card
+is in the box by then), so a card can't linger. A gift order that left the to-ship list another way, such as being
+marked shipped in Square's dashboard, with its card not ticked off, shows at the bottom under "cards still to write"
+so no card is missed. The gift records (Firestore `gifts/*`, `/api/admin/gifts`) are unchanged.

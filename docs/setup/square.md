@@ -94,9 +94,11 @@ and Square's own address form is switched off, so it can't be changed to one abr
    Square sees it with a real account).
 2. In the Square dashboard, open **Orders**. The order shows the ship-to name, email and address under its shipment.
    A gift also has the note there (as the shipping note), and again on the payment ("gift. write on the card: ...").
-3. On `/admin`, the **gift cards to write** card lists every paid gift order: the order number, the note, the
-   address it goes to, the buyer's email and what's in it. Write the card, pack it, then press **card written**
-   to take it off the list. Gift orders that were never paid drop off by themselves after two days.
+3. On `/admin`, open **orders to ship**. A paid gift order shows a **card to write** box with the note, alongside
+   the address it goes to, the buyer's email and what's in it. Write the card, tuck it in, and press
+   **card written**. Marking the order shipped also counts its card as written. If a gift order was marked shipped
+   some other way (in Square's dashboard, say) before its card was ticked off, it's listed at the bottom under
+   **cards still to write**. Gift orders that were never paid drop off by themselves after two days.
 
 Good to know:
 - A gift often ships straight to the person getting it, so the address may not be the buyer's. The email is

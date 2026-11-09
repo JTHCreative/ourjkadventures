@@ -365,24 +365,13 @@ function wireProducts() {
 
 /* ---------- interest: what people asked for with "i'm interested" ---------- */
 // every product with at least one vote, most asked for first. products in the shop keep their old tally here
-function paintInterest(data) {
-  const box = $('[data-interest-list]');
-  const names = {};
-  data.products.forEach((p) => { names[p.slug] = shownName(p); });
-  const rows = Object.entries(data.interest || {}).filter(([slug, n]) => names[slug] && n > 0).sort((a, b) => b[1] - a[1]);
-  box.textContent = '';
-  if (!rows.length) {
-    box.appendChild(el('p', 'body-sm muted', 'no one has asked for anything yet. switch a product to not available and its "i\'m interested" button appears in the shop.'));
-    return;
-  }
-  const list = el('ol', 'interest-admin');
-  rows.forEach(([slug, n]) => {
-    const li = el('li', null);
-    li.append(el('span', 'feature-name', names[slug]), el('span', 'caption', peopleWords(n) + ((data.preorder || {})[slug] ? ' on pre-order now.' : (data.available || {})[slug] === false ? '' : ' in the shop now.')));
-    list.appendChild(li);
-  });
-  box.appendChild(list);
-}
+/* ---------- interest and emails: "i'm interested" tallies and "email when it's here" lists, one row per product ---------- */
+// two loaders feed it: the products list (tallies, switches) and the email lists (who's waiting, today's count).
+// whichever arrives repaints the lot, so a row shows both as soon as both are in
+let askingProducts = null;
+let askingNotify = null;
+let askingDone = null;
+function paintInterest(data) { askingProducts = data; paintAsking(); }
 
 /* ---------- email when it's here ---------- */
 function waitingWords(r) { return (r.waiting === 1 ? '1 person' : r.waiting + ' people') + ' waiting.'; }
@@ -422,69 +411,101 @@ function whoIsWaiting(r) {
   return peek;
 }
 
-function paintNotify(data, done) {
+function paintNotify(data, done) { askingNotify = data; askingDone = done || null; paintAsking(); }
+
+// what the shop shows for a product right now
+function shelfWords(slug) {
+  const d = askingProducts || {};
+  if ((d.preorder || {})[slug]) return 'on pre-order now.';
+  if ((d.available || {})[slug] === false) return 'not in the shop yet.';
+  return 'in the shop now.';
+}
+
+// one product's email list: how many are waiting, the send button (or what to do first), who, and the email itself
+function emailBits(r, done) {
+  const out = [el('p', 'caption', waitingWords(r))];
+  const actions = el('div', 'admin-actions');
+  const note = el('span', 'caption');
+  note.setAttribute('role', 'status');
+  if (r.preorder) {
+    note.textContent = 'when it\'s here, switch pre-order off and available on in products and square, then send.';
+  } else if (!r.available) {
+    note.textContent = 'switch it on in products and square when it\'s here, then send.';
+  } else if (r.waiting) {
+    const send = el('button', 'jka-btn jka-btn--sm', 'send "it\'s here" to ' + r.waiting);
+    send.type = 'button';
+    send.addEventListener('click', async () => {
+      if (!confirm('send "' + r.preview.subject + '" to ' + r.waiting + (r.waiting === 1 ? ' person' : ' people') + '?')) return;
+      send.disabled = true;
+      note.textContent = 'sending.';
+      try {
+        const res = await api('POST', '/api/admin/notify', { slug: r.slug });
+        paintNotify(res, { slug: r.slug, words: res.left
+          ? 'sent to ' + res.sent + '. ' + res.left + ' still waiting: that\'s today\'s emails used up, so press send again tomorrow.'
+          : 'sent to ' + res.sent + '.' });
+      } catch (e) {
+        const why = e.data && e.data.error;
+        note.textContent = why === 'shop closed' ? 'the shop is closed. open it first, so the link leads somewhere.'
+          : why === 'not available' ? 'switch it on in products and square first.' : "that didn't send. nothing went out. try again in a moment.";
+        send.disabled = false;
+      }
+    });
+    actions.appendChild(send);
+  }
+  if (done && done.slug === r.slug) note.textContent = done.words;
+  actions.appendChild(note);
+  out.push(actions);
+  if (r.people && r.people.length) out.push(whoIsWaiting(r));
+  // what they'll get, word for word, in a sealed-off frame: no scripts, nothing it can reach on this page
+  const peek = el('details', 'notify-preview');
+  peek.appendChild(el('summary', 'link-btn', 'see the email'));
+  peek.appendChild(el('p', 'caption', 'subject: ' + r.preview.subject));
+  const frame = el('iframe', 'notify-preview-frame');
+  frame.setAttribute('sandbox', '');
+  frame.title = 'the "it\'s here" email for the ' + r.name;
+  frame.srcdoc = r.preview.html;
+  peek.appendChild(frame);
+  out.push(peek);
+  return out;
+}
+
+function paintAsking() {
   const state = $('[data-notify-state]');
-  const box = $('[data-notify-list]');
+  const box = $('[data-asking-list]');
+  const n = askingNotify;
+  if (n) {
+    state.textContent = n.configured
+      ? 'emails today: ' + n.sentToday + ' of ' + n.limit + ' sent. the count starts again at midnight (utc).'
+      : 'email isn\'t set up yet, so the shop only offers "i\'m interested", not the email box. see docs/setup/email.md.';
+  }
+  if (!askingProducts && !n) return;
+  // every product with a tally or a waiting list, keyed by slug
+  // names as products and square shows them ("husky"), whichever list a product comes from
+  const names = {};
+  if (askingProducts) askingProducts.products.forEach((p) => { names[p.slug] = shownName(p); });
+  const rows = new Map();
+  const row = (slug, name) => { if (!rows.has(slug)) rows.set(slug, { slug, name: names[slug] || name, interest: 0, list: null }); return rows.get(slug); };
+  if (askingProducts) {
+    Object.entries(askingProducts.interest || {}).forEach(([slug, count]) => { if (names[slug] && count > 0) row(slug, names[slug]).interest = count; });
+  }
+  if (n && n.configured) (n.products || []).forEach((r) => { row(r.slug, r.name).list = r; });
+  const list = [...rows.values()].sort((a, b) => (b.interest - a.interest) || ((b.list ? b.list.waiting : 0) - (a.list ? a.list.waiting : 0)));
   box.textContent = '';
-  if (!data.configured) {
-    state.textContent = 'email isn\'t set up yet, so the shop doesn\'t offer it. see docs/setup/email.md.';
+  // a send that emptied its list: say so, since that product's list is gone now
+  const done = askingDone;
+  if (done && !list.some((r) => r.list && r.slug === done.slug)) box.appendChild(el('p', 'body-sm', done.words));
+  if (!list.length) {
+    box.appendChild(el('p', 'body-sm muted', 'no one has asked for anything yet. switch a product to not available and its "i\'m interested" button appears in the shop.'));
     return;
   }
-  state.textContent = 'today: ' + data.sentToday + ' of ' + data.limit + ' emails sent. the count starts again at midnight (utc).';
-  // a send that emptied its list: say so, since that product's row is gone now
-  if (done && !data.products.some((r) => r.slug === done.slug)) box.appendChild(el('p', 'body-sm', done.words));
-  if (!data.products.length) {
-    box.appendChild(el('p', 'body-sm muted', 'no one is waiting for an email yet.'));
-    return;
-  }
-  data.products.forEach((r) => {
-    const row = el('div', 'link-product');
-    row.appendChild(el('p', 'link-product-name', r.name));
-    row.appendChild(el('p', 'caption', waitingWords(r)));
-    const actions = el('div', 'admin-actions');
-    const note = el('span', 'caption');
-    note.setAttribute('role', 'status');
-    if (r.preorder) {
-      note.textContent = 'when it\'s here, switch pre-order off and available on above, then send.';
-    } else if (!r.available) {
-      note.textContent = 'switch it on above when it\'s here, then send.';
-    } else if (r.waiting) {
-      const send = el('button', 'jka-btn jka-btn--sm', 'send "it\'s here" to ' + r.waiting);
-      send.type = 'button';
-      send.addEventListener('click', async () => {
-        if (!confirm('send "' + r.preview.subject + '" to ' + r.waiting + (r.waiting === 1 ? ' person' : ' people') + '?')) return;
-        send.disabled = true;
-        note.textContent = 'sending.';
-        try {
-          const res = await api('POST', '/api/admin/notify', { slug: r.slug });
-          paintNotify(res, { slug: r.slug, words: res.left
-            ? 'sent to ' + res.sent + '. ' + res.left + ' still waiting: that\'s today\'s emails used up, so press send again tomorrow.'
-            : 'sent to ' + res.sent + '.' });
-        } catch (e) {
-          const why = e.data && e.data.error;
-          note.textContent = why === 'shop closed' ? 'the shop is closed. open it first, so the link leads somewhere.'
-            : why === 'not available' ? 'switch it on above first.' : "that didn't send. nothing went out. try again in a moment.";
-          send.disabled = false;
-        }
-      });
-      actions.appendChild(send);
-    }
-    if (done && done.slug === r.slug) note.textContent = done.words;
-    actions.appendChild(note);
-    row.appendChild(actions);
-    if (r.people && r.people.length) row.appendChild(whoIsWaiting(r));
-    // what they'll get, word for word
-    const peek = el('details', 'notify-preview');
-    peek.appendChild(el('summary', 'link-btn', 'see the email'));
-    peek.appendChild(el('p', 'caption', 'subject: ' + r.preview.subject));
-    // the real email, shown in a sealed-off frame: no scripts, nothing it can reach on this page
-    const frame = el('iframe', 'notify-preview-frame');
-    frame.setAttribute('sandbox', '');
-    frame.title = 'the "it\'s here" email for the ' + r.name;
-    frame.srcdoc = r.preview.html;
-    peek.appendChild(frame);
-    row.appendChild(peek);
-    box.appendChild(row);
+  list.forEach((r) => {
+    const div = el('div', 'link-product');
+    div.appendChild(el('p', 'link-product-name', r.name));
+    // the tally only when there is one: a product can have people waiting for an email without any taps counted
+    div.appendChild(el('p', 'caption', (r.interest ? peopleWords(r.interest) + ' ' : '') + shelfWords(r.slug)));
+    if (r.list) emailBits(r.list, done).forEach((x) => div.appendChild(x));
+    else if (n && n.configured) div.appendChild(el('p', 'caption', 'no one waiting for an email.'));
+    box.appendChild(div);
   });
 }
 
@@ -493,7 +514,14 @@ async function loadNotify() {
 }
 
 /* ---------- orders to ship: the "on its way" email and the tracking number ---------- */
+// the gift cards still to write, by square order id, from /api/admin/gifts. a gift order whose card isn't on this list
+// any more has had it written. null until it has loaded
+let giftCards = null;
+let shipData = null;
+let shipDone = '';
 function paintOrders(data, done) {
+  shipData = data;
+  shipDone = done || '';
   const state = $('[data-orders-state]');
   const box = $('[data-order-list]');
   box.textContent = '';
@@ -502,6 +530,8 @@ function paintOrders(data, done) {
   const lines = [];
   if (done) lines.push(done);
   lines.push(n ? n + (n === 1 ? ' order to ship.' : ' orders to ship.') : 'nothing to ship right now.');
+  const cards = giftCards ? giftCards.length : 0;
+  if (cards) lines.push(cards + (cards === 1 ? ' gift card to write.' : ' gift cards to write.'));
   if (!data.email) lines.push('email isn\'t set up, so "mark shipped" only marks it in square. see docs/setup/email.md.');
   state.textContent = lines.join(' ');
   data.orders.forEach((o) => {
@@ -523,7 +553,10 @@ function paintOrders(data, done) {
     });
     row.appendChild(to);
     row.appendChild(el('p', 'caption notify-email', 'buyer: ' + o.email));
-    if (o.note) row.appendChild(el('p', 'caption', 'note: ' + o.note));
+    if (o.gift) row.appendChild(giftCard(o.id, o.number));
+    // the pre-order part of the shipping note (a gift's part shows as its card above)
+    const extra = o.note.split(' / ').filter((x) => !/^gift\./.test(x)).join(' / ');
+    if (extra) row.appendChild(el('p', 'caption', 'note: ' + extra));
 
     const form = el('form', 'admin-actions order-ship');
     const id = 'track-' + o.id;
@@ -551,6 +584,8 @@ function paintOrders(data, done) {
       try {
         const res = await api('POST', '/api/admin/orders', { id: o.id, tracking: t });
         paintOrders(res, 'order ' + o.number + ' is marked shipped' + (res.emailed ? ' and ' + o.email + ' has the email.' : '.'));
+        // a gift's card went in the box: the server ticked it off, so fetch the cards again
+        if (o.gift) loadGifts();
       } catch (err) {
         const why = err.data && err.data.error;
         note.textContent = why === 'already shipped' ? 'this one is already marked shipped.'
@@ -580,49 +615,62 @@ async function loadOrders() {
   try { paintOrders(await api('GET', '/api/admin/orders')); } catch (e) { $('[data-orders-state]').textContent = RESTING; }
 }
 
-/* ---------- gift cards: the note to write by hand, and which order and address it goes with ---------- */
+/* ---------- gift cards: the note to write by hand, shown inside its order in "orders to ship" ---------- */
+// the card box for one gift order: the note to write, and "card written" to tick it off
+function giftCard(id, number) {
+  const box = el('div', 'gift-card');
+  const card = giftCards && giftCards.find((g) => g.id === id);
+  box.appendChild(el('p', 'caption gift-card-title', 'card to write'));
+  if (!giftCards) { box.appendChild(el('p', 'caption', 'one moment.')); return box; }
+  if (!card) { box.appendChild(el('p', 'caption', 'card written.')); return box; }
+  box.appendChild(el('p', 'gift-note', card.message ? '\u201c' + card.message + '\u201d' : 'no note: a blank card.'));
+  const actions = el('div', 'admin-actions');
+  const done = el('button', 'jka-btn jka-btn--sm jka-btn--quiet', 'card written');
+  done.type = 'button';
+  done.setAttribute('aria-label', 'card written for order ' + number);
+  const note = el('span', 'caption');
+  note.setAttribute('role', 'status');
+  done.addEventListener('click', async () => {
+    done.disabled = true;
+    try { paintGifts(await api('POST', '/api/admin/gifts', { id })); } catch (e) {
+      note.textContent = 'that didn\'t save. try again in a moment.';
+      done.disabled = false;
+    }
+  });
+  actions.append(done, note);
+  box.appendChild(actions);
+  return box;
+}
+
 function paintGifts(data) {
-  const state = $('[data-gifts-state]');
+  giftCards = data.square ? data.gifts : [];
+  if (shipData) paintOrders(shipData, shipDone);
+  // cards for gift orders that aren't waiting to ship any more: still to write, so they aren't missed
   const box = $('[data-gift-list]');
   box.textContent = '';
-  if (!data.square) { state.textContent = 'square isn\'t set up yet, so there are no orders to show.'; return; }
-  const n = data.gifts.length;
-  state.textContent = n ? n + (n === 1 ? ' card to write.' : ' cards to write.') : 'no gift cards to write right now.';
-  data.gifts.forEach((g) => {
+  const waiting = new Set(((shipData && shipData.orders) || []).map((o) => o.id));
+  const left = giftCards.filter((g) => !waiting.has(g.id));
+  if (!shipData || !left.length) return;
+  box.appendChild(el('h3', 'admin-subtitle', 'cards still to write'));
+  box.appendChild(el('p', 'caption', 'gift orders already marked shipped (in square, say) whose card wasn\'t ticked off here.'));
+  left.forEach((g) => {
     const row = el('div', 'link-product gift-row');
     row.appendChild(el('p', 'link-product-name', 'order ' + g.number + (g.date ? ', ' + new Date(g.date).toLocaleDateString() : '')));
-    row.appendChild(el('p', 'gift-note', g.message ? '“' + g.message + '”' : 'no note: a blank card.'));
     const a = g.address;
     const to = el('p', 'body-sm gift-address');
-    [g.name, a.line1, a.line2, a.city + ', ' + a.state + ' ' + a.zip].filter(Boolean).forEach((l, i) => {
-      if (i) to.appendChild(document.createElement('br'));
+    [g.name, a.line1, a.line2, a.city + ', ' + a.state + ' ' + a.zip].filter(Boolean).forEach((l, n) => {
+      if (n) to.appendChild(document.createElement('br'));
       to.appendChild(document.createTextNode(l));
     });
     row.appendChild(to);
     row.appendChild(el('p', 'caption notify-email', 'buyer: ' + g.email));
-    const what = g.items.map((it) => (it.qty > 1 ? it.qty + ' × ' : '') + it.name).join(', ');
-    row.appendChild(el('p', 'caption', what + (g.shipping ? '. ' + g.shipping + '.' : '')));
-    row.appendChild(el('p', 'caption', 'square order id: ' + g.id));
-    const actions = el('div', 'admin-actions');
-    const done = el('button', 'jka-btn jka-btn--sm', 'card written');
-    done.type = 'button';
-    const note = el('span', 'caption');
-    note.setAttribute('role', 'status');
-    done.addEventListener('click', async () => {
-      done.disabled = true;
-      try { paintGifts(await api('POST', '/api/admin/gifts', { id: g.id })); } catch (e) {
-        note.textContent = 'that didn\'t save. try again in a moment.';
-        done.disabled = false;
-      }
-    });
-    actions.append(done, note);
-    row.appendChild(actions);
+    row.appendChild(giftCard(g.id, g.number));
     box.appendChild(row);
   });
 }
 
 async function loadGifts() {
-  try { paintGifts(await api('GET', '/api/admin/gifts')); } catch (e) { $('[data-gifts-state]').textContent = RESTING; }
+  try { paintGifts(await api('GET', '/api/admin/gifts')); } catch (e) { /* the orders still show; their cards say "one moment." */ }
 }
 
 /* ---------- featured: what turns in the carousel at the top of the shop ---------- */
@@ -1023,8 +1071,7 @@ async function open() {
   $('#admin-view').hidden = false;
   wireSections();
   try { wireShop(await api('GET', '/api/admin/shop')); } catch (e) { $('[data-shop-state]').textContent = RESTING; }
-  loadOrders();
-  loadGifts();
+  loadOrders().then(loadGifts);
   wireProducts();
   loadProducts();
   wireFeatured();

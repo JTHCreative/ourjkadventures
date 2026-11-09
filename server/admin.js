@@ -24,6 +24,7 @@
 //   DELETE /api/admin/media?id=…  take one down
 //   GET  /api/admin/orders   paid website orders not shipped yet, oldest first, each with the email it would get
 //   POST /api/admin/orders   { id, tracking }  email the buyer "on its way" with tracking, then mark it shipped in Square
+//                            (a gift's card then counts as written)
 //   GET  /api/admin/gifts    paid gift orders: the note to write on the card, the buyer's email, the address it ships to
 //   POST /api/admin/gifts    { id }  the card is written: off the list
 //   GET  /api/admin/instagram  does the key in cloudflare open @ourjkadventures, and how many reels (never the key)
@@ -218,6 +219,8 @@ export async function admin(request, env, fetchFn = fetch) {
       const body = await readJson(request);
       const result = await markShipped(env, origin, body.id, body.tracking, fetchFn);
       if (result.error) return json(result, result.status || 400);
+      // a gift's card went in the box with it: off the "cards to write" list (never blocks: the order is shipped)
+      try { await giftDone(env, body.id, fetchFn); } catch (e) { console.log('gift card clear failed', e.message); }
       return list({ shipped: body.id, emailed: result.emailed });
     }
 
