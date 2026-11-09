@@ -824,3 +824,20 @@ written" button, just above the tracking box. Marking an order shipped also clea
 is in the box by then), so a card can't linger. A gift order that left the to-ship list another way, such as being
 marked shipped in Square's dashboard, with its card not ticked off, shows at the bottom under "cards still to write"
 so no card is missed. The gift records (Firestore `gifts/*`, `/api/admin/gifts`) are unchanged.
+
+## Orders fold open, and the gift list keeps nothing personal (2026-11-09)
+- **Folding orders:** "orders to ship" was tightly packed. Each order is now a fold (number, day, item count, gift or
+  pre-order on the closed line) that opens to labelled parts in packing order: order (number, day, Square's id),
+  what's in it (and the shipping and any pre-order date), buyer (on a gift, the name is the person it's going to;
+  the email is always the buyer's), ships to (with "copy the address"), gift card, and ship it (tracking number,
+  "mark shipped", the email preview). Open folds stay open when the list repaints.
+- **Personal details:** the owner asked for order information to be encrypted in Firestore. The orders themselves
+  were never in Firestore: "orders to ship" reads Square each time. The one copy we kept was `gifts/*` (the buyer's
+  email, the name and address, the note). Rather than encrypt it, we stopped keeping it: the note now rides on the
+  Square order (metadata `gift_note`), and `gifts/<order id>` holds only `createdAt`, as a "this order has a card to
+  write" flag. `/admin` reads the note, name, email and address from Square, like the orders. Nothing to decrypt
+  means no key to keep safe or lose, and nothing readable if the Firestore console is ever opened by someone else.
+  Older records are trimmed to just their date the next time the list loads, and older orders' notes are read
+  from their shipping note. The privacy page says so.
+- Still in Firestore in plain form: the "email me when it's here" list (emails) and guest review emails. Those
+  could be encrypted with a key kept in Cloudflare if the owner wants; not done yet.
