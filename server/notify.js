@@ -184,6 +184,35 @@ async function stop(env, code, fetchFn) {
 }
 
 /* ---------- the owner's side (server/admin.js has already checked who is asking) ---------- */
+// The owner takes an address off a list by hand (an old test, say), and can put it back if that was a slip.
+// Like crossing a name off the slip at the counter in pencil: the name and the day they signed up come back with the
+// answer, so "undo" writes it back exactly as it was. Neither is counted against anyone's daily sign-ups.
+async function personPath(env, origin, slug, email) {
+  const e = cleanEmail(email);
+  if (!e) return { error: 'email' };
+  if (typeof slug !== 'string' || !(await products(env, origin)).some((x) => x.slug === slug)) return { error: 'unknown product' };
+  const who = await scramble(env, 'email|' + e);
+  return { email: e, who, path: list(env) + '/' + encodeURIComponent(slug + '_' + who) };
+}
+// { removed: { slug, email, at } } or { error, status }
+export async function removeWaiting(env, origin, slug, email, fetchFn = fetch) {
+  const p = await personPath(env, origin, slug, email);
+  if (p.error) return { ...p, status: 400 };
+  const had = await firestoreGet(env, p.path, fetchFn);
+  if (!had) return { error: 'not on the list', status: 404 };
+  await firestoreCommit(env, [{ remove: p.path, any: true }], fetchFn);
+  return { removed: { slug, email: p.email, at: had.createdAt || '' } };
+}
+// at: when they first signed up (from removeWaiting), so they keep their place. { restored: true } or { error, status }
+export async function restoreWaiting(env, origin, slug, email, at, fetchFn = fetch) {
+  const p = await personPath(env, origin, slug, email);
+  if (p.error) return { ...p, status: 400 };
+  const when = new Date(typeof at === 'string' ? at : '');
+  const createdAt = isNaN(when) || when > new Date() ? new Date() : when;
+  await firestoreSet(env, p.path, { slug, email: p.email, who: p.who, createdAt }, fetchFn);
+  return { restored: true };
+}
+
 // who is waiting for what, today's email count, and a preview of each "it's here" email
 export async function notifySummary(env, origin, fetchFn = fetch) {
   const items = await products(env, origin);

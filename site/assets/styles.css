@@ -1122,6 +1122,8 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .gift-note { font-size: 18px; line-height: 26px; font-style: italic; white-space: pre-line; overflow-wrap: anywhere; }
 .gift-address { overflow-wrap: anywhere; user-select: all; }
 .notify-email { overflow-wrap: anywhere; user-select: all; }
+.notify-person-end { display: inline-flex; align-items: center; gap: var(--space-3); }
+.notify-removed { margin-bottom: var(--space-4); padding: var(--space-3) var(--space-4); border: 1.5px dashed var(--line); border-radius: var(--radius-sm); }
 .notify-preview-frame { display: block; width: 100%; height: 860px; margin-top: var(--space-2); border: 1.5px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
 .interest-admin { margin: 0; padding-left: var(--space-5); }
 .interest-admin li { padding: var(--space-2) 0; border-bottom: 1.5px solid var(--line); }

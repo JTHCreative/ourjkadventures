@@ -262,3 +262,40 @@ test('the owner sees each address on a list, oldest first; no one else does', as
   // the public catalog never carries them
   assert.ok(!JSON.stringify(await (await s.call('GET', '/api/catalog')).json()).includes('example.com'));
 });
+
+test('the owner can take an address off a list by hand, and undo puts it back with its sign-up day', async () => {
+  const s = setup();
+  assert.equal((await signUp(s, 'corgi', 'test@example.com')).status, 'added');
+  assert.equal((await signUp(s, 'corgi', 'keep@example.com')).status, 'added');
+  const before = (await (await s.call('GET', '/api/admin/notify', { token: await owner() })).json()).products[0].people;
+  const at = before.find((p) => p.email === 'test@example.com').at;
+
+  const r = await s.call('DELETE', '/api/admin/notify/person', { token: await owner(), body: { slug: 'corgi', email: 'Test@Example.com' } });
+  assert.equal(r.status, 200);
+  const res = await r.json();
+  assert.deepEqual(res.removed, { slug: 'corgi', email: 'test@example.com', at });
+  assert.deepEqual(res.products[0].people.map((p) => p.email), ['keep@example.com']);
+  // gone means gone: removing again says so
+  assert.equal((await s.call('DELETE', '/api/admin/notify/person', { token: await owner(), body: { slug: 'corgi', email: 'test@example.com' } })).status, 404);
+
+  // undo: back on the list, with the day they first signed up
+  const u = await (await s.call('PUT', '/api/admin/notify/person', { token: await owner(), body: { slug: 'corgi', email: 'test@example.com', at } })).json();
+  assert.equal(u.restored, true);
+  const back = u.products[0].people.find((p) => p.email === 'test@example.com');
+  assert.equal(back.at, at);
+  assert.deepEqual(await waiting(s), [['corgi', 2]]);
+  // and signing up again still says "already": it's the same slip as before
+  assert.equal((await signUp(s, 'corgi', 'test@example.com')).status, 'already');
+});
+
+test('only the owner can remove or put back an address, and only on a real product', async () => {
+  const s = setup();
+  await signUp(s, 'corgi', 'test@example.com');
+  const stranger = await sign({ email: 'someone@example.com' });
+  assert.equal((await s.call('DELETE', '/api/admin/notify/person', { token: stranger, body: { slug: 'corgi', email: 'test@example.com' } })).status, 403);
+  assert.equal((await s.call('PUT', '/api/admin/notify/person', { token: stranger, body: { slug: 'corgi', email: 'x@example.com' } })).status, 403);
+  assert.equal((await s.call('DELETE', '/api/admin/notify/person', { body: { slug: 'corgi', email: 'test@example.com' } })).status, 401);
+  assert.equal((await s.call('PUT', '/api/admin/notify/person', { token: await owner(), body: { slug: 'nope', email: 'x@example.com' } })).status, 400);
+  assert.equal((await s.call('PUT', '/api/admin/notify/person', { token: await owner(), body: { slug: 'corgi', email: 'not an email' } })).status, 400);
+  assert.deepEqual(await waiting(s), [['corgi', 1]]);
+});

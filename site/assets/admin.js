@@ -382,22 +382,47 @@ function shortDate(iso) {
   return isNaN(d) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toLowerCase();
 }
 
-// who's on a product's list, folded away like the email preview: each address and the day they signed up,
-// and one button to copy them all (one per line) to paste somewhere else
+// addresses taken off a list by hand this visit, newest first, each with an "undo" until the page is reloaded:
+// { slug, name, email, at }. and which "see who's waiting" lists are open, so removing one doesn't fold it shut
+let removedPeople = [];
+const openWaiting = new Set();
+
+// who's on a product's list, folded away like the email preview: each address, the day they signed up and a
+// remove button (an old test address, say), and one button to copy them all (one per line) to paste somewhere else
 function whoIsWaiting(r) {
   const peek = el('details', 'notify-preview');
+  peek.open = openWaiting.has(r.slug);
+  peek.addEventListener('toggle', () => { if (peek.open) openWaiting.add(r.slug); else openWaiting.delete(r.slug); });
   peek.appendChild(el('summary', 'link-btn', 'see who\'s waiting'));
+  const said = el('span', 'caption');
+  said.setAttribute('role', 'status');
   const ul = el('ul', 'notify-people');
   (r.people || []).forEach((p) => {
     const li = el('li');
-    li.append(el('span', 'notify-email', p.email), el('span', 'caption', shortDate(p.at)));
+    const end = el('span', 'notify-person-end');
+    const remove = el('button', 'link-btn', 'remove');
+    remove.type = 'button';
+    remove.setAttribute('aria-label', 'remove ' + p.email + ' from the ' + r.name + ' list');
+    remove.addEventListener('click', async () => {
+      remove.disabled = true;
+      said.textContent = 'removing.';
+      try {
+        const res = await api('DELETE', '/api/admin/notify/person', { slug: r.slug, email: p.email });
+        removedPeople.unshift({ slug: r.slug, name: r.name, email: res.removed.email, at: res.removed.at });
+        paintNotify(res);
+      } catch (e) {
+        said.textContent = e.status === 404 ? 'that address was already off the list.' : 'that didn\'t go through. try again in a moment.';
+        remove.disabled = false;
+        if (e.status === 404) loadNotify();
+      }
+    });
+    end.append(el('span', 'caption', shortDate(p.at)), remove);
+    li.append(el('span', 'notify-email', p.email), end);
     ul.appendChild(li);
   });
   peek.appendChild(ul);
   const copy = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', 'copy the addresses');
   copy.type = 'button';
-  const said = el('span', 'caption');
-  said.setAttribute('role', 'status');
   copy.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText((r.people || []).map((p) => p.email).join('\n'));
@@ -410,6 +435,38 @@ function whoIsWaiting(r) {
   actions.append(copy, said);
   peek.appendChild(actions);
   return peek;
+}
+
+// "removed jka-test@mailinator.com from the doodle list. undo", for each one taken off this visit
+function removedBox() {
+  const box = el('div', 'notify-removed');
+  box.appendChild(el('p', 'caption', 'removed this visit. undo puts an address back with the day it signed up.'));
+  const ul = el('ul', 'notify-people');
+  removedPeople.forEach((p) => {
+    const li = el('li');
+    const undo = el('button', 'link-btn', 'undo');
+    undo.type = 'button';
+    undo.setAttribute('aria-label', 'put ' + p.email + ' back on the ' + p.name + ' list');
+    const said = el('span', 'caption');
+    said.setAttribute('role', 'status');
+    undo.addEventListener('click', async () => {
+      undo.disabled = true;
+      try {
+        const res = await api('PUT', '/api/admin/notify/person', { slug: p.slug, email: p.email, at: p.at });
+        removedPeople = removedPeople.filter((x) => x !== p);
+        paintNotify(res);
+      } catch (e) {
+        said.textContent = 'that didn\'t go through. try again in a moment.';
+        undo.disabled = false;
+      }
+    });
+    const end = el('span', 'notify-person-end');
+    end.append(said, undo);
+    li.append(el('span', 'notify-email', p.email + ' (' + p.name + ')'), end);
+    ul.appendChild(li);
+  });
+  box.appendChild(ul);
+  return box;
 }
 
 function paintNotify(data, done) { askingNotify = data; askingDone = done || null; paintAsking(); }
@@ -492,6 +549,7 @@ function paintAsking() {
   if (n && n.configured) (n.products || []).forEach((r) => { row(r.slug, r.name).list = r; });
   const list = [...rows.values()].sort((a, b) => (b.interest - a.interest) || ((b.list ? b.list.waiting : 0) - (a.list ? a.list.waiting : 0)));
   box.textContent = '';
+  if (removedPeople.length) box.appendChild(removedBox());
   // a send that emptied its list: say so, since that product's list is gone now
   const done = askingDone;
   if (done && !list.some((r) => r.list && r.slug === done.slug)) box.appendChild(el('p', 'body-sm', done.words));

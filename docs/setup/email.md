@@ -72,7 +72,10 @@ address after a change. Those two are set up in Square and Firebase.
   press **send**. You'll be asked to confirm first. Everyone waiting gets one email and comes off the list.
 - More than 100 waiting: the first press sends what today allows. Press send again the next day for the rest.
   The day's count starts again at midnight UTC (4 or 5 pm in California).
-- Someone asks to be taken off: their stop link does it. Or ask Claude Code to remove the address.
+- Someone asks to be taken off, or you want to clear out old test addresses: their stop link does it, or on `/admin`
+  open **interest and emails** > the product > **see who's waiting** and press **remove** beside the address. It moves
+  to a "removed this visit" box at the top with an **undo** button, which puts it back with the day it signed up.
+  Undo lasts until you reload the page.
 
 ## If something goes wrong
 - `/admin` still says "email isn't set up yet": the secret's name must be exactly `RESEND_API_KEY`, and you
