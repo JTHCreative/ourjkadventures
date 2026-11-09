@@ -18,6 +18,25 @@ After adding or changing one, press **Deploy**.
 ## Your domain
 `ourjkadventures.com` and `www.ourjkadventures.com` are on Cloudflare and point at the Worker.
 
+## www: one address for every page (added 2026-11-09)
+Cloudflare hands out plain pages (like `/admin`, `/about`, `/shop`) straight from the files, before our worker runs, so
+our own "move www to ourjkadventures.com" rule only catches some pages. Opening `www.ourjkadventures.com/admin` stays
+on www. Since 2026-11-09 the site works there too, but a sign-in or a saved bag made on www doesn't carry over to the
+plain address (the browser keeps them per address). This rule moves every www visit, like a sign on the side door
+pointing to the front:
+
+1. In the Cloudflare dashboard, open **ourjkadventures.com**, then **Rules** (left menu) > **Overview**.
+2. Press **Create rule** > **Redirect Rule**, and pick the template **Redirect from WWW to Root** if it's offered.
+   Otherwise fill it in yourself:
+   - Rule name: `www to ourjkadventures.com`
+   - When incoming requests match: **Custom filter expression**, field **Hostname**, operator **equals**,
+     value `www.ourjkadventures.com`
+   - Then: **Dynamic** redirect, expression `concat("https://ourjkadventures.com", http.request.uri.path)`,
+     status code **301**, and tick **Preserve query string**
+3. Press **Deploy**.
+4. Check it: open `www.ourjkadventures.com/admin` and the address bar should change to `ourjkadventures.com/admin`.
+   You'll need to sign in once more there.
+
 ## Email: support@ourjkadventures.com (set up 2026-10-26)
 Cloudflare **Email Routing** forwards mail for the domain to Gmail. It only receives; it cannot send.
 - Domain > **Email** > **Email Routing**: Enabled, DNS records configured.

@@ -880,6 +880,11 @@ two different sites. Cloudflare logged nothing, because a refusal isn't an error
   emails already use. Sign-ins, saved bags and the "i'm interested" ticket are kept per address by the browser, so one
   address means nobody loses them by arriving through the other door. Only GET and HEAD move: a POST already on its
   way from an old www page is let through.
+- **Never `/api/` (found the same day):** Cloudflare serves plain pages (`admin.html`, `about.html`, `shop.html`) straight
+  from the files without running the worker, so those pages still open at www. Their data requests do reach the worker,
+  and redirecting a GET there to the other address is one a browser refuses to follow (CORS): `/admin` said "we could
+  not reach the server" and the about page's reels hid themselves. `/api/` is now answered at whichever address asked.
+  Moving every www page visit needs Cloudflare's own redirect rule (`setup/cloudflare.md`, "www").
 
 ## "i'm interested" starts fresh once "it's here" goes out (2026-11-09)
 After "it's here" was sent, the pin kept its tally and every browser still showed "you're interested.", but no one was
