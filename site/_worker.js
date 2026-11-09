@@ -186,7 +186,8 @@ async function checkout(request, env, url) {
   // Square takes at most 500 characters here; the full note and address are on the shipment too
   const paymentNote = notes.length ? notes.join(' / ').slice(0, 500) : null;
   if (env.SUPPORT_EMAIL) options.merchant_support_email = env.SUPPORT_EMAIL;
-  const prefill = { buyer_email: address.email };
+  // no pre_populated_data: Square refuses a pre-filled email alongside the order's shipment ("Only one of
+  // [fulfillment, buyer_email] fields should be set"). The buyer's email is already on the shipment's recipient
 
   let res;
   try {
@@ -201,8 +202,7 @@ async function checkout(request, env, url) {
         idempotency_key: crypto.randomUUID(),
         order: order,
         checkout_options: options,
-        ...(paymentNote ? { payment_note: paymentNote } : {}),
-        pre_populated_data: prefill
+        ...(paymentNote ? { payment_note: paymentNote } : {})
       })
     });
   } catch (e) {
