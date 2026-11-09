@@ -31,3 +31,15 @@ test('a page asked for at www moves to the plain address; a POST is let through'
   const post = await worker.fetch(new Request('https://www.ourjkadventures.com/api/notify', { method: 'POST', headers: { Origin: 'https://www.ourjkadventures.com' } }), { ...env, FIREBASE_SERVICE_ACCOUNT: 'x' });
   assert.deepEqual(await post.json(), { error: 'email not set up' });
 });
+
+test('www: a page visit moves to the plain address, but a data request (/api/) is answered where it is', async () => {
+  const env = { ASSETS: { fetch: async () => new Response('page', { status: 200 }) } };
+  const page = await worker.fetch(new Request('https://www.ourjkadventures.com/pup-club/corgi'), env);
+  assert.equal(page.status, 301);
+  assert.equal(page.headers.get('Location'), 'https://ourjkadventures.com/pup-club/corgi');
+  // a page open at www (Cloudflare served it without the worker) asks for its data at www: no redirect, which
+  // the browser would refuse to follow across addresses
+  const api = await worker.fetch(new Request('https://www.ourjkadventures.com/api/admin'), env);
+  assert.notEqual(api.status, 301);
+  assert.equal(api.headers.get('Location'), null);
+});

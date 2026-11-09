@@ -37,8 +37,11 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     // one real address: a page asked for at www.ourjkadventures.com moves to ourjkadventures.com, so sign-ins, saved
-    // bags and the "i'm interested" ticket all live in one place. only page visits (GET/HEAD): a POST is let through
-    if (url.hostname.startsWith('www.') && (request.method === 'GET' || request.method === 'HEAD')) {
+    // bags and the "i'm interested" ticket all live in one place. only page visits (GET/HEAD): a POST is let through.
+    // never /api/: Cloudflare hands out plain pages (admin.html, about.html) without asking this worker, so a page can
+    // still be open at www, and a browser won't follow its own data request to the other address (CORS). redirecting
+    // /api/ there left /admin saying "we could not reach the server" and hid the about page's reels
+    if (url.hostname.startsWith('www.') && (request.method === 'GET' || request.method === 'HEAD') && !url.pathname.startsWith('/api/')) {
       return Response.redirect(url.protocol + '//' + url.hostname.slice(4) + url.pathname + url.search, 301);
     }
     if (url.pathname === '/api/checkout' || url.pathname === '/api/checkout/quote' || url.pathname === '/api/checkout/pay') return checkoutRoute(request, env, url);
