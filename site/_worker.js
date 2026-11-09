@@ -106,20 +106,32 @@ async function checkout(request, env, url) {
     if (qtyByKey[key] > MAX_QTY) return json({ error: 'bad item' }, 400);
   }
 
-  // a fresh look at the shelf, not the one-minute-old list, so we never sell what the booth just sold
+  // a fresh look at the shelf, not the one-minute-old list, so we never sell what the booth just sold.
+  // pre-order pins aren't on the shelf yet: they're limited only by how many one order may hold (MAX_QTY)
   const keys = Object.keys(qtyByKey);
-  let onShelf;
-  try { onShelf = await stockCounts(env, keys.map((k) => catalog.byKey[k].variation_id)); } catch (e) {
-    console.log('stock check failed', e.message);
-    return json({ error: 'square unreachable' }, 502);
+  const preorderKeys = keys.filter((k) => catalog.byKey[k].preorder);
+  const shelfKeys = keys.filter((k) => !catalog.byKey[k].preorder);
+  let onShelf = {};
+  if (shelfKeys.length) {
+    try { onShelf = await stockCounts(env, shelfKeys.map((k) => catalog.byKey[k].variation_id)); } catch (e) {
+      console.log('stock check failed', e.message);
+      return json({ error: 'square unreachable' }, 502);
+    }
   }
   // the "sold out" tick in the Square dashboard counts as none on the shelf
-  const left = (k) => (catalog.byKey[k].marked_sold_out ? 0 : onShelf[catalog.byKey[k].variation_id] || 0);
+  const left = (k) => (catalog.byKey[k].preorder ? MAX_QTY : catalog.byKey[k].marked_sold_out ? 0 : onShelf[catalog.byKey[k].variation_id] || 0);
   const short = keys.filter((k) => qtyByKey[k] > left(k));
   if (short.length) return json({ error: 'stock', items: short.map((k) => ({ key: k, stock: left(k) })) }, 409);
 
+  // a pre-order in the bag: the whole order waits and ships together once the pins are made, in about N weeks
+  const weeks = catalog.preorder_weeks || 4;
+  const preorderWords = preorderKeys.length ? 'pre-order. ships in about ' + weeks + ' weeks' : '';
+
   // pointing at the Square item (not typing a name and price) is what lets Square lower the stock count
-  const lines = keys.map((k) => ({ catalog_object_id: catalog.byKey[k].variation_id, quantity: String(qtyByKey[k]) }));
+  const lines = keys.map((k) => ({
+    catalog_object_id: catalog.byKey[k].variation_id, quantity: String(qtyByKey[k]),
+    ...(catalog.byKey[k].preorder ? { note: preorderWords } : {})
+  }));
   const currency = catalog.currency;
 
   const shipWords = ship.name + ' shipping' + (ship.days ? ' (' + ship.days + ')' : '');
@@ -136,7 +148,8 @@ async function checkout(request, env, url) {
         recipient: { display_name: address.name, email_address: address.email, address: squareAddress(address) },
         carrier: 'USPS',
         shipping_type: ship.name,
-        ...(gift ? { shipping_note: giftWords } : {})
+        ...(preorderKeys.length ? { expected_shipped_at: new Date(Date.now() + weeks * 7 * 86400000).toISOString() } : {}),
+        ...(gift || preorderKeys.length ? { shipping_note: [preorderWords && 'pre-order: the whole order ships together in about ' + weeks + ' weeks', giftWords].filter(Boolean).join(' / ') } : {})
       }
     }]
   };
@@ -149,17 +162,20 @@ async function checkout(request, env, url) {
   }
   if (buyer) order.metadata = { uid: buyer.sub };
   if (gift) order.metadata = { ...(order.metadata || {}), gift: 'yes' };
+  if (preorderKeys.length) order.metadata = { ...(order.metadata || {}), preorder: 'yes' };
   const tax = Number(env.TAX_PERCENT);
   if (tax > 0) order.taxes = [{ uid: 'sales-tax', name: 'sales tax', percentage: String(tax), scope: 'ORDER' }];
 
   const options = {
-    redirect_url: url.origin + '/thank-you.html',
+    // the thank-you page says when a pre-order ships
+    redirect_url: url.origin + '/thank-you.html' + (preorderKeys.length ? '?preorder=' + weeks : ''),
     ask_for_shipping_address: false
   };
   // Square shows this one line on its page and on the receipt, so it says which choice they made.
   // free ground (pins over $40): no shipping line to charge, and a note on the payment says how to send it
   const charge = shippingCharge(ship, keys.map((k) => ({ kind: catalog.byKey[k].kind, price_cents: catalog.byKey[k].price_cents, qty: qtyByKey[k] })));
   const notes = [];
+  if (preorderKeys.length) notes.push('pre-order: ship the whole order together in about ' + weeks + ' weeks');
   if (charge.free) {
     notes.push('free ' + shipWords);
   } else {

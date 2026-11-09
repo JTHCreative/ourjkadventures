@@ -46,7 +46,7 @@ const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 export function pupOffers(catalog, slug) {
   if (!catalog || catalog.open !== true) return [];
   const item = (catalog.items || []).find((p) => p.slug === slug);
-  if (!item || !item.available) return [];
+  if (!item || !(item.available || item.preorder)) return [];
   return (item.sizes || []).filter((s) => Number.isInteger(s.price_cents) && s.price_cents > 0).map((s) => {
     const row = catalog.byKey && catalog.byKey[s.key];
     return {
@@ -54,7 +54,7 @@ export function pupOffers(catalog, slug) {
       ...(item.sizes.length > 1 ? { name: s.size === 'standard' ? 'standard size' : s.size + ' size' } : {}),
       price: (s.price_cents / 100).toFixed(2),
       priceCurrency: (row && row.currency) || catalog.currency || 'USD',
-      availability: s.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      availability: s.preorder ? 'https://schema.org/PreOrder' : s.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
       itemCondition: 'https://schema.org/NewCondition',
       url: SITE + pupPath(slug)
     };
