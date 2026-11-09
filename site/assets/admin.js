@@ -561,10 +561,13 @@ function paintAsking() {
   }
   list.forEach((r) => {
     const div = el('div', 'link-product');
-    div.appendChild(el('p', 'link-product-name', r.name));
+    // the name on the left; "clear the count" on the right of the same line, out of the way of the rest
+    const head = el('div', 'link-product-head');
+    head.appendChild(el('p', 'link-product-name', r.name));
+    if (r.interest) head.appendChild(clearCount(r));
+    div.appendChild(head);
     // the tally only when there is one: a product can have people waiting for an email without any taps counted
     div.appendChild(el('p', 'caption', (r.interest ? peopleWords(r.interest) + ' ' : '') + shelfWords(r.slug)));
-    if (r.interest) div.appendChild(clearCount(r));
     if (r.list) emailBits(r.list, done).forEach((x) => div.appendChild(x));
     else if (n && n.configured) div.appendChild(el('p', 'caption', 'no one waiting for an email.'));
     box.appendChild(div);
@@ -573,7 +576,7 @@ function paintAsking() {
 
 // "clear the count": the tally back to 0 and its votes forgotten (a stray or test tap, say). the email list stays
 function clearCount(r) {
-  const row = el('div', 'admin-actions');
+  const row = el('span', 'clear-count');
   const go = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', 'clear the count');
   go.type = 'button';
   go.setAttribute('aria-label', 'clear the "i\'m interested" count for the ' + r.name);
@@ -593,7 +596,7 @@ function clearCount(r) {
       go.disabled = false;
     }
   });
-  row.append(go, note);
+  row.append(note, go);
   return row;
 }
 

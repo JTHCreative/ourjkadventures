@@ -1102,6 +1102,8 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .link-product-name { font-size: 19px; line-height: 24px; font-weight: 500; }
 .link-product-switch { display: inline-flex; align-items: center; gap: var(--space-2); }
 .link-product-note { margin-top: var(--space-1); }
+/* "clear the count" in interest and emails: on the right of the product's name, its status line before it */
+.clear-count { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); margin-left: auto; }
 .link-product.is-unavailable .link-product-name { color: var(--ink-muted); }
 .switch--sm { width: 48px; height: 28px; }
 .switch--sm .switch-knob { width: 19px; height: 19px; }
