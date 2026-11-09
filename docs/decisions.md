@@ -748,3 +748,28 @@ same tax, kept in one place. Checked against the real account with `CalculateOrd
 got Millbrae Sales Tax $2.81, and the $13.00 shipping line stayed untaxed. `TAX_PERCENT` is no longer read, so
 leaving it set can't add tax twice. Whether shipping should be taxed, and whether other states' buyers should pay
 their own state's tax, are questions for the owner's accountant.
+
+## Pre-order dates, and pre-orders ignore Square's "sold out" tick (2026-11-09)
+- **The bug:** the live pre-order pins (corgi, german shepherd, husky, shiba) showed only the email box. Their Square
+  items have the "sold out" tick on, which is right for pins still being made, and the first version skipped any
+  pre-order ticked sold out in case Square's payment page refused it. A pre-order is by definition not on the shelf,
+  so that rule defeated the feature. Pre-orders now sell whatever the tick says (still only while linked and the
+  shop is open). Square's Orders API priced such an item without objection; the payment page itself is the one step
+  that couldn't be tried from here.
+- **A date per product** instead of one "about 4 weeks" for all: set from a gear ("pre-order settings") beside each
+  product's switches on `/admin`, saved in `settings/preorder_dates_<mode>` as "YYYY-MM-DD", kept while pre-order is
+  off so it comes back with it. The owner can't save a passed date or one more than two years out. Once a date
+  passes, the shop quietly falls back to "about 4 weeks" rather than promise a day that's gone; `/admin` says so.
+- **Words:** "pre-order. expected in stock and shipping around december 15." "Around", because it's an estimate,
+  not a promise, and never urgency. The year shows only when it isn't this year.
+- **A bag ships with its last pre-order:** the latest date among its pre-orders, an undated one counting as about
+  4 weeks from today. That date goes on the Square shipment (`expected_shipped_at`), the notes and the thank-you page.
+- Orders already paid keep the date they were given if the owner later moves it.
+
+## /admin shows one section at a time (2026-11-09)
+The "jump to" menu (2026-11-09, earlier the same day) sat above every card in two columns. The owner asked for each
+section to take the full width and for the menu to open one at a time. The menu is now a row of buttons, one per card
+(built from the card titles, so new cards join on their own); the chosen card shows alone and the rest are hidden.
+Folding each card is gone, since only one shows at a time. The open card is kept in the address (`#admin-...-title`)
+and in that browser, so a reload or a shared link comes back to it. The menu stays at the top while scrolling on
+screens 720px and wider.
