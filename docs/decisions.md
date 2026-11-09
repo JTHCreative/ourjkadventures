@@ -808,3 +808,11 @@ The owner asked for the menu and the sections to sit in the middle 50% of the sc
 sides. From 1100px wide, `.admin` is half the page's width with no side padding of its own, so the cards land at
 exactly 25% to 75%. Below 1100px half would be too narrow to use (550px or less), so it keeps a 720px column, and on
 a phone the usual 16px gutters.
+
+## "i'm interested" and "email when it's here" are one section on /admin (2026-11-09)
+The owner asked to combine the two. They were about the same products from two sides: the tally of taps, and the
+list of people who left an email after tapping. Now "interest and emails" has one row per product with either, most
+asked for first: the tally (only when there is one), whether it's in the shop, on pre-order or not yet, then its
+email list with the send button (or what to switch on first), who's waiting with the copy button, and the email
+preview. Today's email count sits at the top. Both are still loaded separately (the products list and the email
+lists), and whichever arrives repaints the section, so nothing waits on the other. The server side is unchanged.

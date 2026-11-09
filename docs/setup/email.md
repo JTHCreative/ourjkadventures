@@ -33,7 +33,7 @@ Until step 6 is done, the line under a tapped "i'm interested!" just says "thank
    - Optional: `EMAIL_DAILY_LIMIT` (Text) if you move to a paid Resend plan. Default `100`.
 
 ## C. Check it works
-7. Open `/admin`. The **email when it's here** card should say "today: 0 of 100 emails sent." instead of
+7. Open `/admin`. The **interest and emails** section should say "emails today: 0 of 100 sent." instead of
    "email isn't set up yet".
 8. Pick a pin that is switched off (not available), open it in the shop and tap **i'm interested!**. Under the
    button it says "thank you! be notified when it's available:". Enter your own email and press **notify me**.
@@ -50,7 +50,7 @@ Until step 6 is done, the line under a tapped "i'm interested!" just says "thank
     unsubscribe headers).
 
 ## Day to day
-- When a pin arrives: on `/admin`, switch it on, open the shop if it's closed, then in **email when it's here**
+- When a pin arrives: on `/admin`, switch it on, open the shop if it's closed, then in **interest and emails**
   press **send**. You'll be asked to confirm first. Everyone waiting gets one email and comes off the list.
 - More than 100 waiting: the first press sends what today allows. Press send again the next day for the rest.
   The day's count starts again at midnight UTC (4 or 5 pm in California).
