@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>checkout. j+k adventures</title>
+<meta name="description" content="check out your j+k adventures order: where it goes, shipping and payment.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <filter id="jka-rough" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="4"/></filter>
+  <filter id="jka-rough-fine" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="2" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.5"/></filter>
+</svg>
+<header class="site-header">
+  <div class="wrap">
+    <a class="logo-link" href="/" aria-label="j+k adventures, home"><img class="logo" src="assets/img/logo.svg" width="400" height="220" alt="j+k adventures"></a>
+    <nav class="nav" aria-label="main">
+      <a href="/shop">back to the shop</a>
+      <button class="cart-btn" type="button" data-cart aria-label="open your bag">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
+        <span class="cart-count" data-cart-count hidden>0</span>
+      </button>
+    </nav>
+  </div>
+</header>
+<main data-checkout>
+
+<div class="wrap checkout-wrap">
+  <h1 class="checkout-title">checkout.</h1>
+
+  <!-- shown instead of the form when there's nothing to pay for (an empty bag, or the shop is closed) -->
+  <div class="checkout-empty card" data-co-empty hidden>
+    <p class="body-lg" data-co-empty-words>your bag is empty. a pin would look good in it.</p>
+    <p><a class="jka-btn jka-btn--quiet" href="/shop">back to the shop</a></p>
+  </div>
+
+  <p class="caption checkout-loading" data-co-loading>one moment, getting your bag.</p>
+
+  <div class="checkout" data-co-page hidden>
+    <!-- the order summary: beside the form on a wide screen, folded up above it on a phone -->
+    <aside class="co-side" aria-labelledby="co-summary-title">
+      <details class="co-summary" data-co-summary open>
+        <summary class="co-summary-head">
+          <span id="co-summary-title" class="co-summary-title">your order</span>
+          <span class="co-summary-total" data-co-head-total></span>
+        </summary>
+        <ul class="co-lines" data-co-lines></ul>
+        <p class="co-change"><button class="linklike" type="button" data-co-edit-bag>change what's in your bag</button></p>
+        <dl class="co-sums">
+          <div><dt>pins</dt><dd data-co-items></dd></div>
+          <div><dt>shipping</dt><dd data-co-ship></dd></div>
+          <div><dt>sales tax</dt><dd data-co-tax></dd></div>
+          <div data-co-tip-row hidden><dt>tip</dt><dd data-co-tip></dd></div>
+          <div class="co-total"><dt>total</dt><dd data-co-total></dd></div>
+        </dl>
+        <p class="caption co-preorder" data-co-preorder hidden></p>
+      </details>
+    </aside>
+
+    <form class="co-main" data-co-form novalidate>
+      <section class="co-section" aria-labelledby="co-contact-title">
+        <h2 class="co-h" id="co-contact-title">your email</h2>
+        <div class="field">
+          <label for="co-email">email, for your receipt and when it ships</label>
+          <input id="co-email" name="email" type="email" autocomplete="email" maxlength="254" required aria-describedby="co-email-msg co-email-hint">
+          <p class="form-msg" id="co-email-msg" hidden></p>
+          <p class="caption" id="co-email-hint"></p>
+        </div>
+      </section>
+
+      <section class="co-section" aria-labelledby="co-ship-to-title">
+        <h2 class="co-h" id="co-ship-to-title">where should we send it?</h2>
+        <p class="caption">we ship within the u.s. for now: all 50 states and d.c.</p>
+        <div class="field">
+          <label for="co-name">name on the package</label>
+          <input id="co-name" name="name" type="text" autocomplete="shipping name" maxlength="80" required aria-describedby="co-name-msg">
+          <p class="form-msg" id="co-name-msg" hidden></p>
+        </div>
+        <div class="field">
+          <label for="co-line1">street address</label>
+          <input id="co-line1" name="line1" type="text" autocomplete="shipping address-line1" maxlength="100" required aria-describedby="co-line1-msg">
+          <p class="form-msg" id="co-line1-msg" hidden></p>
+        </div>
+        <div class="field">
+          <label for="co-line2">apartment, suite, unit (if there is one)</label>
+          <input id="co-line2" name="line2" type="text" autocomplete="shipping address-line2" maxlength="100" aria-describedby="co-line2-msg">
+          <p class="form-msg" id="co-line2-msg" hidden></p>
+        </div>
+        <div class="co-row3">
+          <div class="field">
+            <label for="co-city">city</label>
+            <input id="co-city" name="city" type="text" autocomplete="shipping address-level2" maxlength="60" required aria-describedby="co-city-msg">
+            <p class="form-msg" id="co-city-msg" hidden></p>
+          </div>
+          <div class="field">
+            <label for="co-state">state</label>
+            <select id="co-state" name="state" autocomplete="shipping address-level1" required aria-describedby="co-state-msg">
+              <option value="">pick one</option>
+            </select>
+            <p class="form-msg" id="co-state-msg" hidden></p>
+          </div>
+          <div class="field">
+            <label for="co-zip">zip code</label>
+            <input id="co-zip" name="zip" type="text" inputmode="numeric" autocomplete="shipping postal-code" maxlength="10" required aria-describedby="co-zip-msg">
+            <p class="form-msg" id="co-zip-msg" hidden></p>
+          </div>
+        </div>
+        <div class="gift">
+          <label class="gift-tick"><input type="checkbox" name="gift" data-co-gift> <span>this is a gift</span></label>
+          <div class="field" data-co-gift-note hidden>
+            <label for="co-gift-note">a note for the card</label>
+            <textarea id="co-gift-note" name="message" rows="3" aria-describedby="co-gift-hint"></textarea>
+            <p class="hint" id="co-gift-hint"></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="co-section" aria-labelledby="co-shipping-title">
+        <h2 class="co-h" id="co-shipping-title">shipping</h2>
+        <fieldset class="ship co-ship">
+          <legend class="sr-only">how should we send it?</legend>
+          <div data-co-ship-options></div>
+          <p class="caption" data-co-free></p>
+        </fieldset>
+      </section>
+
+      <section class="co-section" aria-labelledby="co-pay-title">
+        <h2 class="co-h" id="co-pay-title">payment</h2>
+        <!-- Square's own card form goes in here (the Web Payments SDK). the card number is typed straight into
+             Square's box, so it never touches our site -->
+        <div data-co-card-area hidden>
+          <p class="caption">your card goes straight to square, who look after our payments. we never see the number.</p>
+          <div class="co-wallets" data-co-wallets hidden>
+            <button type="button" class="co-apple-pay" data-co-apple-pay hidden aria-label="pay with apple pay"></button>
+            <div class="co-google-pay" data-co-google-pay hidden></div>
+            <p class="co-or" data-co-or hidden><span>or pay by card</span></p>
+          </div>
+          <div class="co-card" id="co-card" data-co-card></div>
+          <p class="caption" data-co-card-wait>one moment, getting the card form from square.</p>
+        </div>
+        <!-- no card form set up yet: Square's own payment page takes over after this one -->
+        <p class="caption" data-co-hosted hidden>after this, square's payment page opens for your card or apple pay. it's where we take payments.</p>
+      </section>
+
+      <section class="co-section" aria-labelledby="co-tip-title" data-co-tip-section hidden>
+        <h2 class="co-h" id="co-tip-title">a tip for us, if you'd like</h2>
+        <p class="caption">totally optional. a tip goes straight to the two of us, justin and kitty, and keeps the pins coming. thank you either way!</p>
+        <fieldset class="co-tips">
+          <legend class="sr-only">tip</legend>
+          <div class="co-tip-grid" data-co-tip-options></div>
+          <div class="field co-tip-own" data-co-tip-own hidden>
+            <label for="co-tip-amount">your own tip, in dollars</label>
+            <input id="co-tip-amount" type="text" inputmode="decimal" autocomplete="off" maxlength="7" placeholder="3.00" aria-describedby="co-tip-msg">
+            <p class="form-msg" id="co-tip-msg" hidden></p>
+          </div>
+        </fieldset>
+      </section>
+
+      <div class="co-pay">
+        <p class="err" role="alert" data-co-error hidden></p>
+        <button class="jka-btn co-pay-btn" type="submit" data-co-pay disabled>pay</button>
+        <p class="caption">questions? write to us at <a href="mailto:support@ourjkadventures.com">support@ourjkadventures.com</a>. how we look after your details: <a href="/privacy">privacy</a>.</p>
+      </div>
+    </form>
+  </div>
+</div>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="links">
+      <a href="/shop">shop</a>
+      <a href="/about">about us</a>
+      <a href="/contact">contact</a>
+      <a href="https://www.instagram.com/ourjkadventures/" target="_blank" rel="noopener">instagram</a>
+      <a href="mailto:support@ourjkadventures.com">email</a>
+      <a href="/privacy">privacy</a>
+    </div>
+    <p class="caption">&copy; 2026 j+k adventures.</p>
+  </div>
+</footer>
+<script src="assets/app.js"></script>
+<script src="assets/checkout.js"></script>
+</body>
+</html>
