@@ -1,5 +1,6 @@
-// Tests for pre-order: the owner's second switch on /admin. A pin on pre-order is being made: never for sale,
-// no "i'm interested" votes, but "email me when it's here" still takes sign-ups.
+// Tests for pre-order: the owner's second switch on /admin. A pin on pre-order is being made: it can be bought
+// (paid now, shipped in about preorder_weeks, the whole order together), with no "i'm interested" votes, and
+// "email me when it's here" still takes sign-ups.
 // Run: node --test tests/*.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -41,16 +42,75 @@ function setup({ preorder = [], unavailable = [] } = {}) {
 }
 const item = async (s, slug) => (await (await s.call('GET', '/api/catalog')).json()).items.find((p) => p.slug === slug);
 
-test('a pin on pre-order is off sale, even when it is linked, in stock and switched available', async () => {
-  const s = setup({ preorder: ['aussie'] });
-  const aussie = await item(s, 'aussie');
+const HOME = { name: 'pup person', email: 'buyer@example.com', line1: '1 main st', city: 'oakland', state: 'CA', zip: '94607' };
+const buy = (s, items, extra = {}) => s.call('POST', '/api/checkout', { body: { items, ship_to: HOME, ...extra } });
+
+test('a pin on pre-order is for sale at its Square price, without looking at the shelf', async () => {
+  const s = setup({ preorder: ['aussie'], unavailable: ['aussie'] });
+  const c = await (await s.call('GET', '/api/catalog')).json();
+  assert.equal(c.preorder_weeks, 4);
+  const aussie = c.items.find((p) => p.slug === 'aussie');
   assert.equal(aussie.preorder, true);
   assert.equal(aussie.available, false);
-  assert.deepEqual(aussie.sizes, []);
-  assert.equal((await item(s, 'corgi')).preorder, false);
-  const res = await s.call('POST', '/api/checkout', { body: { items: [{ key: 'aussie', qty: 1 }] } });
-  assert.equal(res.status, 400);
+  // Square has 3 standard aussies; a pre-order isn't limited by that, only by 20 an order
+  assert.deepEqual(aussie.sizes, [
+    { size: 'standard', key: 'aussie', price_cents: 1200, stock: 20, preorder: true },
+    { size: 'large', key: 'aussie:large', price_cents: 1500, stock: 20, preorder: true }
+  ]);
+  const res = await buy(s, [{ key: 'aussie', qty: 10 }]);
+  assert.equal(res.status, 200);
+  assert.equal((await buy(s, [{ key: 'aussie', qty: 21 }])).status, 400);
+  // no stock count asked of Square for a pre-order-only bag
+  assert.equal(s.sq.calls.filter((c) => c.includes('/inventory/counts')).length, 1); // the catalog's own look
+});
+
+test('a pre-order checkout says when it ships: on the line, the shipment, the payment and the thank-you page', async () => {
+  const s = setup({ preorder: ['aussie'] });
+  const before = Date.now();
+  assert.equal((await buy(s, [{ key: 'aussie', qty: 1 }])).status, 200);
+  const link = s.sq.links[0];
+  assert.deepEqual(link.order.line_items, [{ catalog_object_id: 'V_AUS', quantity: '1', note: 'pre-order. ships in about 4 weeks' }]);
+  assert.deepEqual(link.order.metadata, { preorder: 'yes' });
+  const ship = link.order.fulfillments[0].shipment_details;
+  assert.equal(ship.shipping_note, 'pre-order: the whole order ships together in about 4 weeks');
+  const when = Date.parse(ship.expected_shipped_at) - before;
+  assert.ok(when >= 28 * 86400000 && when < 28 * 86400000 + 60000);
+  assert.equal(link.payment_note, 'pre-order: ship the whole order together in about 4 weeks');
+  assert.equal(link.checkout_options.redirect_url, 'https://x.test/thank-you.html?preorder=4');
+});
+
+test('a bag with a pre-order and an in-stock pin: the shelf is checked for the in-stock one, all ships together', async () => {
+  const s = setup({ preorder: ['aussie'] });
+  s.g.docs['settings/square_sandbox'].pomeranian = str('V_AUS_L');
+  _resetCatalogCache();
+  assert.equal((await buy(s, [{ key: 'aussie', qty: 2 }, { key: 'pomeranian', qty: 49 }])).status, 400); // over 20
+  s.sq.stock.V_AUS_L = 1;
+  const short = await buy(s, [{ key: 'aussie', qty: 2 }, { key: 'pomeranian', qty: 2 }]);
+  assert.equal(short.status, 409);
+  assert.deepEqual((await short.json()).items, [{ key: 'pomeranian', stock: 1 }]);
+  assert.equal((await buy(s, [{ key: 'aussie', qty: 2 }, { key: 'pomeranian', qty: 1 }, { key: 'aussie:large', qty: 1 }])).status, 200);
+  const link = s.sq.links[0];
+  assert.deepEqual(link.order.line_items.map((l) => l.note || ''), ['pre-order. ships in about 4 weeks', '', 'pre-order. ships in about 4 weeks']);
+  assert.ok(link.payment_note.startsWith('pre-order: ship the whole order together'));
+});
+
+test('a pin on pre-order that is ticked sold out in Square, or a closed shop, sells nothing', async () => {
+  const s = setup({ preorder: ['corgi'] }); // corgi is linked to the item ticked sold out
+  assert.deepEqual((await item(s, 'corgi')).sizes, []);
+  assert.equal((await buy(s, [{ key: 'corgi', qty: 1 }])).status, 400);
+  s.g.docs['settings/shop'] = { open: { booleanValue: false } };
+  _resetShopCache();
+  _resetCatalogCache();
+  assert.ok((await item(s, 'aussie')).sizes.every((z) => z.stock === 0));
   assert.equal(s.sq.links.length, 0);
+});
+
+test('the ship time comes from products.json', async () => {
+  const s = setup({ preorder: ['aussie'] });
+  s.env.ASSETS = { fetch: async () => Response.json({ ...products, preorder_weeks: 6 }) };
+  _resetCatalogCache();
+  assert.equal((await buy(s, [{ key: 'aussie', qty: 1 }])).status, 200);
+  assert.equal(s.sq.links[0].order.line_items[0].note, 'pre-order. ships in about 6 weeks');
 });
 
 test('a pin on pre-order takes no votes, and its tally stays out of the shop', async () => {
@@ -89,7 +149,7 @@ test('the owner flips pre-order on and off; nobody else can', async () => {
 
   assert.equal((await flip(owner, 'aussie', true)).status, 200);
   assert.equal((await item(s, 'aussie')).preorder, true);
-  assert.deepEqual((await item(s, 'aussie')).sizes, []);
+  assert.ok((await item(s, 'aussie')).sizes.every((z) => z.preorder === true));
   let links = await (await s.call('GET', '/api/admin/products', { token: owner })).json();
   assert.equal(links.preorder.aussie, true);
   // the available switch is left as it was
@@ -107,4 +167,15 @@ test('a pin on pre-order never turns in the featured carousel', async () => {
   const s = setup({ preorder: ['aussie'] });
   s.g.docs['settings/featured_sandbox'] = { slugs: str('aussie') };
   assert.deepEqual((await (await s.call('GET', '/api/catalog')).json()).featured, []);
+});
+
+test('google is told a pre-order pin can be pre-ordered', async () => {
+  const { pupOffers } = await import('../server/pup-pages.js');
+  const catalog = {
+    open: true, currency: 'USD',
+    items: [{ slug: 'aussie', available: false, preorder: true, sizes: [{ size: 'standard', key: 'aussie', price_cents: 1200, stock: 20, preorder: true }] }],
+    byKey: { aussie: { currency: 'USD' } }
+  };
+  assert.equal(pupOffers(catalog, 'aussie')[0].availability, 'https://schema.org/PreOrder');
+  assert.deepEqual(pupOffers({ ...catalog, open: false }, 'aussie'), []);
 });

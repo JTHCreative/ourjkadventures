@@ -26,6 +26,7 @@ import { reelsRoute } from '../server/instagram.js';
 import { mediaRoute } from '../server/media.js';
 import { pupPageRoute } from '../server/pup-pages.js';
 import { staticOrNotFound } from '../server/not-found.js';
+import { cleanShipTo, cleanGift, squareAddress, addressLine, noteGift } from '../server/ship-to.js';
 
 const MAX_LINES = 30;
 const MAX_QTY = 20;
@@ -87,6 +88,15 @@ async function checkout(request, env, url) {
   const ship = shipOptions.find((o) => o.id === shipId);
   if (!ship) return json({ error: 'bad shipping' }, 400);
 
+  // where it goes: u.s. states and d.c. only, checked here (server/ship-to.js), never trusted from the browser.
+  // the field tells the bag which box needs another look
+  const shipTo = cleanShipTo(body.ship_to);
+  if (!shipTo.ok) return json({ error: 'address', field: shipTo.field, reason: shipTo.error }, 400);
+  const address = shipTo.value;
+  // a gift: a short note we write by hand on a card. null when it isn't one
+  const gift = cleanGift(body.gift);
+  if (gift && gift.error) return json({ error: 'gift', reason: gift.error }, 400);
+
   const qtyByKey = {};
   for (const w of wanted) {
     const key = w && w.key;
@@ -96,23 +106,53 @@ async function checkout(request, env, url) {
     if (qtyByKey[key] > MAX_QTY) return json({ error: 'bad item' }, 400);
   }
 
-  // a fresh look at the shelf, not the one-minute-old list, so we never sell what the booth just sold
+  // a fresh look at the shelf, not the one-minute-old list, so we never sell what the booth just sold.
+  // pre-order pins aren't on the shelf yet: they're limited only by how many one order may hold (MAX_QTY)
   const keys = Object.keys(qtyByKey);
-  let onShelf;
-  try { onShelf = await stockCounts(env, keys.map((k) => catalog.byKey[k].variation_id)); } catch (e) {
-    console.log('stock check failed', e.message);
-    return json({ error: 'square unreachable' }, 502);
+  const preorderKeys = keys.filter((k) => catalog.byKey[k].preorder);
+  const shelfKeys = keys.filter((k) => !catalog.byKey[k].preorder);
+  let onShelf = {};
+  if (shelfKeys.length) {
+    try { onShelf = await stockCounts(env, shelfKeys.map((k) => catalog.byKey[k].variation_id)); } catch (e) {
+      console.log('stock check failed', e.message);
+      return json({ error: 'square unreachable' }, 502);
+    }
   }
   // the "sold out" tick in the Square dashboard counts as none on the shelf
-  const left = (k) => (catalog.byKey[k].marked_sold_out ? 0 : onShelf[catalog.byKey[k].variation_id] || 0);
+  const left = (k) => (catalog.byKey[k].preorder ? MAX_QTY : catalog.byKey[k].marked_sold_out ? 0 : onShelf[catalog.byKey[k].variation_id] || 0);
   const short = keys.filter((k) => qtyByKey[k] > left(k));
   if (short.length) return json({ error: 'stock', items: short.map((k) => ({ key: k, stock: left(k) })) }, 409);
 
+  // a pre-order in the bag: the whole order waits and ships together once the pins are made, in about N weeks
+  const weeks = catalog.preorder_weeks || 4;
+  const preorderWords = preorderKeys.length ? 'pre-order. ships in about ' + weeks + ' weeks' : '';
+
   // pointing at the Square item (not typing a name and price) is what lets Square lower the stock count
-  const lines = keys.map((k) => ({ catalog_object_id: catalog.byKey[k].variation_id, quantity: String(qtyByKey[k]) }));
+  const lines = keys.map((k) => ({
+    catalog_object_id: catalog.byKey[k].variation_id, quantity: String(qtyByKey[k]),
+    ...(catalog.byKey[k].preorder ? { note: preorderWords } : {})
+  }));
   const currency = catalog.currency;
 
-  const order = { location_id: env.SQUARE_LOCATION_ID, line_items: lines };
+  const shipWords = ship.name + ' shipping' + (ship.days ? ' (' + ship.days + ')' : '');
+  const giftWords = gift ? (gift.message ? 'gift. write on the card: "' + gift.message + '"' : 'gift. blank card, no note') : '';
+  // the address rides on the order itself, so it shows in the Square dashboard with the order and its buyer.
+  // Square's own address form is switched off below: the address can't be changed to one we don't ship to
+  const order = {
+    location_id: env.SQUARE_LOCATION_ID,
+    line_items: lines,
+    fulfillments: [{
+      type: 'SHIPMENT',
+      state: 'PROPOSED',
+      shipment_details: {
+        recipient: { display_name: address.name, email_address: address.email, address: squareAddress(address) },
+        carrier: 'USPS',
+        shipping_type: ship.name,
+        ...(preorderKeys.length ? { expected_shipped_at: new Date(Date.now() + weeks * 7 * 86400000).toISOString() } : {}),
+        ...(gift || preorderKeys.length ? { shipping_note: [preorderWords && 'pre-order: the whole order ships together in about ' + weeks + ' weeks', giftWords].filter(Boolean).join(' / ') } : {})
+      }
+    }]
+  };
 
   // a signed-in buyer: tag the order with their account so the Collector's Path can find it later,
   // and fill in their email on Square's page. A missing or bad ticket just means a signed-out checkout.
@@ -121,25 +161,32 @@ async function checkout(request, env, url) {
     try { buyer = await userFromRequest(request, env); } catch (e) { buyer = null; }
   }
   if (buyer) order.metadata = { uid: buyer.sub };
+  if (gift) order.metadata = { ...(order.metadata || {}), gift: 'yes' };
+  if (preorderKeys.length) order.metadata = { ...(order.metadata || {}), preorder: 'yes' };
   const tax = Number(env.TAX_PERCENT);
   if (tax > 0) order.taxes = [{ uid: 'sales-tax', name: 'sales tax', percentage: String(tax), scope: 'ORDER' }];
 
   const options = {
-    redirect_url: url.origin + '/thank-you.html',
-    ask_for_shipping_address: true
+    // the thank-you page says when a pre-order ships
+    redirect_url: url.origin + '/thank-you.html' + (preorderKeys.length ? '?preorder=' + weeks : ''),
+    ask_for_shipping_address: false
   };
   // Square shows this one line on its page and on the receipt, so it says which choice they made.
   // free ground (pins over $40): no shipping line to charge, and a note on the payment says how to send it
   const charge = shippingCharge(ship, keys.map((k) => ({ kind: catalog.byKey[k].kind, price_cents: catalog.byKey[k].price_cents, qty: qtyByKey[k] })));
-  const shipWords = ship.name + ' shipping' + (ship.days ? ' (' + ship.days + ')' : '');
-  let paymentNote = null;
+  const notes = [];
+  if (preorderKeys.length) notes.push('pre-order: ship the whole order together in about ' + weeks + ' weeks');
   if (charge.free) {
-    paymentNote = 'free ' + shipWords;
+    notes.push('free ' + shipWords);
   } else {
     options.shipping_fee = { name: shipWords, charge: { amount: charge.cents, currency: currency } };
   }
+  // the payment note shows on the payment in the Square dashboard: a gift says so, with where it goes
+  if (gift) notes.push(giftWords + ' ship to: ' + addressLine(address));
+  // Square takes at most 500 characters here; the full note and address are on the shipment too
+  const paymentNote = notes.length ? notes.join(' / ').slice(0, 500) : null;
   if (env.SUPPORT_EMAIL) options.merchant_support_email = env.SUPPORT_EMAIL;
-  const prefill = buyer && buyer.email ? { buyer_email: buyer.email } : null;
+  const prefill = { buyer_email: address.email };
 
   let res;
   try {
@@ -155,7 +202,7 @@ async function checkout(request, env, url) {
         order: order,
         checkout_options: options,
         ...(paymentNote ? { payment_note: paymentNote } : {}),
-        ...(prefill ? { pre_populated_data: prefill } : {})
+        pre_populated_data: prefill
       })
     });
   } catch (e) {
@@ -172,6 +219,11 @@ async function checkout(request, env, url) {
   // never blocks checkout: a missed note only means the order won't be listed.
   if (buyer && link.order_id) {
     try { await noteOrder(env, buyer.sub, link.order_id); } catch (e) { console.log('order note failed', e.message); }
+  }
+  // a gift goes on the owner's list of cards to write (/admin), shown once Square says it was paid.
+  // never blocks checkout: the note is on the Square order either way
+  if (gift && link.order_id && firebaseConfigured(env)) {
+    try { await noteGift(env, link.order_id, address, gift, shipWords, fetch); } catch (e) { console.log('gift note failed', e.message); }
   }
   return json({ url: target });
 }

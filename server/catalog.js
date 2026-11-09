@@ -18,6 +18,7 @@ import { isShopOpen } from './shop.js';
 import { squareConfigured, squareMode, getVariations, stockCounts } from './square.js';
 import { readShopStates, isAvailable, isPreorder, readInterest } from './interest.js';
 import { emailConfigured } from './email.js';
+import { stateList, GIFT_MAX } from './ship-to.js';
 
 const CACHE_MS = 60 * 1000;
 const RETRY_MS = 10 * 1000;
@@ -71,8 +72,21 @@ export async function saveFeatured(env, slugs, who, fetchFn = fetch) {
   cache = { value: null, until: 0, mode: null };
 }
 
-// how many of a product are on the shelf, all sizes together
-export function stockOf(item) { return (item.sizes || []).reduce((n, s) => n + (s.stock > 0 ? s.stock : 0), 0); }
+// how many of a product are on the shelf, all sizes together. a pin on pre-order has none on the shelf yet
+export function stockOf(item) {
+  if (item.preorder) return 0;
+  return (item.sizes || []).reduce((n, s) => n + (s.stock > 0 ? s.stock : 0), 0);
+}
+
+// a pre-order isn't limited by the shelf (the pins are being made), only by how many one order may hold.
+// the bag and checkout treat this as its "stock"
+export const PREORDER_MAX = 20;
+
+// how long pre-orders take to ship, from products.json ("preorder_weeks": 4). 4 if it's missing or odd
+export function preorderWeeks(products) {
+  const w = Number(products && products.preorder_weeks);
+  return Number.isInteger(w) && w > 0 && w < 52 ? w : 4;
+}
 
 async function build(env, origin, fetchFn) {
   const products = await siteProducts(env, origin);
@@ -111,13 +125,16 @@ async function build(env, origin, fetchFn) {
     const sizes = [];
     const available = isAvailable(availability, p.slug);
     const onPreorder = isPreorder(preorder, p.slug);
-    // not available (pre-order included): no sizes, no price and nothing in byKey, so checkout can't sell it either
-    for (const k of available ? siteKeys({ items: [p] }) : []) {
+    // not available: no sizes, no price and nothing in byKey, so checkout can't sell it either.
+    // on pre-order: sold at its Square price without looking at the shelf (the pins are being made), and ships
+    // in about preorder_weeks. ticked "sold out" in Square still means not for sale, since Square's page would refuse it
+    for (const k of available || onPreorder ? siteKeys({ items: [p] }) : []) {
       const v = variations[links[k.key]];
       if (!v || !v.sellable || v.price_cents === null) continue;
-      const stock = v.marked_sold_out ? 0 : (counts[v.id] || 0);
-      byKey[k.key] = { variation_id: v.id, price_cents: v.price_cents, currency: v.currency, stock, marked_sold_out: v.marked_sold_out, slug: p.slug, size: k.size, kind: p.kind };
-      sizes.push({ size: k.size, key: k.key, price_cents: v.price_cents, stock });
+      if (onPreorder && v.marked_sold_out) continue;
+      const stock = onPreorder ? PREORDER_MAX : v.marked_sold_out ? 0 : (counts[v.id] || 0);
+      byKey[k.key] = { variation_id: v.id, price_cents: v.price_cents, currency: v.currency, stock, marked_sold_out: onPreorder ? false : v.marked_sold_out, slug: p.slug, size: k.size, kind: p.kind, ...(onPreorder ? { preorder: true } : {}) };
+      sizes.push({ size: k.size, key: k.key, price_cents: v.price_cents, stock, ...(onPreorder ? { preorder: true } : {}) });
     }
     return {
       slug: p.slug, name: p.name, kind: p.kind, series: p.series || '', description: p.description || '', sizes,
@@ -142,6 +159,7 @@ async function build(env, origin, fetchFn) {
       open,
       currency: products.currency || 'USD',
       shipping: shippingOptions(products),
+      preorder_weeks: preorderWeeks(products),
       items,
       featured,
       byKey
@@ -197,9 +215,10 @@ export function publicCatalog(c) {
     // and each pin's own page still says "coming soon"
     featured: c.featured || [],
     shipping: c.shipping || [],
+    preorder_weeks: c.preorder_weeks || 4,
     items: c.items.map((p) => ({
       ...p,
-      sizes: p.sizes.map((s) => ({ size: s.size, key: s.key, price_cents: s.price_cents, stock: c.open ? s.stock : 0 }))
+      sizes: p.sizes.map((s) => ({ size: s.size, key: s.key, price_cents: s.price_cents, stock: c.open ? s.stock : 0, ...(s.preorder ? { preorder: true } : {}) }))
     }))
   };
 }
@@ -209,7 +228,8 @@ export async function catalogRoute(request, env, fetchFn = fetch) {
   try {
     const c = await getCatalog(env, request.url, fetchFn);
     // email: whether "email me when it's here" can be offered (server/notify.js)
-    return new Response(JSON.stringify({ ...publicCatalog(c), email: emailConfigured(env) }), {
+    // states: where we ship (u.s. states and d.c.), for the bag's address step (server/ship-to.js)
+    return new Response(JSON.stringify({ ...publicCatalog(c), email: emailConfigured(env), states: stateList(), gift_max: GIFT_MAX }), {
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
     });
   } catch (e) {

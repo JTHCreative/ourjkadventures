@@ -21,6 +21,8 @@
 //   GET  /api/admin/media    the owner's own photos for the photos section under the pup board (server/media.js)
 //   POST /api/admin/media    { slug, jpeg: "<base64>", alt }  add one (shrunk to a 1600px JPEG in the browser first)
 //   DELETE /api/admin/media?id=…  take one down
+//   GET  /api/admin/gifts    paid gift orders: the note to write on the card, the buyer's email, the address it ships to
+//   POST /api/admin/gifts    { id }  the card is written: off the list
 //   GET  /api/admin/instagram  does the key in cloudflare open @ourjkadventures, and how many reels (never the key)
 //
 // Cloudflare setting (Settings > Variables and secrets):
@@ -35,6 +37,7 @@ import { instagramStatus } from './instagram.js';
 import { readAvailability, setAvailable, readPreorder, setPreorder, readInterest } from './interest.js';
 import { notifySummary, sendItsHere } from './notify.js';
 import { adminMedia, addMedia, removeMedia } from './media.js';
+import { giftList, giftDone } from './ship-to.js';
 
 function json(body, status) {
   return new Response(JSON.stringify(body), {
@@ -168,6 +171,15 @@ export async function admin(request, env, fetchFn = fetch) {
       const result = await addMedia(env, body, new Set(products.map((p) => p.slug)), user.email, fetchFn);
       if (result.error) return json(result, result.status || 400);
       return withProducts(result);
+    }
+
+    if (route === 'gifts') {
+      if (!squareConfigured(env)) return json({ gifts: [], square: false });
+      if (request.method === 'GET') return json({ gifts: await giftList(env, fetchFn), square: true });
+      if (request.method !== 'POST') return json({ error: 'method' }, 405);
+      const body = await readJson(request);
+      if (!(await giftDone(env, body.id, fetchFn))) return json({ error: 'bad id' }, 400);
+      return json({ gifts: await giftList(env, fetchFn), square: true });
     }
 
     if (route === 'instagram') {

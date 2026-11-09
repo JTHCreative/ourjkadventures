@@ -75,6 +75,42 @@ On `/admin`, flip **shop open**. Every visitor sees it within a minute. Flip it 
 - Tax: the checkout adds sales tax from `TAX_PERCENT` in Cloudflare, not from the tax set on each item in Square, so tax isn't added twice.
 - Stock is checked fresh at checkout, so the website won't sell a pin the booth sold a moment ago.
 
+### U.S.-only shipping and gift notes (built 2026-11-09)
+The bag now asks where to send the order before it goes to Square, and only takes addresses in the 50 states
+and D.C. (no territories, APO/FPO or other countries for now). The website puts that address on the Square order,
+and Square's own address form is switched off, so it can't be changed to one abroad on Square's page.
+
+1. Test it once in the **sandbox** before the shop opens: add a pin to the bag, press **check out**, fill in an
+   address, tick **this is a gift** and write a note, then pay with Square's test card. If Square's page shows an
+   error instead of the payment form, stop and tell Claude (the address step is new, and this is the first time
+   Square sees it with a real account).
+2. In the Square dashboard, open **Orders**. The order shows the ship-to name, email and address under its shipment.
+   A gift also has the note there (as the shipping note), and again on the payment ("gift. write on the card: ...").
+3. On `/admin`, the **gift cards to write** card lists every paid gift order: the order number, the note, the
+   address it goes to, the buyer's email and what's in it. Write the card, pack it, then press **card written**
+   to take it off the list. Gift orders that were never paid drop off by themselves after two days.
+
+Good to know:
+- A gift often ships straight to the person getting it, so the address may not be the buyer's. The email is
+  always the buyer's (it's where Square sends the receipt).
+- Square's packing slip and receipt show prices. For a gift, leave the receipt out of the box.
+
+### Pre-orders (built 2026-11-09)
+A pin with **pre-order** switched on (on `/admin`, beside available) can be bought now and ships in about 4 weeks.
+
+1. Link the pin to its Square item on `/admin` as usual, and set its price in Square. Without a link it shows
+   "being made now. coming soon." and can't be bought.
+2. In Square, make sure the item is **not ticked "sold out"**. Square's payment page may refuse a sold-out item, so the
+   website doesn't offer one. A stock count of zero is fine: the website doesn't check stock for pre-orders.
+3. Test one in the sandbox: pre-order the pin, pay with the test card, and check that Square's page didn't object.
+4. Each pre-order order is marked in the Square dashboard: "pre-order. ships in about 4 weeks" on the pin's line,
+   the same on the shipping note and the payment note, and an expected ship date on the shipment. If the bag also
+   had in-stock pins, the whole order waits and ships together.
+5. Square counts the item below zero as pre-orders sell (for example -12 means 12 pre-ordered). When the pins
+   arrive, pack the pre-orders first, then set the count in Square to what's left on the shelf, and switch
+   **pre-order off** on `/admin` (and available on). Until the count is fixed, a negative count reads as sold out.
+6. To change "about 4 weeks", ask Claude to change `preorder_weeks` in `site/products.json`.
+
 ### When a pin is renamed (poodle became doodle, 2026-11)
 The website files a pin's settings under its short name, so a renamed pin starts fresh. After the poodle became
 the doodle:

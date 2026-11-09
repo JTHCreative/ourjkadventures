@@ -899,6 +899,20 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .ship-price { color: var(--ink-soft); }
 .drawer .empty { color: var(--ink-muted); padding: var(--space-6) 0; text-align: center; }
 .drawer .err { color: var(--accent-text); font-size: 16px; }
+/* the bag's second step: where it goes, and the gift note */
+.ship-to { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-2) 0 var(--space-4); }
+.ship-to-title { font-size: 22px; line-height: 28px; font-weight: 500; }
+.ship-to-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: var(--space-3); }
+.ship-to select { width: 100%; min-height: 46px; padding: var(--space-2) var(--space-3); font-family: var(--font-serif); font-size: 18px; color: var(--ink); background: var(--surface); border: 1.5px solid var(--line-strong); border-radius: var(--radius-sm); }
+.ship-to select:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.ship-to select[aria-invalid="true"], .ship-to textarea[aria-invalid="true"] { border-color: var(--accent-text); }
+.ship-to .field[hidden] { display: none; }
+.gift { display: flex; flex-direction: column; gap: var(--space-3); border-top: 1.5px solid var(--line); padding-top: var(--space-4); }
+.gift-tick { display: flex; align-items: center; gap: var(--space-3); font-size: 18px; cursor: pointer; }
+.gift-tick input { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); }
+.gift-tick input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.drawer-foot .linklike { align-self: center; }
+@media (max-width: 400px) { .ship-to-row { grid-template-columns: 1fr; } }
 
 /* ---------- contact ---------- */
 
@@ -1062,6 +1076,8 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .notify-preview > summary::-webkit-details-marker { display: none; }
 .notify-people { list-style: none; margin: var(--space-2) 0; padding: 0; }
 .notify-people li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-3); padding: var(--space-1) 0; border-bottom: 1px solid var(--line); }
+.gift-note { font-size: 18px; line-height: 26px; font-style: italic; white-space: pre-line; overflow-wrap: anywhere; }
+.gift-address { overflow-wrap: anywhere; user-select: all; }
 .notify-email { overflow-wrap: anywhere; user-select: all; }
 .notify-preview-frame { display: block; width: 100%; height: 860px; margin-top: var(--space-2); border: 1.5px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
 .interest-admin { margin: 0; padding-left: var(--space-5); }
