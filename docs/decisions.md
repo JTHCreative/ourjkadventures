@@ -921,3 +921,16 @@ fall when the same browser taps again, so `/admin` now has "clear the count" on 
 (`DELETE /api/admin/interest`). It reuses the fresh-start step from "it's here" (`closeRound`): count to 0, votes
 deleted, round up by one so old taps are forgotten, but it doesn't record the count as "asked before it arrived". The
 email list is left alone. Asks first; can't be undone.
+
+## Pin requests: a suggestion jar on our own site (2026-11-09)
+The owner asked for a way for buyers to ask for breeds we don't make, from the pup club board, leading to a pin request
+page with a pin set drop-down. Like a suggestion jar on the craft fair table: anyone can drop a slip in, only the owner
+reads them. The card sits under the board only while no pup is open (a pup's own page starts with it hidden). The page
+posts to our own worker (`/api/pin-request`, `server/pin-requests.js`), not a form service, so there's no new company
+seeing people's words and no new cost; it reuses Firestore, the owner alerts and the email checks we already have.
+Name and email are optional, so asking costs nothing, and nothing is ever emailed to the person: a request is not a
+promise. Spam guards without a puzzle to solve: requests only from our own pages, at most 5 a day per connection
+(scrambled with the day, like the votes), and a hidden box robots fill in. The owner's alert stops at 10 a day so a
+burst can't use up the day's emails. Requests aren't tied to "i'm interested": those tallies are for products that
+exist in `products.json`, while a request is free text about one that doesn't yet. The drop-down offers the three pin
+sets; boards weren't asked for.
