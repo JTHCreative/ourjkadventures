@@ -46,7 +46,8 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
     address form is off) the customer picked in the bag (the browser sends only its id, `ground`, `priority` or
     `express`; the price comes from `shipping` in `products.json`; none sent means the first; ground is free, with no shipping line and a
     `payment_note` instead, when the pins come to $40 or more and there's no board in the order),
-    the address on the order as a shipment with `ask_for_shipping_address` off, `redirect_url` = `/thank-you.html`
+    the address on the order as a shipment with `ask_for_shipping_address` off, `redirect_url` = `/thank-you.html`,
+    and Apple Pay on (`accepted_payment_methods.apple_pay`)
   - uses `connect.squareupsandbox.com` when `SQUARE_ENV=sandbox`
   - Square API version is pinned in `SQUARE_VERSION` in `server/square.js`
 - **Header:** every page uses the same slim header (logo left, links right; stacked and centered on phones). Inner pages use the full-color logo `logo.svg`.

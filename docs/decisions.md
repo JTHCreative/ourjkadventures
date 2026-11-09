@@ -896,3 +896,12 @@ letterhead (`server/refunds.js`). The refund is read fresh from Square (`GET /v2
 amount and buyer never come from the message. Once per refund (Firestore `refund_mail_<mode>/{refund id}` and Resend's
 idempotency key); turned-down refunds and booth sales send nothing. Square's own refund receipt still goes out; ours
 says when the money should arrive ("within 5 to 10 business days, depending on your bank") and that they can reply.
+
+## Apple Pay on Square's checkout page, no certificate (2026-11-09)
+The owner asked for Apple Pay. Our "check out" button sends buyers to Square's own checkout page (a payment link),
+so the payment link now asks for Apple Pay (`checkout_options.accepted_payment_methods.apple_pay`). Square's page sits
+on Square's web address, which Square has already registered with Apple, so the website needs no domain-verification
+file and no Apple certificate. The CSR (certificate signing request) Square offers is for Square's In-App Payments SDK
+inside a native iPhone app, which we don't have; it isn't used. Building our own card form on our pages (Square's Web
+Payments SDK) would need a domain file and a lot more code and testing, for the same Apple Pay button, so we didn't.
+Google Pay, Cash App Pay and Afterpay are separate switches beside it and stay off until the owner asks.

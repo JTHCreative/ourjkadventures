@@ -198,6 +198,12 @@ test('Square\'s page never offers a coupon box or loyalty rewards (no discounts,
   assert.equal(sq.links[0].checkout_options.enable_loyalty, false);
 });
 
+test('Square\'s page offers Apple Pay', async () => {
+  const { env, sq } = setup(true);
+  assert.equal((await checkout(env)).status, 200);
+  assert.deepEqual(sq.links[0].checkout_options.accepted_payment_methods, { apple_pay: true });
+});
+
 test('sales tax is Square\'s own per-item tax (the booth\'s), never a rate typed into Cloudflare', async () => {
   const { env, sq } = setup(true);
   assert.equal((await checkout({ ...env, TAX_PERCENT: '9.25' })).status, 200);

@@ -190,7 +190,11 @@ async function checkout(request, env, url) {
     // no discounts, ever (CLAUDE.md): no "add coupon" box and no loyalty rewards to redeem on Square's page,
     // whatever the Square account's own checkout settings say
     enable_coupon: false,
-    enable_loyalty: false
+    enable_loyalty: false,
+    // Apple Pay on Square's checkout page (the iPhone/Mac "pay with Face ID" button). Square's page lives on
+    // Square's own web address, so Square has already proven that address to Apple: we need no domain file or
+    // certificate. The button only shows on Apple devices with a card in Wallet; everyone else sees the card form
+    accepted_payment_methods: { apple_pay: true }
   };
   // the shipping price is a line on the order itself (a "service charge"), not Square's shipping_fee option:
   // Square refuses shipping_fee unless its own address form is on, and the form stays off so nobody can change
