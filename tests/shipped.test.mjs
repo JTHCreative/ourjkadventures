@@ -134,6 +134,15 @@ test('a gift says so, and never greets the buyer by the person getting it', asyn
   assert.match(mail.text, /left the receipt out of the box/);
 });
 
+test('marking a gift shipped ticks off its card to write (it went in the box)', async () => {
+  const s = setup({ orders: { G1: order('G1', { metadata: { gift: 'yes' } }) } });
+  s.g.docs['gifts/G1'] = { message: { stringValue: 'we love luna!' }, email: { stringValue: 'buyer@example.com' } };
+  s.g.docs['gifts/OTHER'] = { message: { stringValue: 'not this one' } };
+  assert.equal((await s.call('POST', { id: 'G1', tracking: 'EA123456789US' })).status, 200);
+  assert.equal(s.g.docs['gifts/G1'], undefined);
+  assert.ok(s.g.docs['gifts/OTHER']);
+});
+
 test('mark shipped refuses a bad tracking number, an unpaid or unknown order, and customers', async () => {
   const s = setup({ orders: { ORD1: order('ORD1'), UNPAID: order('UNPAID', { tenders: [] }), ELSE: order('ELSE', { location_id: 'other' }) } });
   assert.equal((await s.call('POST', { id: 'ORD1', tracking: 'nope' })).status, 400);

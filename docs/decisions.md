@@ -816,3 +816,11 @@ asked for first: the tally (only when there is one), whether it's in the shop, o
 email list with the send button (or what to switch on first), who's waiting with the copy button, and the email
 preview. Today's email count sits at the top. Both are still loaded separately (the products list and the email
 lists), and whichever arrives repaints the section, so nothing waits on the other. The server side is unchanged.
+
+## Gift cards live inside "orders to ship" (2026-11-09)
+The owner asked to combine "orders to ship" and "gift cards to write" on `/admin`. Every gift card belongs to an
+order waiting to ship, so it's now shown inside that order: a dashed "card to write" box with the note and a "card
+written" button, just above the tracking box. Marking an order shipped also clears its card on the server (the card
+is in the box by then), so a card can't linger. A gift order that left the to-ship list another way, such as being
+marked shipped in Square's dashboard, with its card not ticked off, shows at the bottom under "cards still to write"
+so no card is missed. The gift records (Firestore `gifts/*`, `/api/admin/gifts`) are unchanged.
