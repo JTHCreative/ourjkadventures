@@ -107,19 +107,19 @@ test('checkout refuses an address outside the u.s. states, or none at all, and s
   assert.equal(sq.links.length, 0);
 });
 
-test('a gift: the note goes on the order and the payment, and on the owner\'s list', async () => {
+test('a gift: the note goes on the order and the payment; our own record keeps nothing personal', async () => {
   const { env, sq, g } = setup();
   const r = await checkout(env, { gift: { gift: true, message: 'happy birthday, mo!\nlove, k' } });
   assert.equal(r.status, 200);
   const link = sq.links[0];
   assert.equal(link.order.fulfillments[0].shipment_details.shipping_note, 'gift. write on the card: "happy birthday, mo!\nlove, k"');
-  assert.deepEqual(link.order.metadata, { gift: 'yes' });
+  assert.deepEqual(link.order.metadata, { gift: 'yes', gift_note: 'happy birthday, mo!\nlove, k' });
   assert.ok(link.payment_note.startsWith('gift. write on the card'));
   assert.ok(link.payment_note.includes('ship to: pup person, 1 main st, apt 2, oakland, CA 94607'));
-  const doc = g.docs['gifts/ORDER_1'];
-  assert.equal(doc.message.stringValue, 'happy birthday, mo!\nlove, k');
-  assert.equal(doc.email.stringValue, 'buyer@example.com');
-  assert.equal(doc.zip.stringValue, '94607');
+  // just "this order has a card to write": no name, email, address or note in Firestore
+  assert.deepEqual(Object.keys(g.docs['gifts/ORDER_1']), ['createdAt']);
+  const stored = JSON.stringify(g.docs);
+  for (const bit of ['buyer@example.com', 'pup person', '1 main st', '94607', 'happy birthday']) assert.ok(!stored.includes(bit), bit);
   // too long a note is refused, not cut short
   assert.equal((await checkout(env, { gift: { gift: true, message: 'a'.repeat(101) } })).status, 400);
 });
@@ -134,11 +134,12 @@ test('a gift that also ships free keeps both notes for the owner', async () => {
   assert.ok(sq.links[0].payment_note.startsWith('free ground shipping (2 to 5 days) / gift. blank card, no note'));
 });
 
-test('/admin lists paid gift orders with the note, email and address; "card written" takes one off', async () => {
-  const { env, g, fetchFn } = setup();
+test('/admin lists paid gift orders with the note, email and address, read from Square; "card written" takes one off', async () => {
+  const { env, g, sq, fetchFn } = setup();
   await checkout(env, { gift: { gift: true, message: 'paid one' } });
   await checkout(env, { gift: { gift: true, message: 'left half way' } });
-  g.squareOrders.ORDER_1 = { id: 'ORDER_1', state: 'OPEN', tenders: [{}], line_items: [{ name: 'Aussie Standard Pin', quantity: '1' }], created_at: '2026-11-09T10:00:00Z' };
+  // the order as Square keeps it: the one checkout made, now paid
+  g.squareOrders.ORDER_1 = { ...sq.links[0].order, id: 'ORDER_1', state: 'OPEN', tenders: [{}], line_items: [{ name: 'Aussie Standard Pin', quantity: '1' }], created_at: '2026-11-09T10:00:00Z' };
   g.squareOrders.ORDER_2 = { id: 'ORDER_2', state: 'OPEN', line_items: [] };
   const owner = await sign({ email: 'owner@example.com' });
   const call = (method, body) => admin(new Request('https://x.test/api/admin/gifts', {
@@ -153,6 +154,7 @@ test('/admin lists paid gift orders with the note, email and address; "card writ
   assert.equal(gift.email, 'buyer@example.com');
   assert.deepEqual(gift.address, { line1: '1 main st', line2: 'apt 2', city: 'oakland', state: 'CA', zip: '94607' });
   assert.deepEqual(gift.items, [{ name: 'Aussie Standard Pin', qty: 1 }]);
+  assert.equal(gift.shipping, 'ground');
   // the unpaid one stays noted (it may still be paid) but isn't shown
   assert.ok(g.docs['gifts/ORDER_2']);
   res = await (await call('POST', { id: 'ORDER_1' })).json();
@@ -171,4 +173,21 @@ test('the catalog tells the bag which states we ship to', async () => {
   assert.equal(c.states.length, 51);
   assert.deepEqual(c.states.find((s) => s.code === 'CA'), { code: 'CA', name: 'california' });
   assert.equal(c.gift_max, 100);
+});
+
+test('older gift records with personal details are trimmed to just their date; a note is read from the shipping note', async () => {
+  const { env, g, fetchFn } = setup();
+  g.docs['gifts/OLD_1'] = { createdAt: { timestampValue: '2026-11-09T06:52:32Z' }, email: str('luna@example.com'), name: str('luna'),
+    line1: str('1246 millbrae ave'), city: str('millbrae'), state: str('CA'), zip: str('94030'), message: str('we love luna!') };
+  // an order from before the note rode on the metadata: only the shipping note has it
+  g.squareOrders.OLD_1 = { id: 'OLD_1', state: 'OPEN', tenders: [{}], metadata: { gift: 'yes' }, line_items: [],
+    fulfillments: [{ type: 'SHIPMENT', shipment_details: { recipient: { display_name: 'luna', email_address: 'luna@example.com', address: { address_line_1: '1246 millbrae ave', locality: 'millbrae', administrative_district_level_1: 'CA', postal_code: '94030' } },
+      shipping_note: 'pre-order: the whole order ships together around december 15 / gift. write on the card: "we love luna!"' } }] };
+  const owner = await sign({ email: 'owner@example.com' });
+  const res = await (await admin(new Request('https://x.test/api/admin/gifts', { headers: { Authorization: 'Bearer ' + owner } }), env, fetchFn)).json();
+  assert.equal(res.gifts[0].message, 'we love luna!');
+  assert.equal(res.gifts[0].name, 'luna');
+  assert.equal(res.gifts[0].address.zip, '94030');
+  assert.deepEqual(Object.keys(g.docs['gifts/OLD_1']), ['createdAt']);
+  assert.equal(g.docs['gifts/OLD_1'].createdAt.timestampValue, '2026-11-09T06:52:32.000Z');
 });

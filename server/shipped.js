@@ -14,6 +14,7 @@ import { SQUARE_VERSION, squareHost, squareConfigured } from './square.js';
 import { readLinks, siteProducts, siteKeys } from './catalog.js';
 import { emailConfigured, emailsLeftToday, sendBatch, escapeHtml } from './email.js';
 import { productNoun, productPath, emailImages } from './notify.js';
+import { giftMessage } from './ship-to.js';
 
 const OPEN_STEPS = ['PROPOSED', 'RESERVED', 'PREPARED'];
 // Square moves a fulfillment along one step at a time: proposed, reserved, prepared, completed (= shipped)
@@ -83,6 +84,7 @@ function view(o, nameLine, origin) {
     shipping: d.shipping_type || '',
     note: d.shipping_note || '',
     gift: meta.gift === 'yes',
+    giftNote: meta.gift === 'yes' ? giftMessage(o) : '',
     preorder: meta.preorder === 'yes',
     expected: d.expected_shipped_at || '',
     items

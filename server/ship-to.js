@@ -6,8 +6,9 @@
 // before it goes in the bin: the state has to be one of ours, and the zip code has to belong to that state.
 //
 // A gift: the buyer ticks "this is a gift" and writes a short note. We write it by hand on a card. The note goes on
-// the Square order (the shipping note and the payment note) and into Firestore gifts/<square order id>, which
-// /admin lists once the order is paid, with the buyer's email and the address it ships to.
+// the Square order (its metadata, the shipping note and the payment note). Firestore gifts/<square order id> only
+// says "this order has a card to write": no name, email, address or note is kept on our side. /admin reads those
+// from the Square order each time, the way it reads the orders to ship.
 
 import { firestoreSet, firestoreList, firestoreDelete } from './firebase.js';
 import { cleanEmail } from './notify.js';
@@ -100,21 +101,52 @@ export function addressLine(a) {
 
 /* ---------- the owner's list of gift cards to write (/admin) ---------- */
 
-// noted at checkout, before payment. /admin only shows the ones Square says were paid
-export async function noteGift(env, orderId, shipTo, gift, shipping, fetchFn = fetch) {
-  await firestoreSet(env, 'gifts/' + orderId, {
-    createdAt: new Date(), message: gift.message, shipping,
-    email: shipTo.email, name: shipTo.name, line1: shipTo.line1, line2: shipTo.line2,
-    city: shipTo.city, state: shipTo.state, zip: shipTo.zip
-  }, fetchFn);
+// noted at checkout, before payment: just which order, and when. the rest stays with the order in Square
+export async function noteGift(env, orderId, fetchFn = fetch) {
+  await firestoreSet(env, 'gifts/' + orderId, { createdAt: new Date() }, fetchFn);
+}
+
+// the card note on a Square order: its metadata (gift_note), or, for orders from before that, the shipping note
+export function giftMessage(order) {
+  const meta = (order && order.metadata) || {};
+  if (typeof meta.gift_note === 'string') return meta.gift_note;
+  const f = ((order && order.fulfillments) || []).find((x) => x.type === 'SHIPMENT');
+  const note = (f && f.shipment_details && f.shipment_details.shipping_note) || '';
+  const m = /gift\. write on the card: "([\s\S]*)"/.exec(note);
+  return m ? m[1] : '';
+}
+
+// what /admin needs about a gift order, read from the Square order itself
+function giftView(o, createdAt) {
+  const f = (o.fulfillments || []).find((x) => x.type === 'SHIPMENT') || {};
+  const d = f.shipment_details || {};
+  const r = d.recipient || {};
+  const a = r.address || {};
+  return {
+    id: o.id,
+    number: o.id.slice(-6).toUpperCase(),
+    date: o.closed_at || o.updated_at || o.created_at || createdAt,
+    message: giftMessage(o),
+    shipping: d.shipping_type || '',
+    email: r.email_address || '', name: r.display_name || '',
+    address: { line1: a.address_line_1 || '', line2: a.address_line_2 || '', city: a.locality || '', state: a.administrative_district_level_1 || '', zip: a.postal_code || '' },
+    items: (o.line_items || []).map((l) => ({ name: l.name, qty: Number(l.quantity) || 1 }))
+  };
 }
 
 // gift orders that were paid, newest first. ones never paid (a checkout left half way) are left out,
 // and dropped from the list after two days so it doesn't fill up
 const UNPAID_KEEP_MS = 2 * 24 * 3600 * 1000;
+// fields older gift records kept (before 2026-11-09). a record that still has them is trimmed to just its date
+const OLD_PERSONAL = ['email', 'name', 'line1', 'line2', 'city', 'state', 'zip', 'message', 'shipping'];
 export async function giftList(env, fetchFn = fetch) {
   const notes = await firestoreList(env, 'gifts', 300, fetchFn);
   if (!notes.length) return [];
+  for (const n of notes) {
+    if (OLD_PERSONAL.some((k) => k in n)) {
+      try { await firestoreSet(env, 'gifts/' + n.id, { createdAt: n.createdAt ? new Date(n.createdAt) : new Date() }, fetchFn); } catch (e) { /* next time */ }
+    }
+  }
   const orders = {};
   for (let i = 0; i < notes.length; i += 100) {
     const res = await fetchFn(squareHost(env) + '/v2/orders/batch-retrieve', {
@@ -134,16 +166,7 @@ export async function giftList(env, fetchFn = fetch) {
       if (age > UNPAID_KEEP_MS) { try { await firestoreDelete(env, 'gifts/' + n.id, fetchFn); } catch (e) { /* next time */ } }
       continue;
     }
-    out.push({
-      id: n.id,
-      number: n.id.slice(-6).toUpperCase(),
-      date: o.closed_at || o.updated_at || o.created_at || n.createdAt,
-      message: n.message || '',
-      shipping: n.shipping || '',
-      email: n.email, name: n.name,
-      address: { line1: n.line1, line2: n.line2 || '', city: n.city, state: n.state, zip: n.zip },
-      items: (o.line_items || []).map((l) => ({ name: l.name, qty: Number(l.quantity) || 1 }))
-    });
+    out.push(giftView(o, n.createdAt));
   }
   out.sort((a, b) => String(b.date).localeCompare(String(a.date)));
   return out;
