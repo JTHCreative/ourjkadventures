@@ -168,12 +168,14 @@ test('checkout refuses keys it does not sell and silly quantities', async () => 
   }
 });
 
-test('a signed-in checkout tags the order, fills in the email from the bag and notes it for order history', async () => {
+test('a signed-in checkout tags the order and notes it for order history', async () => {
   const { env, sq, g } = setup(true);
   const r = await checkout(env, null, await sign({}));
   assert.equal(r.status, 200);
   assert.deepEqual(sq.links[0].order.metadata, { uid: 'uid123' });
-  assert.equal(sq.links[0].pre_populated_data.buyer_email, 'buyer@example.com');
+  // Square refuses a pre-filled email together with the order's shipment: the email rides on the shipment
+  assert.equal(sq.links[0].pre_populated_data, undefined);
+  assert.equal(sq.links[0].order.fulfillments[0].shipment_details.recipient.email_address, 'buyer@example.com');
   assert.ok(g.docs['users/uid123/orders/ORDER_1']);
 });
 
@@ -182,6 +184,13 @@ test('signed out, or with a bad ticket, checkout still works but nothing is tagg
   assert.equal((await checkout(env)).status, 200);
   assert.equal((await checkout(env, null, 'not-a-ticket')).status, 200);
   assert.equal(sq.links[0].order.metadata, undefined);
-  assert.deepEqual(sq.links[1].pre_populated_data, { buyer_email: 'buyer@example.com' });
+  assert.equal(sq.links[1].pre_populated_data, undefined);
   assert.deepEqual(Object.keys(g.docs).filter((k) => !k.startsWith('settings/')), []);
+});
+
+test('Square\'s page never offers a coupon box or loyalty rewards (no discounts, ever)', async () => {
+  const { env, sq } = setup(true);
+  assert.equal((await checkout(env)).status, 200);
+  assert.equal(sq.links[0].checkout_options.enable_coupon, false);
+  assert.equal(sq.links[0].checkout_options.enable_loyalty, false);
 });

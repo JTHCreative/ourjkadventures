@@ -677,7 +677,9 @@ gift option with a note we write by hand on a card, tied to its order, buyer ema
   `gifts/<square order id>` for the "gift cards to write" card on `/admin`. That card shows only orders Square says
   were paid; unpaid ones (a checkout left half way) are removed after two days. Pressing "card written" removes it.
   Kept on our side because the owner writes from it; the address and email are already in Square anyway.
-- The buyer's email from the address step is filled in on Square's page (`buyer_email`), signed in or not.
+- The buyer's email from the address step rides on the order's shipment (the recipient). At first it was also
+  pre-filled on Square's page (`pre_populated_data.buyer_email`), but Square refuses both together ("Only one of
+  [fulfillment, buyer_email] fields should be set", found in the live logs on 2026-11-09), so the pre-fill is gone.
 
 ## Pre-orders can be bought now (2026-11-09)
 The owner asked for pre-order to go live: people pay now and are told it ships in about 4 weeks. This replaces the
@@ -721,3 +723,9 @@ send them.
   a "track your package" button to USPS, the address, signed by justin and kitty. A gift never greets the buyer by
   the name on the package (that's the person getting it) and says the note is in and the receipt is out.
 - USPS only, like the rest of shipping. Not live tracking on our site: the button goes to USPS.
+
+## No coupon box or rewards on Square's checkout page (2026-11-09)
+The Square account's checkout settings had coupons switched on. The website's checkout never asked for them, but
+"no discounts, ever" shouldn't rest on a default. Every checkout now sends `enable_coupon: false` and
+`enable_loyalty: false` (Square loyalty rewards are redeemed as money off), so Square's page shows neither,
+whatever the account's settings say. Tipping is left at Square's default for payment links, which is off.

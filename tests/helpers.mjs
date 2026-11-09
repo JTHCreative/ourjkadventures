@@ -148,7 +148,12 @@ export function fakeSquare() {
       })) });
     }
     if (url.endsWith('/v2/online-checkout/payment-links')) {
-      links.push(JSON.parse(opts.body));
+      const body = JSON.parse(opts.body);
+      // like the real one: a shipment on the order and a pre-filled email can't go together
+      if (body.order && body.order.fulfillments && body.pre_populated_data && body.pre_populated_data.buyer_email) {
+        return Response.json({ errors: [{ category: 'INVALID_REQUEST_ERROR', code: 'CONFLICTING_PARAMETERS', detail: 'Only one of [fulfillment, buyer_email] fields should be set.' }] }, { status: 400 });
+      }
+      links.push(body);
       return Response.json({ payment_link: { url: 'https://square.link/u/abc', order_id: 'ORDER_' + links.length } });
     }
     return null;

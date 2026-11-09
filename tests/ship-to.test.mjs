@@ -90,7 +90,8 @@ test('checkout puts the checked address on the order and turns off square\'s own
       carrier: 'USPS', shipping_type: 'ground'
     }
   }]);
-  assert.deepEqual(link.pre_populated_data, { buyer_email: 'buyer@example.com' });
+  // never both a shipment and a pre-filled email: Square refuses that (CONFLICTING_PARAMETERS)
+  assert.equal(link.pre_populated_data, undefined);
   assert.equal(link.order.metadata, undefined);
 });
 
