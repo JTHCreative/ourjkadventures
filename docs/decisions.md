@@ -841,3 +841,30 @@ so no card is missed. The gift records (Firestore `gifts/*`, `/api/admin/gifts`)
   from their shipping note. The privacy page says so.
 - Still in Firestore in plain form: the "email me when it's here" list (emails) and guest review emails. Those
   could be encrypted with a key kept in Cloudflare if the owner wants; not done yet.
+
+## More emails: thank-you, new pre-order date, owner alerts, account emails (2026-11-09)
+The owner asked for a thank-you after payment, an email when a pre-order's date moves, alerts for themselves, and the
+account emails to look and sound like the rest.
+- **One letterhead** (`server/email-look.js`) used by every email, including the two that already existed. Changing
+  the look in one place changes all of them, so they can't drift apart.
+- **Thank-you after payment comes from Square's webhook** (`/api/square-webhook`). The checkout page is Square's, so
+  the payment is the only reliable "it's paid" moment. Every message is checked against Square's signature, and the
+  order is read fresh from Square, never trusted from the message. One thank-you per order: a Firestore note
+  (`order_mail_<mode>/{order id}`) plus Resend's idempotency key, because Square often rings twice (payment
+  created, then updated) and retries anything that isn't answered 200. Square's receipt still goes out too; ours
+  has no prices beyond the total and says the receipt has the details.
+- **A moved pre-order date is flagged, not sent automatically.** Changing a date on `/admin` doesn't email anyone by
+  itself: a slip of the date picker shouldn't reach paying customers. Orders to ship shows "new date to email", the
+  owner reads the email and presses the button, then the new date goes onto the Square order, which clears the flag.
+  Square stays the record: nothing extra is stored. Which lines are pre-orders comes from the "pre-order." note
+  checkout writes on them. A pin that arrived (pre-order switched off) no longer holds an order up.
+- **Owner alerts go to `ADMIN_EMAILS`**, the same people who may open `/admin`, rather than a new setting. Review
+  alerts stop at 10 a day so a burst can't use up the day's emails; Square's own app already tells the owner about
+  new orders, so there's no "new order" alert, only "a gift card to write".
+- **Account emails are sent by us, with Firebase's link.** Firebase's console templates can't show a logo or button,
+  and lock some messages. The server asks Firebase for the link (`accounts:sendOobCode` with `returnOobLink`, the
+  service account already has the identitytoolkit scope) and sends it through Resend. If that fails or email isn't
+  set up, the browser falls back to Firebase sending its own, so a link always goes out. Reset answers the same
+  whether or not an account exists. Limits: 3 of a kind a day to one address, 10 reset requests a day per connection.
+  Firebase still sends "your email was changed" to the old address; its template is drafted in `setup/firebase.md`.
+

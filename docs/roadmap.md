@@ -28,7 +28,8 @@ Work top to bottom. Each phase ships on its own. Tick boxes as you go and add no
 - [x] Standard / large size choice on each pin, shown when both are linked
 - [ ] Booth and web share stock because both sell the same Square items. Owner: turn on stock tracking in Square and link items on `/admin` (`setup/square.md`)
 - [ ] Owner: Square access token with `ITEMS_READ` and `INVENTORY_READ` in Cloudflare (`setup/square.md`, step A)
-- [ ] `/api/square-webhook`: verifies `x-square-hmacsha256-signature` (HMAC-SHA256 of notification URL + raw body with the signature key), handles `order.updated` / `payment.updated`, idempotent on event ID. In this phase it only logs; phase 4 uses it for charges
+- [x] `/api/square-webhook` (2026-11-09): verifies `x-square-hmacsha256-signature` (HMAC-SHA256 of notification URL + raw body with the signature key), handles `payment.created` / `payment.updated` once completed, once per order. Sends the thank-you and the gift-card alert; phase 4 adds charges here
+- [ ] Owner: add the webhook subscription in Square and the two Cloudflare settings (`setup/square.md`, "the payment webhook")
 - [x] Sold-out pins show "sold out" automatically; in-stock ones show "N in stock."
 - [x] Shipping choice in the bag (2026-11-08): ground $7, priority $13, express $36, priced on the server from `products.json`, sent to Square as the shipping line. Fixed prices, not live carrier rates (see decisions)
 - [x] Free ground shipping when the pins come to $40 or more (2026-11-08); boards don't count (see decisions)
@@ -42,7 +43,11 @@ Work top to bottom. Each phase ships on its own. Tick boxes as you go and add no
 - [x] `/admin` as sections (2026-11-09): the menu shows one full-width card at a time instead of two columns
 - [x] "On its way" email (2026-11-09): "orders to ship" on `/admin`, type the USPS tracking number, the buyer gets a branded email and the order is marked shipped in Square (see decisions)
 - [ ] Owner: brand Square's receipt (logo, colour, contact) and test "mark shipped" once in the sandbox (`setup/square.md`)
-- [ ] "Thanks for your order" email after payment: needs `/api/square-webhook` (below) to know when an order is paid
+- [x] "Thank you for your order" email after payment (2026-11-09), from the webhook. Gift orders also email the owner "a gift card to write"
+- [x] "A new date for your pre-order" (2026-11-09): orders to ship flags paid orders whose pre-order date moved; one button emails the buyer and moves the date on the Square order
+- [x] Owner alerts (2026-11-09): "a review is waiting" (at most 10 a day) to `ADMIN_EMAILS`
+- [x] One letterhead for every email (`server/email-look.js`, 2026-11-09)
+- [ ] Maybe: "it's been delivered" and a "how are your pins?" note a week later. Needs USPS tracking (a free USPS API account) or a paid tracking service: owner to decide
 - [ ] Board shipping prices of its own before the Bay Area board goes on sale: today it would pay pin prices ($7 ground). Owner: weigh and measure one packed board, look up USPS and UPS rates
 - [x] Owner steps in `setup/square.md`
 
@@ -63,7 +68,8 @@ Built on the current static site, before the Astro port (see decisions, 2026-10-
 - [x] Account page: check mark next to a confirmed email; links to "your orders" and "your details"
 - [x] `account-details.html`: first and last name, optional phone, change email (link to the new address), delete account
 - [x] `orders.html`: paid orders placed while signed in, read from Square (see architecture)
-- [ ] Owner: lowercase email templates in Firebase (Claude Code can draft)
+- [x] Account emails in the shop's letterhead (2026-11-09): confirm email, new password and new email are sent by our server with Firebase's link; Firebase sends its own only as a backup
+- [ ] Owner: Firebase templates for the backup and "your email was changed" (drafted in `setup/firebase.md`, "account emails")
 
 Tests: `node --test tests/*.test.mjs` (ticket checks and `/api/account` with Google faked). The pages were
 also driven end to end in a browser against the real Firebase library with Google's services faked.
