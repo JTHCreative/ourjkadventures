@@ -795,3 +795,10 @@ items and scroll with them. The strip at the bottom keeps only the total ("plus 
 shipping and follows a change at once) and one button: "check out", "continue to payment" on the address step, or a
 "coming soon" button that can't be pressed while the shop is closed. On a 360 × 740 phone the strip is 82px and
 the list gets about 570px, room for five pins.
+
+## Coming back from Square's page (2026-11-09)
+The owner saw the bag's button stuck on "one moment." after a gift checkout. Square's records showed that checkout
+(and two later ones) had reached Square's payment page fine: the stuck button was the page as the browser kept it,
+restored as-is by the back button. Now the button says "taking you to square." once the link is made, a "go to the
+payment page" link appears if Square hasn't opened after 8 seconds, and a page restored by the back button repaints
+the bag (address and gift note kept, `sessionStorage`) so it's ready to try again.
