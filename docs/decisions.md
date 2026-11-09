@@ -643,3 +643,7 @@ reviews scroll past and lets go at the bottom of the reviews, and the photos sta
   are public as soon as they're uploaded. Shrunk to a 1600px JPEG in the browser and cleaned again on the server,
   the same as review photos. Up to 24 per product. Each can have a few words, read aloud to people who can't see it.
 - Any product can have photos (the upload list has them all), but the pup board only shows pup club pins'.
+- **Refreshed every minute, not every 10 (2026-11-09).** Each Cloudflare location keeps its own copy of the owner's
+  photo list, and an upload only refreshes the one where it landed. With a 10 minute copy plus 5 minutes in the
+  browser, the owner's first uploads showed for us but not for them. Now the copy lasts a minute and the page always
+  asks fresh. It's still one small database read a minute per location at most.

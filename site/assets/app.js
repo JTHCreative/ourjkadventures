@@ -1101,7 +1101,8 @@
     var ask = ++mediaAsk;
     if (!p) { box.hidden = true; return; }
     box.hidden = true;
-    fetch('/api/media?slug=' + encodeURIComponent(p.slug))
+    // always asked fresh (not from the browser's own copy), so a photo just uploaded isn't hidden by an old answer
+    fetch('/api/media?slug=' + encodeURIComponent(p.slug), { cache: 'no-store' })
       .then(function (r) { if (!r.ok) throw new Error('media'); return r.json(); })
       .then(function (data) {
         if (ask !== mediaAsk) return;

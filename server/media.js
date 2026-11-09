@@ -15,7 +15,10 @@ import { approvedReviewPhotos } from './reviews.js';
 
 export const MAX_MEDIA_PER_PRODUCT = 24;
 const MAX_ALT = 150;
-const CACHE_MS = 10 * 60 * 1000; // re-read at most every 10 minutes per server, like approved reviews
+// each Cloudflare location keeps its own copy of the owner's list, and an upload only refreshes the copy where it
+// landed, so the others catch up when theirs runs out: one minute, so a new photo shows everywhere within a minute
+// or so. (It began at 10 minutes, and the owner's first uploads didn't show for them.)
+const CACHE_MS = 60 * 1000;
 const FOLDER = 'media';
 
 let mediaCache = { list: null, until: 0 };
@@ -80,7 +83,7 @@ export async function mediaRoute(request, env, fetchFn = fetch) {
   const slug = url.searchParams.get('slug');
   if (slug !== null && !/^[a-z0-9-]{1,40}$/.test(slug)) return json({ error: 'slug' }, 400);
   try {
-    return json({ photos: await mediaFor(env, slug, fetchFn) }, 200, 'public, max-age=300');
+    return json({ photos: await mediaFor(env, slug, fetchFn) }, 200, 'public, max-age=60');
   } catch (e) {
     console.log('media error', e.message);
     return json({ error: 'unavailable' }, 503);
