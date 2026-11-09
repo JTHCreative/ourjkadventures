@@ -49,7 +49,7 @@ To add yours:
    review you just approved can take up to 10 minutes.)
 4. To take one down, press **remove** under it.
 
-Up to 24 photos per product. They go in the same `review-photos` bucket, so there's nothing new to set up.
+Up to 50 photos per product. They go in the same `review-photos` bucket, so there's nothing new to set up.
 
 ## What to approve
 - Screen for spam, rudeness, private details (someone's address or phone), or things that aren't about the pin.

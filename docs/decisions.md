@@ -641,9 +641,12 @@ reviews scroll past and lets go at the bottom of the reviews, and the photos sta
 - **Owner photos reuse the review-photos R2 bucket** (under `media/`, reviews are under `reviews/`), so there's no
   new service or setting. They're listed in Firestore `media/{photo id}` (server only, like everything else) and
   are public as soon as they're uploaded. Shrunk to a 1600px JPEG in the browser and cleaned again on the server,
-  the same as review photos. Up to 24 per product. Each can have a few words, read aloud to people who can't see it.
+  the same as review photos. Up to 24 per product (raised to 50 on 2026-11-09, see below). Each can have a few words, read aloud to people who can't see it.
 - Any product can have photos (the upload list has them all), but the pup board only shows pup club pins'.
 - **Refreshed every minute, not every 10 (2026-11-09).** Each Cloudflare location keeps its own copy of the owner's
   photo list, and an upload only refreshes the one where it landed. With a 10 minute copy plus 5 minutes in the
   browser, the owner's first uploads showed for us but not for them. Now the copy lasts a minute and the page always
   asks fresh. It's still one small database read a minute per location at most.
+- **Up to 50 photos per product, not 24 (2026-11-09).** The owner asked for more room. Storage isn't the limit:
+  the site keeps each photo under 700 KB (about 110 KB is typical), so 50 for all 17 products is roughly 100 MB to
+  600 MB, well inside R2's free 10 GB. The limit only keeps one product's photos from getting unwieldy.
