@@ -78,8 +78,8 @@ function prettyDate(date, today) {
 // what a pre-order says about when it ships: the date set in "pre-order settings", or about 4 weeks without one
 function preorderWhen(date, today) {
   if (date && date >= today) return 'expected in stock and shipping around ' + prettyDate(date, today);
-  if (date) return 'its date (' + prettyDate(date, today) + ') has passed, so the shop says about 4 weeks. set a new one with the gear';
-  return 'no date set, so the shop says about 4 weeks. set one with the gear';
+  if (date) return 'its date (' + prettyDate(date, today) + ') has passed, so the shop shows a date 4 weeks from each day instead. set a new one with the gear';
+  return 'no date set, so the shop shows a date 4 weeks from each day. set one with the gear';
 }
 function availableWords(on, n, pre, date, today) {
   // pre-order wins over the available switch
@@ -126,7 +126,7 @@ function preorderSettings(p, name, on, date, today, gear, saved) {
     ? 'pre-order is on for the ' + name + '.'
     : 'pre-order is off for the ' + name + '. the date is kept and shows once you switch pre-order on.';
   d.querySelector('[data-settings-hint]').textContent = 'buyers see "pre-order. expected in stock and shipping around <date>." ' +
-    'a bag with this pin ships all together then. leave it empty for "about 4 weeks".';
+    'a bag with this pin ships all together then. left empty, the shop shows a date 4 weeks from each day, which moves along daily.';
   input.min = today;
   input.value = date;
   note.textContent = '';

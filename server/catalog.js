@@ -17,7 +17,7 @@ import { configured, firestoreGet, firestoreSet } from './firebase.js';
 import { isShopOpen } from './shop.js';
 import { squareConfigured, squareMode, getVariations, stockCounts } from './square.js';
 import { readShopStates, isAvailable, isPreorder, readInterest } from './interest.js';
-import { preorderDateFor } from './preorder-words.js';
+import { shipDateFor } from './preorder-words.js';
 import { emailConfigured } from './email.js';
 import { stateList, GIFT_MAX } from './ship-to.js';
 
@@ -143,8 +143,9 @@ async function build(env, origin, fetchFn) {
       // a pup's breed and its few sentences, shown on the board and on its own page (server/pup-pages.js)
       ...(p.breed ? { breed: p.breed } : {}), ...(p.about ? { about: p.about } : {}),
       available, preorder: onPreorder, interest: available || onPreorder ? 0 : interest[p.slug] || 0,
-      // when it's expected in stock and shipping, "2026-12-15". only while on pre-order and not yet passed
-      ...(onPreorder && preorderDateFor(dates[p.slug]) ? { preorder_date: dates[p.slug] } : {})
+      // when it's expected in stock and shipping, "2026-12-15": the owner's date, or N weeks from today when there's
+      // none (or it has passed). only while on pre-order
+      ...(onPreorder ? { preorder_date: shipDateFor(dates[p.slug], preorderWeeks(products)) } : {})
     };
   });
 

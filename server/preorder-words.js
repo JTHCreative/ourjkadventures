@@ -1,6 +1,7 @@
 // j+k adventures: the words for when a pre-order ships. Each pin on pre-order can have a date, set on /admin, when
-// it's expected in stock and ready to ship ("2026-12-15"). With no date, or one that has passed, the shop falls back
-// to "about N weeks" (preorder_weeks in products.json). A bag with several pre-orders ships when the last one arrives.
+// it's expected in stock and ready to ship ("2026-12-15"). With no date, or one that has passed, the shop works one
+// out: N weeks from today (preorder_weeks in products.json). Buyers only ever see a date ("around december 15"), never
+// a count of weeks. A bag with several pre-orders ships when the last one arrives.
 // site/assets/app.js has a twin of prettyDate for the browser; keep the two saying the same thing.
 
 const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
@@ -22,12 +23,17 @@ export function prettyDate(date, today = shopToday()) {
   return MONTHS[m - 1] + ' ' + d + (String(y) !== today.slice(0, 4) ? ', ' + y : '');
 }
 
-// for a bag: the latest of its pre-order dates, or null when none has one
-export function latestDate(dates, today = shopToday()) {
-  return dates.map((d) => preorderDateFor(d, today)).filter(Boolean).sort().pop() || null;
+// N weeks from today, as "2026-12-07": the stand-in date for a pin on pre-order without one
+export function fallbackDate(weeks, today = shopToday()) {
+  return new Date(Date.parse(today + 'T00:00:00Z') + weeks * 7 * 86400000).toISOString().slice(0, 10);
 }
 
-// "around december 15" or "in about 4 weeks"
-export function whenWords(date, weeks, today = shopToday()) {
-  return date ? 'around ' + prettyDate(date, today) : 'in about ' + weeks + ' weeks';
+// the date a pin on pre-order shows: its own, or the stand-in when it has none (or its own has passed)
+export function shipDateFor(date, weeks, today = shopToday()) {
+  return preorderDateFor(date, today) || fallbackDate(weeks, today);
+}
+
+// "around december 15"
+export function whenWords(date, today = shopToday()) {
+  return 'around ' + prettyDate(date, today);
 }

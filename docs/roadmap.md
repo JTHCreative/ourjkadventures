@@ -38,6 +38,7 @@ Work top to bottom. Each phase ships on its own. Tick boxes as you go and add no
 - [x] Pre-orders can be bought (2026-11-09): no stock check, 20 per order, ships in about `preorder_weeks` (4), the whole order together (see decisions)
 - [ ] Maybe: a cap on how many of a pin can be pre-ordered in total (the size of the production run)
 - [x] A pre-order date per product (2026-11-09): set from the gear on `/admin`; buyers see "expected in stock and shipping around <date>", and the order ships with the last pre-order. Pre-orders now sell even with Square's "sold out" tick on (the live pre-order pins all had it, so they only showed the email box)
+- [x] Buyers only see a date for pre-orders, never "about 4 weeks" (2026-11-09): with no date set, the shop shows the date 4 weeks out
 - [x] `/admin` as sections (2026-11-09): the menu shows one full-width card at a time instead of two columns
 - [x] "On its way" email (2026-11-09): "orders to ship" on `/admin`, type the USPS tracking number, the buyer gets a branded email and the order is marked shipped in Square (see decisions)
 - [ ] Owner: brand Square's receipt (logo, colour, contact) and test "mark shipped" once in the sandbox (`setup/square.md`)

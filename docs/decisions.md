@@ -773,3 +773,10 @@ section to take the full width and for the menu to open one at a time. The menu 
 Folding each card is gone, since only one shows at a time. The open card is kept in the address (`#admin-...-title`)
 and in that browser, so a reload or a shared link comes back to it. The menu stays at the top while scrolling on
 screens 720px and wider.
+
+## Pre-orders always show a date (2026-11-09)
+The owner asked to drop "in about 4 weeks" and always say "expected in stock and shipping around <date>". A pin on
+pre-order with no date (or a passed one) now shows the date `preorder_weeks` from today, worked out in the catalog
+(`shipDateFor` in `server/preorder-words.js`), so the bag, the Square notes, the shipment's expected date and the
+thank-you page all carry a date. The catch: that stand-in moves along a day each day until the owner sets a real
+date, so `/admin` says so and the setup steps ask for a real date. Orders keep the date they were given.

@@ -68,17 +68,17 @@ test('a pin on pre-order is for sale at its Square price, without looking at the
   assert.equal(s.sq.calls.filter((c) => c.includes('/inventory/counts')).length, 1); // the catalog's own look
 });
 
-test('a pre-order checkout with no date set says about 4 weeks: on the line, the shipment, the payment and the thank-you page', async () => {
+test('a pre-order checkout with no date set shows the date 4 weeks out: on the line, the shipment, the payment and the thank-you page', async () => {
   const s = setup({ preorder: ['aussie'] });
   assert.equal((await buy(s, [{ key: 'aussie', qty: 1 }])).status, 200);
   const link = s.sq.links[0];
-  assert.deepEqual(link.order.line_items, [{ catalog_object_id: 'V_AUS', quantity: '1', note: 'pre-order. expected to ship in about 4 weeks' }]);
+  assert.deepEqual(link.order.line_items, [{ catalog_object_id: 'V_AUS', quantity: '1', note: 'pre-order. expected to ship around ' + prettyDate(inDays(28)) }]);
   assert.deepEqual(link.order.metadata, { preorder: 'yes' });
   const ship = link.order.fulfillments[0].shipment_details;
-  assert.equal(ship.shipping_note, 'pre-order: the whole order ships together in about 4 weeks');
+  assert.equal(ship.shipping_note, 'pre-order: the whole order ships together around ' + prettyDate(inDays(28)));
   assert.equal(ship.expected_shipped_at, inDays(28) + 'T17:00:00Z');
-  assert.equal(link.payment_note, 'pre-order: the whole order ships together in about 4 weeks');
-  assert.equal(link.checkout_options.redirect_url, 'https://x.test/thank-you.html?preorder=4');
+  assert.equal(link.payment_note, 'pre-order: the whole order ships together around ' + prettyDate(inDays(28)));
+  assert.equal(link.checkout_options.redirect_url, 'https://x.test/thank-you.html?preorder=' + inDays(28));
 });
 
 test('a bag with a pre-order and an in-stock pin: the shelf is checked for the in-stock one, all ships together', async () => {
@@ -92,7 +92,7 @@ test('a bag with a pre-order and an in-stock pin: the shelf is checked for the i
   assert.deepEqual((await short.json()).items, [{ key: 'pomeranian', stock: 1 }]);
   assert.equal((await buy(s, [{ key: 'aussie', qty: 2 }, { key: 'pomeranian', qty: 1 }, { key: 'aussie:large', qty: 1 }])).status, 200);
   const link = s.sq.links[0];
-  assert.deepEqual(link.order.line_items.map((l) => l.note || ''), ['pre-order. expected to ship in about 4 weeks', '', 'pre-order. expected to ship in about 4 weeks']);
+  assert.deepEqual(link.order.line_items.map((l) => l.note || ''), ['pre-order. expected to ship around ' + prettyDate(inDays(28)), '', 'pre-order. expected to ship around ' + prettyDate(inDays(28))]);
   assert.ok(link.payment_note.startsWith('pre-order: the whole order ships together'));
 });
 
@@ -113,7 +113,8 @@ test('with no date set, the ship time comes from products.json', async () => {
   s.env.ASSETS = { fetch: async () => Response.json({ ...products, preorder_weeks: 6 }) };
   _resetCatalogCache();
   assert.equal((await buy(s, [{ key: 'aussie', qty: 1 }])).status, 200);
-  assert.equal(s.sq.links[0].order.line_items[0].note, 'pre-order. expected to ship in about 6 weeks');
+  assert.equal(s.sq.links[0].order.line_items[0].note, 'pre-order. expected to ship around ' + prettyDate(inDays(42)));
+  assert.equal((await item(s, 'aussie')).preorder_date, inDays(42));
 });
 
 test('a pre-order date: in the catalog, on the line, the shipment, the payment and the thank-you page', async () => {
@@ -155,13 +156,13 @@ test('a bag with several pre-orders ships with the last one; an undated one coun
   assert.equal(ship.shipping_note, 'pre-order: the whole order ships together around ' + prettyDate(inDays(28)));
 });
 
-test('a date that has passed is ignored: the shop falls back to about 4 weeks', async () => {
+test('a date that has passed is ignored: the shop shows the date 4 weeks out', async () => {
   const s = setup({ preorder: ['aussie'] });
   s.g.docs['settings/preorder_dates_sandbox'] = { aussie: str(inDays(-3)) };
   _resetCatalogCache();
-  assert.equal((await item(s, 'aussie')).preorder_date, undefined);
+  assert.equal((await item(s, 'aussie')).preorder_date, inDays(28));
   assert.equal((await buy(s, [{ key: 'aussie', qty: 1 }])).status, 200);
-  assert.equal(s.sq.links[0].order.line_items[0].note, 'pre-order. expected to ship in about 4 weeks');
+  assert.equal(s.sq.links[0].order.line_items[0].note, 'pre-order. expected to ship around ' + prettyDate(inDays(28)));
 });
 
 test('the owner sets and clears a pre-order date; nobody else can, and odd dates are refused', async () => {
@@ -179,7 +180,8 @@ test('the owner sets and clears a pre-order date; nobody else can, and odd dates
   assert.equal(links.preorderDates.aussie, inDays(9));
   assert.equal(links.today, shopToday());
   assert.equal((await set(owner, { slug: 'aussie', date: '' })).status, 200);
-  assert.equal((await item(s, 'aussie')).preorder_date, undefined);
+  // cleared: the shop shows the stand-in, 4 weeks from today
+  assert.equal((await item(s, 'aussie')).preorder_date, inDays(28));
   links = await (await s.call('GET', '/api/admin/products', { token: owner })).json();
   assert.equal(links.preorderDates.aussie, undefined);
 });
