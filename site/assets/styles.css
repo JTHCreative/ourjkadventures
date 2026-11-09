@@ -1076,6 +1076,10 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .notify-preview > summary::-webkit-details-marker { display: none; }
 .notify-people { list-style: none; margin: var(--space-2) 0; padding: 0; }
 .notify-people li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-3); padding: var(--space-1) 0; border-bottom: 1px solid var(--line); }
+.order-items { margin: var(--space-1) 0; padding-left: var(--space-5); font-size: 18px; line-height: 26px; }
+.order-ship { flex-wrap: wrap; }
+.order-ship input { flex: 1 1 200px; min-height: 44px; padding: var(--space-2) var(--space-3); font-family: var(--font-serif); font-size: 18px; color: var(--ink); background: var(--surface); border: 1.5px solid var(--line-strong); border-radius: var(--radius-sm); }
+.order-ship input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .gift-note { font-size: 18px; line-height: 26px; font-style: italic; white-space: pre-line; overflow-wrap: anywhere; }
 .gift-address { overflow-wrap: anywhere; user-select: all; }
 .notify-email { overflow-wrap: anywhere; user-select: all; }

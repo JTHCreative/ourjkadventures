@@ -397,6 +397,94 @@ async function loadNotify() {
   try { paintNotify(await api('GET', '/api/admin/notify')); } catch (e) { $('[data-notify-state]').textContent = RESTING; }
 }
 
+/* ---------- orders to ship: the "on its way" email and the tracking number ---------- */
+function paintOrders(data, done) {
+  const state = $('[data-orders-state]');
+  const box = $('[data-order-list]');
+  box.textContent = '';
+  if (!data.square) { state.textContent = 'square isn\'t set up yet, so there are no orders to show.'; return; }
+  const n = data.orders.length;
+  const lines = [];
+  if (done) lines.push(done);
+  lines.push(n ? n + (n === 1 ? ' order to ship.' : ' orders to ship.') : 'nothing to ship right now.');
+  if (!data.email) lines.push('email isn\'t set up, so "mark shipped" only marks it in square. see docs/setup/email.md.');
+  state.textContent = lines.join(' ');
+  data.orders.forEach((o) => {
+    const row = el('div', 'link-product order-row');
+    row.appendChild(el('p', 'link-product-name', 'order ' + o.number + (o.date ? ', ' + new Date(o.date).toLocaleDateString() : '')));
+    const tags = [];
+    if (o.gift) tags.push('gift');
+    if (o.preorder) tags.push('pre-order' + (o.expected ? ', ships about ' + new Date(o.expected).toLocaleDateString() : ''));
+    if (o.shipping) tags.push(o.shipping + ' shipping');
+    if (tags.length) row.appendChild(el('p', 'caption', tags.join(' · ')));
+    const what = el('ul', 'order-items');
+    o.items.forEach((it) => what.appendChild(el('li', null, (it.qty > 1 ? it.qty + ' × ' : '') + it.name)));
+    row.appendChild(what);
+    const a = o.address;
+    const to = el('p', 'body-sm gift-address');
+    [o.name, a.line1, a.line2, a.city + ', ' + a.state + ' ' + a.zip].filter(Boolean).forEach((l, i) => {
+      if (i) to.appendChild(document.createElement('br'));
+      to.appendChild(document.createTextNode(l));
+    });
+    row.appendChild(to);
+    row.appendChild(el('p', 'caption notify-email', 'buyer: ' + o.email));
+    if (o.note) row.appendChild(el('p', 'caption', 'note: ' + o.note));
+
+    const form = el('form', 'admin-actions order-ship');
+    const id = 'track-' + o.id;
+    const lab = el('label', 'sr-only', 'usps tracking number for order ' + o.number);
+    lab.htmlFor = id;
+    const input = el('input');
+    input.id = id;
+    input.type = 'text';
+    input.placeholder = 'usps tracking number';
+    input.autocomplete = 'off';
+    input.setAttribute('inputmode', 'text');
+    input.maxLength = 60;
+    const go = el('button', 'jka-btn jka-btn--sm', 'mark shipped');
+    go.type = 'submit';
+    const note = el('span', 'caption');
+    note.setAttribute('role', 'status');
+    form.append(lab, input, go, note);
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const t = input.value.replace(/[\s-]/g, '');
+      if (!/^[A-Za-z0-9]{8,40}$/.test(t)) { note.textContent = 'that tracking number doesn\'t look right.'; input.focus(); return; }
+      if (!confirm('mark order ' + o.number + ' shipped' + (data.email ? ' and email ' + o.email : '') + '?\ntracking: ' + t)) return;
+      go.disabled = true;
+      note.textContent = 'sending.';
+      try {
+        const res = await api('POST', '/api/admin/orders', { id: o.id, tracking: t });
+        paintOrders(res, 'order ' + o.number + ' is marked shipped' + (res.emailed ? ' and ' + o.email + ' has the email.' : '.'));
+      } catch (err) {
+        const why = err.data && err.data.error;
+        note.textContent = why === 'already shipped' ? 'this one is already marked shipped.'
+          : why === 'email limit' ? 'today\'s emails are used up. try again tomorrow.'
+          : why === 'tracking' ? 'that tracking number doesn\'t look right.'
+          : 'that didn\'t go through. press it again: the email won\'t go out twice.';
+        go.disabled = false;
+      }
+    });
+    row.appendChild(form);
+
+    // what the buyer will get, word for word (with a stand-in tracking number)
+    const peek = el('details', 'notify-preview');
+    peek.appendChild(el('summary', 'link-btn', 'see the email'));
+    peek.appendChild(el('p', 'caption', 'subject: ' + o.preview.subject));
+    const frame = el('iframe', 'notify-preview-frame');
+    frame.setAttribute('sandbox', '');
+    frame.title = 'the "on its way" email for order ' + o.number;
+    frame.srcdoc = o.preview.html;
+    peek.appendChild(frame);
+    row.appendChild(peek);
+    box.appendChild(row);
+  });
+}
+
+async function loadOrders() {
+  try { paintOrders(await api('GET', '/api/admin/orders')); } catch (e) { $('[data-orders-state]').textContent = RESTING; }
+}
+
 /* ---------- gift cards: the note to write by hand, and which order and address it goes with ---------- */
 function paintGifts(data) {
   const state = $('[data-gifts-state]');
@@ -844,6 +932,7 @@ async function open() {
   $('#admin-view').hidden = false;
   wireFolds();
   try { wireShop(await api('GET', '/api/admin/shop')); } catch (e) { $('[data-shop-state]').textContent = RESTING; }
+  loadOrders();
   loadGifts();
   wireProducts();
   loadProducts();
