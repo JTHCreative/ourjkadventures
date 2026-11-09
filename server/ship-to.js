@@ -13,7 +13,8 @@ import { firestoreSet, firestoreList, firestoreDelete } from './firebase.js';
 import { cleanEmail } from './notify.js';
 import { SQUARE_VERSION, squareHost } from './square.js';
 
-export const GIFT_MAX = 200;
+// about two short lines on a small card. was 200 until 2026-11-09
+export const GIFT_MAX = 100;
 
 // the first three digits of each state's zip codes (USPS). a few towns near a state line share a prefix
 // with the neighbour, so those prefixes are listed under both

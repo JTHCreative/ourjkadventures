@@ -672,7 +672,7 @@ gift option with a note we write by hand on a card, tied to its order, buyer ema
   state line are listed under both states, so a real address isn't turned away.
 - **Not a full address check.** We don't look addresses up with USPS (a paid or rate-limited service). The state and
   zip are checked; the street is taken as written.
-- **The gift note** (up to 200 letters, a blank card is fine) goes on the order's shipment as its shipping note,
+- **The gift note** (up to 100 letters, lowered from 200 the same day at the owner's ask, so it fits a small card in the owner's handwriting; a blank card is fine) goes on the order's shipment as its shipping note,
   on the payment note with the ship-to address, as `gift: yes` in the order's metadata, and in Firestore
   `gifts/<square order id>` for the "gift cards to write" card on `/admin`. That card shows only orders Square says
   were paid; unpaid ones (a checkout left half way) are removed after two days. Pressing "card written" removes it.

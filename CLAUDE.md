@@ -71,7 +71,7 @@ an everyday analogy when a concept is technical.
 - We ship to the 50 U.S. states and D.C. only. After "check out" the bag asks where to send it (name, buyer's
   email, street, city, state, zip); the server checks the state is one of ours and the zip belongs to it
   (`server/ship-to.js`) and puts the address on the Square order as a shipment, with Square's own address form
-  off so it can't be changed there. A "this is a gift" tick adds a note (up to 200 letters, a blank card is fine)
+  off so it can't be changed there. A "this is a gift" tick adds a note (up to 100 letters, a blank card is fine)
   that we write by hand on a card: it goes on the Square order's shipping note and payment note, and paid gift
   orders are listed on `/admin` ("gift cards to write", Firestore `gifts/*`) with the buyer's email and the
   address. See `docs/decisions.md`.
