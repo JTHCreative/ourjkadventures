@@ -752,7 +752,6 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .pup-media[hidden] { display: none; }
 .pup-media-head { display: flex; flex-direction: column; gap: var(--space-1); }
 .pup-media-title { font-size: 26px; line-height: 32px; }
-.pup-media-words { font-size: 17px; line-height: 25px; color: var(--ink-muted); }
 .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: var(--space-3); }
 .media-tile { position: relative; display: block; width: 100%; aspect-ratio: 1 / 1; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-sunken); overflow: hidden; cursor: zoom-in; line-height: 0; }
 .media-tile .media-photo { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.3s ease; }

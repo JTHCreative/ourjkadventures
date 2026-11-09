@@ -1129,16 +1129,11 @@
   function paintMedia(box, p, photos) {
     var grid = box.querySelector('[data-media-grid]');
     var title = box.querySelector('[data-media-title]');
-    var words = box.querySelector('[data-media-words]');
     var more = box.querySelector('.media-more');
     if (more) more.remove();
     grid.textContent = '';
     if (!photos.length) { box.hidden = true; return; }
     title.textContent = 'photos of the ' + pupName(p);
-    var fromUs = photos.some(function (ph) { return ph.from === 'shop'; });
-    var fromYou = photos.some(function (ph) { return ph.from === 'review'; });
-    words.textContent = fromUs && fromYou ? 'a few from us, and the ones collectors shared with their reviews.'
-      : fromUs ? 'a few we took ourselves.' : 'shared by collectors with their reviews. thank you!';
     var pics = photos.map(function (ph) {
       var pin = mediaPupName(ph.slug);
       var alt = ph.from === 'shop' ? (ph.alt || 'a photo of the ' + pin + ' pin, from us')
