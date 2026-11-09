@@ -947,8 +947,9 @@ payment, a tip, the order summary beside it), instead of handing buyers to Squar
   (`orders/calculate`) without making it, so the tax shown is the tax charged.
 - **The tip:** "no tip" is picked to start with; 5, 10 or 15 percent of the items (worked out on the server from
   Square's prices) or their own amount, up to $100. It goes on the payment as Square's `tip_money`, on top of the
-  order. It adds, never subtracts, so it isn't a discount, and the words carry no pressure ("totally optional...
-  thank you either way!").
+  order. It adds, never subtracts, so it isn't a discount. The owner's words (2026-11-09): "support our
+  adventure!" over "support us on our adventure to expand our collection and spread happiness and kindness one pin
+  at a time." The heading keeps its exclamation mark, an exception to the headings rule, like "i'm interested!".
 - **Left out on purpose:** the example's "discount code or gift card" box (no discounts, ever), the "email me with
   news and offers" tick (there's no newsletter, and it would be opt-out by default), PayPal and Shop Pay (Square
   doesn't offer them; Shop Pay is Shopify's), phone number and company name (not needed to ship a pin).
