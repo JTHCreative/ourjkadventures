@@ -120,6 +120,7 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [x] The bay area pin board uses the same "i'm interested" and "email me when it's here" as the pins (2026-11-04): its switch is under "pin boards" on `/admin`, and its page shows the button when it's off. Tests cover the whole loop for the board. Owner: switch it off on `/admin` while it isn't in Square yet
 - [x] `/admin` shows who's waiting for each "it's here" email (2026-11-04): each address and the day they signed up, folded away under "see who's waiting", with a button to copy them all. Only ever sent to the owner
 - [x] Remove an address from a waiting list on `/admin` (2026-11-09), with undo that keeps its sign-up day (old test addresses, or someone who writes in)
+- [x] Rearrange the `/admin` menu (2026-11-09): the arrows icon at its top right, then drag (mouse or finger) or arrow keys. Kept per browser
 - [x] "email me when it's here" (2026-11-04): sign up under "i'm interested", checked on the spot (typo hints, DNS: no confirm email, owner's call), owner presses send on `/admin` once the product is back. Through Resend's free plan (owner chose it over Cloudflare Email Sending)
 - [x] Guest reviews (2026-11-04): name and email instead of an account, owner approves as always, a tick box to make an account that then takes the guest reviews in
 - [x] Review photos (2026-11-05): up to 4 per review, accounts and guests, kept in Cloudflare R2, shrunk and stripped of camera notes in the browser and checked again on the server, private until the owner approves the review

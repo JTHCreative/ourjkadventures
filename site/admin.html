@@ -49,7 +49,17 @@
 
       <!-- a button per card below, filled in from their titles by admin.js; tapping one shows that card alone -->
       <nav class="card clean admin-menu" aria-label="shop settings sections">
-        <ul class="admin-menu-list" data-admin-menu></ul>
+        <div class="admin-menu-bar">
+          <ul class="admin-menu-list" data-admin-menu></ul>
+          <!-- rearrange mode: drag the buttons above into the order you like (admin.js, wireSections) -->
+          <button class="admin-menu-arrange" type="button" aria-pressed="false" aria-label="rearrange the menu" title="rearrange the menu" data-menu-arrange hidden>
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>
+            </svg>
+          </button>
+        </div>
+        <p class="caption admin-menu-help" data-menu-help hidden>drag the sections into the order you like, or pick one and use the arrow keys. press the arrows icon again when you're done. <button class="link-btn" type="button" data-menu-reset>back to the original order</button></p>
+        <p class="sr-only" role="status" data-menu-said></p>
       </nav>
 
       <div class="admin-sections">
