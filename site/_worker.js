@@ -4,7 +4,6 @@
 //   SQUARE_ACCESS_TOKEN  (secret)  your Square access token
 //   SQUARE_LOCATION_ID             the Square location that takes the sale
 //   SQUARE_ENV                     "sandbox" while testing, "production" when live
-//   TAX_PERCENT  (optional)        e.g. "9.25". leave empty for no tax line
 //   SUPPORT_EMAIL (optional)       shown to buyers on the Square checkout page
 //   FIREBASE_PROJECT_ID, FIREBASE_SERVICE_ACCOUNT  accounts, see server/firebase.js
 //   ADMIN_EMAILS                   who may use /admin, see server/admin.js
@@ -163,8 +162,10 @@ async function checkout(request, env, url) {
   if (buyer) order.metadata = { uid: buyer.sub };
   if (gift) order.metadata = { ...(order.metadata || {}), gift: 'yes' };
   if (preorderKeys.length) order.metadata = { ...(order.metadata || {}), preorder: 'yes' };
-  const tax = Number(env.TAX_PERCENT);
-  if (tax > 0) order.taxes = [{ uid: 'sales-tax', name: 'sales tax', percentage: String(tax), scope: 'ORDER' }];
+  // sales tax: Square applies each item's own tax, the same one the booth uses (today "Millbrae Sales Tax"), so
+  // web and booth sales sit under one tax in Square's reports and the rate lives in one place. the shipping line
+  // is marked not taxable. (TAX_PERCENT in Cloudflare is no longer read: setting it can't add tax twice)
+  order.pricing_options = { auto_apply_taxes: true };
 
   const options = {
     // the thank-you page says when a pre-order ships

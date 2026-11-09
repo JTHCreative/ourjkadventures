@@ -127,7 +127,8 @@ left" (brand voice: no urgency). Checkout now sends `catalog_object_id` instead 
 which is what makes Square lower the count on a web sale (before this, web sales never touched Square
 stock), and it checks the shelf fresh rather than trusting the one-minute catalog. Square's "sold out"
 tick wins over any count. Tax still comes from `TAX_PERCENT`, not Square's per-item tax, to avoid
-charging it twice. If Square can't be reached, everything shows as sold out.
+charging it twice. (Changed 2026-11-09: tax now comes from Square's per-item tax, see "One sales tax for the
+booth and the website" below.) If Square can't be reached, everything shows as sold out.
 
 ## 2026-10-31 Large pins only for the aussie and the pomeranian
 Owner: only the aussie and pomeranian come in a large size, a limited edition. Every other pup is standard
@@ -737,3 +738,13 @@ stays off so the U.S.-only address can't be changed on Square's page. So the shi
 service charge on the order itself (`order.service_charges`, named like "ground shipping (2 to 5 days)"). Square
 shows it as its own line on its page and the receipt. Free ground still sends no line, just the payment note.
 The fake Square in `tests/helpers.mjs` refuses `shipping_fee` with the form off, as the real one does.
+
+## One sales tax for the booth and the website (2026-11-09)
+The booth charged Square's per-item tax ("Millbrae Sales Tax", 9.375%), while web checkout added its own line from
+`TAX_PERCENT` in Cloudflare, a rate typed in a second place. That meant two taxes with different names in Square's
+sales tax report, a rate that could drift from the booth's, and no tax at all online if `TAX_PERCENT` was never
+set. Checkout now asks Square to apply each item's own tax (`pricing_options.auto_apply_taxes`), so both are the
+same tax, kept in one place. Checked against the real account with `CalculateOrder`: two large aussies, $30.00,
+got Millbrae Sales Tax $2.81, and the $13.00 shipping line stayed untaxed. `TAX_PERCENT` is no longer read, so
+leaving it set can't add tax twice. Whether shipping should be taxed, and whether other states' buyers should pay
+their own state's tax, are questions for the owner's accountant.
