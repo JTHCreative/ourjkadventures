@@ -656,3 +656,25 @@ reviews scroll past and lets go at the bottom of the reviews, and the photos sta
   So anything in the bottom 12% of the window is part way faded, gone at the edge: the card by its top edge, each
   photo by its own, a little later the further right it sits. It's worked out once per screen frame, only while
   the section is showing, from where things would sit before their slide, so the slide never feeds back into it.
+
+## U.S.-only shipping and gift notes (2026-11-09)
+The owner asked to ship only to U.S. states for now, with the buyer's address checked to be a U.S. one, and for a
+gift option with a note we write by hand on a card, tied to its order, buyer email and address.
+- **The address is asked for on our site, not on Square's page.** Square's payment link has no setting to limit
+  which countries its address form takes. So the bag asks (a second step after "check out"), the server checks
+  it (`server/ship-to.js`), and checkout puts it on the Square order as a shipment, with
+  `ask_for_shipping_address` off so Square's page can't change it. Like handing the post office a label you've
+  already checked, instead of a blank one.
+- **What counts as a U.S. state:** the 50 states and D.C. Not Puerto Rico or the other territories, and not APO/FPO
+  military addresses. Easy to add later in `STATES` if the owner wants them.
+- **The zip has to belong to the state**, by its first three digits (USPS's prefixes). This catches typos, and a
+  foreign postcode that happens to be five digits (Paris is 75001, which is Texas). Prefixes shared by towns on a
+  state line are listed under both states, so a real address isn't turned away.
+- **Not a full address check.** We don't look addresses up with USPS (a paid or rate-limited service). The state and
+  zip are checked; the street is taken as written.
+- **The gift note** (up to 200 letters, a blank card is fine) goes on the order's shipment as its shipping note,
+  on the payment note with the ship-to address, as `gift: yes` in the order's metadata, and in Firestore
+  `gifts/<square order id>` for the "gift cards to write" card on `/admin`. That card shows only orders Square says
+  were paid; unpaid ones (a checkout left half way) are removed after two days. Pressing "card written" removes it.
+  Kept on our side because the owner writes from it; the address and email are already in Square anyway.
+- The buyer's email from the address step is filled in on Square's page (`buyer_email`), signed in or not.

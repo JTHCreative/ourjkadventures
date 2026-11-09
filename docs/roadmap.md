@@ -32,6 +32,9 @@ Work top to bottom. Each phase ships on its own. Tick boxes as you go and add no
 - [x] Sold-out pins show "sold out" automatically; in-stock ones show "N in stock."
 - [x] Shipping choice in the bag (2026-11-08): ground $7, priority $13, express $36, priced on the server from `products.json`, sent to Square as the shipping line. Fixed prices, not live carrier rates (see decisions)
 - [x] Free ground shipping when the pins come to $40 or more (2026-11-08); boards don't count (see decisions)
+- [x] U.S. states and D.C. only (2026-11-09): the bag asks for the address, the server checks the state and that the zip belongs to it, and the order carries it to Square with Square's own address form off (see decisions)
+- [x] Gift option (2026-11-09): a tick and a note of up to 200 letters, written by hand on a card. On the Square order and payment, and listed on `/admin` once paid
+- [ ] Owner: one sandbox checkout with an address and a gift note, to confirm Square takes the address on the order (`setup/square.md`)
 - [ ] Board shipping prices of its own before the Bay Area board goes on sale: today it would pay pin prices ($7 ground). Owner: weigh and measure one packed board, look up USPS and UPS rates
 - [x] Owner steps in `setup/square.md`
 
