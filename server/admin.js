@@ -19,6 +19,7 @@
 //   POST /api/admin/preorder-date  { slug, date: "2026-12-15" }  when a pre-order pin is expected in stock and shipping
 //   GET  /api/admin/notify   who is waiting for an "it's here" email, per product, and today's email count
 //   POST /api/admin/notify   { slug }  send "it's here" to everyone waiting for it (up to today's allowance)
+//   DELETE /api/admin/interest  { slug }  clear a product's "i'm interested" count: 0, votes forgotten, not kept as "asked"
 //   DELETE /api/admin/notify/person  { slug, email }  take one address off a product's list -> { removed: { slug, email, at } }
 //   PUT  /api/admin/notify/person    { slug, email, at }  put it back (undo), keeping the day they signed up
 //   GET  /api/admin/media    the owner's own photos for the photos section under the pup board (server/media.js)
@@ -43,7 +44,7 @@ import { pendingReviews, setReviewStatus, REVIEW_STATUSES, ownerPhoto } from './
 import { siteProducts, siteKeys, readLinks, saveLinks, freshCatalog, readFeatured, saveFeatured, stockOf, MAX_FEATURED, forgetCatalog } from './catalog.js';
 import { squareConfigured, squareMode, listVariations, stockCounts } from './square.js';
 import { instagramStatus } from './instagram.js';
-import { readAvailability, setAvailable, readPreorder, setPreorder, readInterest, readAsked, readPreorderDates, setPreorderDate, cleanDate } from './interest.js';
+import { readAvailability, setAvailable, readPreorder, setPreorder, readInterest, readAsked, closeRound, readPreorderDates, setPreorderDate, cleanDate } from './interest.js';
 import { shopToday } from './preorder-words.js';
 import { notifySummary, sendItsHere, removeWaiting, restoreWaiting } from './notify.js';
 import { adminMedia, addMedia, removeMedia } from './media.js';
@@ -182,6 +183,16 @@ export async function admin(request, env, fetchFn = fetch) {
       await setPreorderDate(env, body.slug, checked.date, fetchFn);
       forgetCatalog();
       return json({ slug: body.slug, date: checked.date });
+    }
+
+    if (route === 'interest') {
+      // the owner wipes a product's "i'm interested" count (a stray or test tap). its email list is left alone
+      if (request.method !== 'DELETE') return json({ error: 'method' }, 405);
+      const body = await readJson(request);
+      const slugs = new Set((await siteProducts(env, request.url)).items.map((p) => p.slug));
+      if (typeof body.slug !== 'string' || !slugs.has(body.slug)) return json({ error: 'unknown product' }, 400);
+      const cleared = await closeRound(env, body.slug, fetchFn, { keepAsHistory: false });
+      return json({ slug: body.slug, cleared, interest: await readInterest(env, fetchFn) });
     }
 
     if (route === 'notify/person') {

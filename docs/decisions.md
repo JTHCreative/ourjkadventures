@@ -914,3 +914,10 @@ post office's own logbook rather than keeping a second notebook that could drift
 square links document per page opened (to name the pins our way), nothing written. It's read only when the fold is
 opened, so the page costs nothing extra while it's shut. "to ship", "cards still to write" and "order history" are
 `<details>` folds; which are open is kept in that browser (`jka_admin_order_groups`).
+
+## "clear the count" for "i'm interested" (2026-11-09)
+The doodle showed "1 person is interested" with no one on its email list, and the owner wanted it gone. A tally can only
+fall when the same browser taps again, so `/admin` now has "clear the count" on each row with a tally
+(`DELETE /api/admin/interest`). It reuses the fresh-start step from "it's here" (`closeRound`): count to 0, votes
+deleted, round up by one so old taps are forgotten, but it doesn't record the count as "asked before it arrived". The
+email list is left alone. Asks first; can't be undone.

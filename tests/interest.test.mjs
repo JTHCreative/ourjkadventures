@@ -130,6 +130,25 @@ test('the owner sees every tally, including for products that have since arrived
   assert.equal((await catalog(s)).items.find((p) => p.slug === 'corgi').interest, 0);
 });
 
+test('the owner can clear a product\'s count: back to 0, votes forgotten, not kept as "asked"; nobody else can', async () => {
+  const s = setup();
+  const first = await vote(s, 'corgi');
+  await vote(s, 'corgi', { ip: '9.9.9.9' });
+  const owner = await sign({ email: OWNER });
+  const clear = (token, slug) => s.call('DELETE', '/api/admin/interest', { token, body: { slug } });
+  assert.equal((await clear(await sign({ email: 'someone@example.com' }), 'corgi')).status, 403);
+  assert.equal((await clear(owner, 'not-a-pin')).status, 400);
+  const res = await (await clear(owner, 'corgi')).json();
+  assert.equal(res.cleared, 2);
+  assert.equal(res.interest.corgi, undefined);
+  const body = await (await s.call('GET', '/api/admin/products', { token: owner })).json();
+  assert.equal(body.interest.corgi, undefined);
+  assert.equal(body.asked.corgi, undefined);
+  assert.equal((await catalog(s)).items.find((p) => p.slug === 'corgi').interest, 0);
+  // the browser that tapped before can tap again, and it counts from 0
+  assert.deepEqual(await (await vote(s, 'corgi', { cookie: 'jka_voter=' + ticketOf(first) })).json(), { counted: true, count: 1 });
+});
+
 const unvote = (s, slug, opts = {}) => s.call('DELETE', '/api/interest', { body: { slug }, ...opts });
 
 test('tapping again takes the vote back: one off the tally, and the browser can vote again', async () => {

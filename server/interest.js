@@ -135,14 +135,16 @@ export async function readAsked(env, fetchFn = fetch) {
 
 // The pin arrived and everyone waiting has their email: this round of "i'm interested" is over. Like wiping the
 // tally off the chalkboard once the order came in, with a note in the corner of how many it was. Returns the old count.
-export async function closeRound(env, slug, fetchFn = fetch) {
+export async function closeRound(env, slug, fetchFn = fetch, { keepAsHistory = true } = {}) {
   const tallyPath = tallies(env) + '/' + encodeURIComponent(slug);
   const t = (await firestoreGet(env, tallyPath, fetchFn)) || {};
   const count = Math.max(0, Number(t.count) || 0);
   const mine = await firestoreQuery(env, votes(env), { slug }, 5000, fetchFn);
   if (!count && !mine.length) return 0;
   // the tally first: from here on, every browser's remembered vote is from an old round
-  await firestoreCommit(env, [{ add: tallyPath, field: 'count', by: -count, data: { slug, round: (Number(t.round) || 0) + 1, asked: count } }], fetchFn);
+  // cleared by hand on /admin (a stray tap, say): the count goes, but it isn't kept as "asked before it arrived"
+  const data = { slug, round: (Number(t.round) || 0) + 1, ...(keepAsHistory ? { asked: count } : {}) };
+  await firestoreCommit(env, [{ add: tallyPath, field: 'count', by: -count, data }], fetchFn);
   for (let i = 0; i < mine.length; i += 400) {
     await firestoreCommit(env, mine.slice(i, i + 400).map((v) => ({ remove: votes(env) + '/' + encodeURIComponent(v.id), any: true })), fetchFn);
   }
