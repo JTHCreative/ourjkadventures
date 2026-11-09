@@ -863,6 +863,8 @@ function foldedCards() {
 function rememberFolds(list) {
   try { if (list.length) localStorage.setItem(FOLD_KEY, JSON.stringify(list)); else localStorage.removeItem(FOLD_KEY); } catch (e) {}
 }
+// opens a folded card by its title's id; filled in by wireFolds, used by the "jump to" menu
+const openCard = {};
 function wireFolds() {
   const folded = new Set(foldedCards());
   document.querySelectorAll('.admin-card').forEach((card) => {
@@ -889,13 +891,41 @@ function wireFolds() {
       card.classList.toggle('is-folded', !open);
     };
     paint(!folded.has(id));
-    btn.addEventListener('click', () => {
-      const open = btn.getAttribute('aria-expanded') !== 'true';
+    const toggle = (open) => {
       paint(open);
       if (open) folded.delete(id); else folded.add(id);
       rememberFolds([...folded]);
-    });
+    };
+    btn.addEventListener('click', () => toggle(btn.getAttribute('aria-expanded') !== 'true'));
+    openCard[id] = () => { if (btn.getAttribute('aria-expanded') !== 'true') toggle(true); return btn; };
   });
+}
+
+/* ---------- "jump to": a link per card, like a table of contents ---------- */
+// built from the card titles, so a new card shows up here on its own. a jump to a folded card opens it first,
+// then moves the keyboard to its title so the next tab lands inside that card
+function wireMenu() {
+  const list = $('[data-admin-menu]');
+  if (!list) return;
+  document.querySelectorAll('.admin-card .admin-title[id]').forEach((title) => {
+    const a = el('a', null, title.textContent.trim());
+    a.href = '#' + title.id;
+    a.addEventListener('click', (ev) => {
+      if (!openCard[title.id]) return;
+      ev.preventDefault();
+      const btn = openCard[title.id]();
+      const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      title.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
+      btn.focus({ preventScroll: true });
+      history.replaceState(null, '', '#' + title.id);
+    });
+    const li = el('li');
+    li.appendChild(a);
+    list.appendChild(li);
+  });
+  // arriving with a card in the address (/admin#admin-orders-title): open it if it was folded
+  const id = decodeURIComponent(location.hash.slice(1));
+  if (id && openCard[id]) { openCard[id](); document.getElementById(id)?.scrollIntoView(); }
 }
 
 /* ---------- start ---------- */
@@ -931,6 +961,7 @@ async function open() {
   });
   $('#admin-view').hidden = false;
   wireFolds();
+  wireMenu();
   try { wireShop(await api('GET', '/api/admin/shop')); } catch (e) { $('[data-shop-state]').textContent = RESTING; }
   loadOrders();
   loadGifts();

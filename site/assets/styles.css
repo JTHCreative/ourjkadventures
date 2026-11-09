@@ -1032,6 +1032,20 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 /* ---------- the owner's page (/admin) ---------- */
 .admin { max-width: 720px; margin: 0 auto; }
 .admin-card { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5); margin-top: var(--space-6); text-align: left; }
+/* the cards sit in two columns on a wide screen, side by side in reading order, each only as tall as it needs */
+@media (min-width: 960px) {
+  .admin { max-width: none; }
+  .admin-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: var(--space-5); margin-top: var(--space-6); }
+  .admin-grid > .admin-card { margin-top: 0; }
+}
+/* "jump to": a link per card, above the cards */
+.admin-menu { padding: var(--space-5); margin-top: var(--space-6); text-align: left; }
+.admin-menu-title { font-size: 22px; line-height: 28px; font-weight: 500; }
+.admin-menu-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.admin-menu-list a { display: inline-flex; align-items: center; min-height: 44px; padding: var(--space-1) var(--space-4); font-size: 18px; line-height: 24px; color: var(--ink); text-decoration: none; border: 1.5px solid var(--line-strong); border-radius: var(--radius-pill); background: var(--surface); }
+.admin-menu-list a:hover { border-color: var(--ink); }
+.admin-menu-list a:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.admin-card .admin-title { scroll-margin-top: var(--space-5); }
 .admin-title { font-size: 26px; line-height: 32px; font-weight: 500; }
 /* each card's title is a button that folds the card up or opens it (site/assets/admin.js) */
 .admin-fold { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 44px; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; border-radius: var(--radius-sm); }
@@ -1122,7 +1136,7 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .admin-review .admin-actions { margin-top: var(--space-2); }
 @media (max-width: 560px) {
   .link-row { grid-template-columns: 1fr; }
-  .admin-card { padding: var(--space-4); }
+  .admin-card, .admin-menu { padding: var(--space-4); }
 }
 @media (prefers-reduced-motion: reduce) { .switch, .switch-knob { transition: none; } }
 
