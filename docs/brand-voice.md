@@ -9,7 +9,7 @@ real people telling you about something they made, not a brand writing poetry. I
 belongs on a gallery wall, say it the way you would to a friend instead.
 
 The about page is the reference for this voice:
-> we're justin and kitty, the j and k behind j+k adventures! this story started on the road.
+> we're justin and kitty, the j and k behind j+k adventures! our story began at the spca, where our first adventure was taking the shelter doggos out to show them the world.
 
 - **Talk like a person.** Say "we", "us" and "you". Contractions are good ("we're", "it's", "you'll").
   Everyday words over clever ones. It's fine to share a little of our own story and feelings.
