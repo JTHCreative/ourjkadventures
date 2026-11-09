@@ -1102,6 +1102,20 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .order-ship { flex-wrap: wrap; }
 .order-ship input { flex: 1 1 200px; min-height: 44px; padding: var(--space-2) var(--space-3); font-family: var(--font-serif); font-size: 18px; color: var(--ink); background: var(--surface); border: 1.5px solid var(--line-strong); border-radius: var(--radius-sm); }
 .order-ship input:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+/* orders to ship: each order folds open and closed, with labelled parts inside */
+.order-fold { border: 1.5px solid var(--line); border-radius: var(--radius-md); background: var(--surface); margin-top: var(--space-3); }
+.order-summary { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--space-1) var(--space-3); padding: var(--space-3) var(--space-4); cursor: pointer; list-style: none; min-height: 44px; }
+.order-summary::-webkit-details-marker { display: none; }
+.order-summary::before { content: ''; width: 9px; height: 9px; border-right: 2px solid var(--ink-soft); border-bottom: 2px solid var(--ink-soft); transform: rotate(-45deg); margin-right: var(--space-2); align-self: center; transition: transform 0.2s ease; }
+.order-fold[open] > .order-summary::before { transform: rotate(45deg); }
+.order-summary:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: var(--radius-md); }
+.order-summary-name { flex: 1; font-size: 20px; line-height: 26px; font-weight: 500; }
+.order-body { display: flex; flex-direction: column; gap: var(--space-5); padding: var(--space-2) var(--space-4) var(--space-5); border-top: 1.5px solid var(--line); }
+.order-part { display: flex; flex-direction: column; gap: var(--space-2); }
+.order-part + .order-part { border-top: 1px dashed var(--line); padding-top: var(--space-4); }
+.order-part-title { font-size: 16px; line-height: 22px; font-weight: 500; letter-spacing: 0.04em; color: var(--ink-muted); }
+.gift-card-done { color: var(--ink-soft); }
+@media (prefers-reduced-motion: reduce) { .order-summary::before { transition: none; } }
 .gift-card { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-2); padding: var(--space-3) var(--space-4); border: 1.5px dashed var(--line-strong); border-radius: var(--radius-md); background: var(--surface); }
 .gift-card-title { font-weight: 500; color: var(--ink); }
 .admin-subtitle { font-size: 20px; line-height: 26px; font-weight: 500; margin-top: var(--space-4); }
