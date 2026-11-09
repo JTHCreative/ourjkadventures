@@ -26,7 +26,7 @@
 //                                                                             door count to give back if it's taken back
 //   interest_ips_<mode>/{slug}_{h}     { slug, day, count }                   votes from one connection on one day
 
-import { configured, firestoreGet, firestoreSet, firestoreList, firestoreCommit } from './firebase.js';
+import { configured, firestoreGet, firestoreSet, firestoreList, firestoreQuery, firestoreCommit } from './firebase.js';
 import { squareMode } from './square.js';
 import { fromOurSite } from './same-site.js';
 
@@ -108,13 +108,45 @@ export async function readShopStates(env, fetchFn = fetch) {
 }
 
 /* ---------- the tallies ---------- */
-// { corgi: 12, ... }
-export async function readInterest(env, fetchFn = fetch) {
+// Each pin's tally doc: { slug, count, round, asked }. count is this round's taps. A round ends when the owner sends
+// "it's here" to everyone waiting (closeRound): count goes back to 0, every vote is cleared, round goes up by one and
+// asked keeps how many asked last time, for /admin ("5 people asked for it before it arrived"). Browsers remember a
+// vote with its round, so a new round means they show "i'm interested!" again (site/assets/app.js).
+// { corgi: { count: 12, round: 0, asked: 0 }, ... }
+export async function readTallies(env, fetchFn = fetch) {
   const out = {};
   for (const d of await firestoreList(env, tallies(env), 300, fetchFn)) {
-    if (typeof d.count === 'number' && d.count > 0) out[d.id] = d.count;
+    out[d.id] = { count: typeof d.count === 'number' ? Math.max(0, d.count) : 0, round: Number(d.round) || 0, asked: Number(d.asked) || 0 };
   }
   return out;
+}
+// { corgi: 12, ... }, only the ones with taps this round
+export async function readInterest(env, fetchFn = fetch) {
+  const out = {};
+  for (const [slug, t] of Object.entries(await readTallies(env, fetchFn))) if (t.count > 0) out[slug] = t.count;
+  return out;
+}
+// { corgi: 5, ... }: how many asked in the round that ended, for products that arrived
+export async function readAsked(env, fetchFn = fetch) {
+  const out = {};
+  for (const [slug, t] of Object.entries(await readTallies(env, fetchFn))) if (t.asked > 0) out[slug] = t.asked;
+  return out;
+}
+
+// The pin arrived and everyone waiting has their email: this round of "i'm interested" is over. Like wiping the
+// tally off the chalkboard once the order came in, with a note in the corner of how many it was. Returns the old count.
+export async function closeRound(env, slug, fetchFn = fetch) {
+  const tallyPath = tallies(env) + '/' + encodeURIComponent(slug);
+  const t = (await firestoreGet(env, tallyPath, fetchFn)) || {};
+  const count = Math.max(0, Number(t.count) || 0);
+  const mine = await firestoreQuery(env, votes(env), { slug }, 5000, fetchFn);
+  if (!count && !mine.length) return 0;
+  // the tally first: from here on, every browser's remembered vote is from an old round
+  await firestoreCommit(env, [{ add: tallyPath, field: 'count', by: -count, data: { slug, round: (Number(t.round) || 0) + 1, asked: count } }], fetchFn);
+  for (let i = 0; i < mine.length; i += 400) {
+    await firestoreCommit(env, mine.slice(i, i + 400).map((v) => ({ remove: votes(env) + '/' + encodeURIComponent(v.id), any: true })), fetchFn);
+  }
+  return count;
 }
 
 /* ---------- scrambling ---------- */

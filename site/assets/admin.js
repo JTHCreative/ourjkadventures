@@ -165,6 +165,7 @@ function paintProducts(data) {
   const dates = data.preorderDates || {};
   const today = data.today || new Date().toISOString().slice(0, 10);
   const interest = data.interest || {};
+  const asked = data.asked || {};
   paintInterest(data);
   mode.textContent = data.mode === 'sandbox' ? 'connected to square sandbox, the practice account.' : 'connected to your square account.';
   // without square there is nothing to link, but the available switches still work
@@ -243,7 +244,8 @@ function paintProducts(data) {
       pre.sw.setAttribute('aria-checked', preOn ? 'true' : 'false');
       box.classList.toggle('is-unavailable', !on && !preOn);
       box.classList.toggle('is-preorder', preOn);
-      words.textContent = availableWords(on, interest[p.slug] || 0, preOn, dates[p.slug], today) + (extra ? ' ' + extra : '');
+      // in the shop: how many asked before it arrived (this round's tally, or the last round's once "it's here" went out)
+      words.textContent = availableWords(on, (interest[p.slug] || 0) || (on ? asked[p.slug] || 0 : 0), preOn, dates[p.slug], today) + (extra ? ' ' + extra : '');
       // the heading's "n not available" and "n on pre-order" counts listen for this
       box.dispatchEvent(new Event('change', { bubbles: true }));
     };
@@ -382,22 +384,47 @@ function shortDate(iso) {
   return isNaN(d) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toLowerCase();
 }
 
-// who's on a product's list, folded away like the email preview: each address and the day they signed up,
-// and one button to copy them all (one per line) to paste somewhere else
+// addresses taken off a list by hand this visit, newest first, each with an "undo" until the page is reloaded:
+// { slug, name, email, at }. and which "see who's waiting" lists are open, so removing one doesn't fold it shut
+let removedPeople = [];
+const openWaiting = new Set();
+
+// who's on a product's list, folded away like the email preview: each address, the day they signed up and a
+// remove button (an old test address, say), and one button to copy them all (one per line) to paste somewhere else
 function whoIsWaiting(r) {
   const peek = el('details', 'notify-preview');
+  peek.open = openWaiting.has(r.slug);
+  peek.addEventListener('toggle', () => { if (peek.open) openWaiting.add(r.slug); else openWaiting.delete(r.slug); });
   peek.appendChild(el('summary', 'link-btn', 'see who\'s waiting'));
+  const said = el('span', 'caption');
+  said.setAttribute('role', 'status');
   const ul = el('ul', 'notify-people');
   (r.people || []).forEach((p) => {
     const li = el('li');
-    li.append(el('span', 'notify-email', p.email), el('span', 'caption', shortDate(p.at)));
+    const end = el('span', 'notify-person-end');
+    const remove = el('button', 'link-btn', 'remove');
+    remove.type = 'button';
+    remove.setAttribute('aria-label', 'remove ' + p.email + ' from the ' + r.name + ' list');
+    remove.addEventListener('click', async () => {
+      remove.disabled = true;
+      said.textContent = 'removing.';
+      try {
+        const res = await api('DELETE', '/api/admin/notify/person', { slug: r.slug, email: p.email });
+        removedPeople.unshift({ slug: r.slug, name: r.name, email: res.removed.email, at: res.removed.at });
+        paintNotify(res);
+      } catch (e) {
+        said.textContent = e.status === 404 ? 'that address was already off the list.' : 'that didn\'t go through. try again in a moment.';
+        remove.disabled = false;
+        if (e.status === 404) loadNotify();
+      }
+    });
+    end.append(el('span', 'caption', shortDate(p.at)), remove);
+    li.append(el('span', 'notify-email', p.email), end);
     ul.appendChild(li);
   });
   peek.appendChild(ul);
   const copy = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', 'copy the addresses');
   copy.type = 'button';
-  const said = el('span', 'caption');
-  said.setAttribute('role', 'status');
   copy.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText((r.people || []).map((p) => p.email).join('\n'));
@@ -410,6 +437,38 @@ function whoIsWaiting(r) {
   actions.append(copy, said);
   peek.appendChild(actions);
   return peek;
+}
+
+// "removed jka-test@mailinator.com from the doodle list. undo", for each one taken off this visit
+function removedBox() {
+  const box = el('div', 'notify-removed');
+  box.appendChild(el('p', 'caption', 'removed this visit. undo puts an address back with the day it signed up.'));
+  const ul = el('ul', 'notify-people');
+  removedPeople.forEach((p) => {
+    const li = el('li');
+    const undo = el('button', 'link-btn', 'undo');
+    undo.type = 'button';
+    undo.setAttribute('aria-label', 'put ' + p.email + ' back on the ' + p.name + ' list');
+    const said = el('span', 'caption');
+    said.setAttribute('role', 'status');
+    undo.addEventListener('click', async () => {
+      undo.disabled = true;
+      try {
+        const res = await api('PUT', '/api/admin/notify/person', { slug: p.slug, email: p.email, at: p.at });
+        removedPeople = removedPeople.filter((x) => x !== p);
+        paintNotify(res);
+      } catch (e) {
+        said.textContent = 'that didn\'t go through. try again in a moment.';
+        undo.disabled = false;
+      }
+    });
+    const end = el('span', 'notify-person-end');
+    end.append(said, undo);
+    li.append(el('span', 'notify-email', p.email + ' (' + p.name + ')'), end);
+    ul.appendChild(li);
+  });
+  box.appendChild(ul);
+  return box;
 }
 
 function paintNotify(data, done) { askingNotify = data; askingDone = done || null; paintAsking(); }
@@ -492,6 +551,7 @@ function paintAsking() {
   if (n && n.configured) (n.products || []).forEach((r) => { row(r.slug, r.name).list = r; });
   const list = [...rows.values()].sort((a, b) => (b.interest - a.interest) || ((b.list ? b.list.waiting : 0) - (a.list ? a.list.waiting : 0)));
   box.textContent = '';
+  if (removedPeople.length) box.appendChild(removedBox());
   // a send that emptied its list: say so, since that product's list is gone now
   const done = askingDone;
   if (done && !list.some((r) => r.list && r.slug === done.slug)) box.appendChild(el('p', 'body-sm', done.words));
@@ -1124,16 +1184,123 @@ function wireSections() {
     const b = el('button', 'admin-menu-btn', title.textContent.trim());
     b.type = 'button';
     b.setAttribute('aria-controls', card.id || (card.id = title.id + '-card'));
-    b.addEventListener('click', () => show(title.id, true));
+    // while rearranging, a tap picks the button up instead of opening its section
+    b.addEventListener('click', () => { if (!arranging) show(title.id, true); });
     buttons.set(title.id, b);
     const li = el('li');
+    li.dataset.section = title.id;
     li.appendChild(b);
     list.appendChild(li);
   });
+  const pageOrder = [...buttons.keys()];
+  putInOrder(list, readMenuOrder());
   let start = decodeURIComponent(location.hash.slice(1));
   if (!buttons.has(start)) { try { start = localStorage.getItem(SECTION_KEY) || ''; } catch (e) { start = ''; } }
-  if (!buttons.has(start)) start = cards[0].querySelector('.admin-title').id;
+  if (!buttons.has(start)) start = list.querySelector('li').dataset.section;
   show(start, false);
+  let arranging = false;
+  wireArrange(list, pageOrder, (on) => { arranging = on; });
+}
+
+/* ---------- rearranging the menu ---------- */
+// The owner can put the sections in any order: the arrows icon at the top right turns on rearrange mode, where each
+// button can be dragged (mouse or finger) or moved with the arrow keys. Like moving apps around on a phone's home
+// screen. The order is kept in this browser (localStorage), like the open section; a section added later goes at
+// the end. Nothing is sent to the server: it only changes how this page is laid out for the person looking at it.
+const ORDER_KEY = 'jka_admin_menu_order';
+function readMenuOrder() {
+  try { const o = JSON.parse(localStorage.getItem(ORDER_KEY) || '[]'); return Array.isArray(o) ? o : []; } catch (e) { return []; }
+}
+function saveMenuOrder(list) {
+  try { localStorage.setItem(ORDER_KEY, JSON.stringify([...list.children].map((li) => li.dataset.section))); } catch (e) {}
+}
+// the saved ones first, in their saved order; anything not saved keeps its place after them
+function putInOrder(list, order) {
+  const items = [...list.children];
+  const rank = (li) => { const i = order.indexOf(li.dataset.section); return i === -1 ? order.length + items.indexOf(li) : i; };
+  items.sort((a, b) => rank(a) - rank(b)).forEach((li) => list.appendChild(li));
+}
+
+function wireArrange(list, pageOrder, setMode) {
+  const nav = list.closest('.admin-menu');
+  const toggle = $('[data-menu-arrange]');
+  const help = $('[data-menu-help]');
+  const said = $('[data-menu-said]');
+  if (!toggle) return;
+  toggle.hidden = false;
+  const nameOf = (li) => li.querySelector('.admin-menu-btn').textContent;
+  const announce = (li) => {
+    const all = [...list.children];
+    said.textContent = nameOf(li) + ', ' + (all.indexOf(li) + 1) + ' of ' + all.length + '.';
+  };
+  const setOn = (on) => {
+    setMode(on);
+    nav.classList.toggle('is-arranging', on);
+    toggle.setAttribute('aria-pressed', on ? 'true' : 'false');
+    toggle.setAttribute('aria-label', on ? 'done rearranging' : 'rearrange the menu');
+    toggle.title = on ? 'done rearranging' : 'rearrange the menu';
+    help.hidden = !on;
+    said.textContent = on ? 'rearranging the menu.' : 'menu order saved.';
+    if (!on) saveMenuOrder(list);
+  };
+  toggle.addEventListener('click', () => setOn(!nav.classList.contains('is-arranging')));
+  $('[data-menu-reset]').addEventListener('click', () => {
+    putInOrder(list, pageOrder);
+    saveMenuOrder(list);
+    said.textContent = 'back to the original order.';
+  });
+
+  // keyboard: arrow keys move the focused button one place; escape (or the icon) finishes
+  list.addEventListener('keydown', (e) => {
+    if (!nav.classList.contains('is-arranging')) return;
+    const li = e.target.closest('li');
+    if (!li) return;
+    if (e.key === 'Escape') { setOn(false); toggle.focus(); return; }
+    const back = e.key === 'ArrowLeft' || e.key === 'ArrowUp';
+    const ahead = e.key === 'ArrowRight' || e.key === 'ArrowDown';
+    if (!back && !ahead) return;
+    e.preventDefault();
+    if (back && li.previousElementSibling) list.insertBefore(li, li.previousElementSibling);
+    else if (ahead && li.nextElementSibling) list.insertBefore(li.nextElementSibling, li);
+    else return;
+    li.querySelector('.admin-menu-btn').focus();
+    saveMenuOrder(list);
+    announce(li);
+  });
+
+  // dragging: pick a button up, and as it passes over another, it slides in before or after it (by which half the
+  // pointer is over). the buttons wrap onto several lines, so the line counts first, then left or right
+  let drag = null;
+  list.addEventListener('pointerdown', (e) => {
+    if (!nav.classList.contains('is-arranging') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    const li = e.target.closest('li');
+    if (!li) return;
+    drag = { li, id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
+    li.querySelector('.admin-menu-btn').setPointerCapture(e.pointerId);
+  });
+  list.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 4) return;
+    drag.moved = true;
+    drag.li.classList.add('is-dragging');
+    const over = [...list.children].find((li) => {
+      if (li === drag.li) return false;
+      const r = li.getBoundingClientRect();
+      return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    });
+    if (!over) return;
+    const r = over.getBoundingClientRect();
+    const before = e.clientX < r.left + r.width / 2;
+    list.insertBefore(drag.li, before ? over : over.nextElementSibling);
+  });
+  const drop = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag.li.classList.remove('is-dragging');
+    if (drag.moved) { saveMenuOrder(list); announce(drag.li); }
+    drag = null;
+  };
+  list.addEventListener('pointerup', drop);
+  list.addEventListener('pointercancel', drop);
 }
 
 /* ---------- start ---------- */

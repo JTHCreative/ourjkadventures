@@ -262,3 +262,84 @@ test('the owner sees each address on a list, oldest first; no one else does', as
   // the public catalog never carries them
   assert.ok(!JSON.stringify(await (await s.call('GET', '/api/catalog')).json()).includes('example.com'));
 });
+
+test('the owner can take an address off a list by hand, and undo puts it back with its sign-up day', async () => {
+  const s = setup();
+  assert.equal((await signUp(s, 'corgi', 'test@example.com')).status, 'added');
+  assert.equal((await signUp(s, 'corgi', 'keep@example.com')).status, 'added');
+  const before = (await (await s.call('GET', '/api/admin/notify', { token: await owner() })).json()).products[0].people;
+  const at = before.find((p) => p.email === 'test@example.com').at;
+
+  const r = await s.call('DELETE', '/api/admin/notify/person', { token: await owner(), body: { slug: 'corgi', email: 'Test@Example.com' } });
+  assert.equal(r.status, 200);
+  const res = await r.json();
+  assert.deepEqual(res.removed, { slug: 'corgi', email: 'test@example.com', at });
+  assert.deepEqual(res.products[0].people.map((p) => p.email), ['keep@example.com']);
+  // gone means gone: removing again says so
+  assert.equal((await s.call('DELETE', '/api/admin/notify/person', { token: await owner(), body: { slug: 'corgi', email: 'test@example.com' } })).status, 404);
+
+  // undo: back on the list, with the day they first signed up
+  const u = await (await s.call('PUT', '/api/admin/notify/person', { token: await owner(), body: { slug: 'corgi', email: 'test@example.com', at } })).json();
+  assert.equal(u.restored, true);
+  const back = u.products[0].people.find((p) => p.email === 'test@example.com');
+  assert.equal(back.at, at);
+  assert.deepEqual(await waiting(s), [['corgi', 2]]);
+  // and signing up again still says "already": it's the same slip as before
+  assert.equal((await signUp(s, 'corgi', 'test@example.com')).status, 'already');
+});
+
+test('only the owner can remove or put back an address, and only on a real product', async () => {
+  const s = setup();
+  await signUp(s, 'corgi', 'test@example.com');
+  const stranger = await sign({ email: 'someone@example.com' });
+  assert.equal((await s.call('DELETE', '/api/admin/notify/person', { token: stranger, body: { slug: 'corgi', email: 'test@example.com' } })).status, 403);
+  assert.equal((await s.call('PUT', '/api/admin/notify/person', { token: stranger, body: { slug: 'corgi', email: 'x@example.com' } })).status, 403);
+  assert.equal((await s.call('DELETE', '/api/admin/notify/person', { body: { slug: 'corgi', email: 'test@example.com' } })).status, 401);
+  assert.equal((await s.call('PUT', '/api/admin/notify/person', { token: await owner(), body: { slug: 'nope', email: 'x@example.com' } })).status, 400);
+  assert.equal((await s.call('PUT', '/api/admin/notify/person', { token: await owner(), body: { slug: 'corgi', email: 'not an email' } })).status, 400);
+  assert.deepEqual(await waiting(s), [['corgi', 1]]);
+});
+
+test('sending "it\'s here" to everyone ends that pin\'s round of "i\'m interested": it starts fresh', async () => {
+  const s = setup();
+  const vote = (cookie, ip) => s.call('POST', '/api/interest', { body: { slug: 'corgi' }, ip }).then(async (r) => ({ r, cookie }));
+  await vote(null, '1.1.1.1');
+  await vote(null, '2.2.2.2');
+  await signUp(s, 'corgi', 'pup@example.com');
+  const catalog = async () => (await (await s.call('GET', '/api/catalog')).json()).items.find((p) => p.slug === 'corgi');
+  assert.equal((await catalog()).interest, 2);
+  assert.equal((await catalog()).interest_round, 0);
+
+  await flip(s, 'corgi', true);
+  const sent = await (await s.call('POST', '/api/admin/notify', { token: await owner(), body: { slug: 'corgi' } })).json();
+  assert.equal(sent.sent, 1);
+  assert.equal(sent.left, 0);
+
+  // the tally is wiped, every vote cleared, and the round moves on; /admin keeps how many asked
+  assert.equal(s.g.docs['interest_sandbox/corgi'].count.integerValue, '0');
+  assert.equal(Object.keys(s.g.docs).filter((k) => k.startsWith('interest_votes_sandbox/')).length, 0);
+  const products = await (await s.call('GET', '/api/admin/products', { token: await owner() })).json();
+  assert.deepEqual(products.asked, { corgi: 2 });
+  assert.equal(products.interest.corgi, undefined);
+
+  // switched off again later: no one is interested yet, the round number tells browsers to forget old taps,
+  // and a new tap counts (the same browser's old vote is gone on the server too)
+  await flip(s, 'corgi', false);
+  const fresh = await catalog();
+  assert.equal(fresh.interest, 0);
+  assert.equal(fresh.interest_round, 1);
+  const again = await (await s.call('POST', '/api/interest', { body: { slug: 'corgi' }, ip: '1.1.1.1' })).json();
+  assert.equal(again.counted, true);
+  assert.equal(again.count, 1);
+});
+
+test('a send that leaves people waiting (the day\'s emails ran out) keeps the round open', async () => {
+  const s = setup({ limit: 1 });
+  await s.call('POST', '/api/interest', { body: { slug: 'corgi' } });
+  await signUp(s, 'corgi', 'a@example.com');
+  await signUp(s, 'corgi', 'b@example.com', { ip: '9.9.9.9' });
+  await flip(s, 'corgi', true);
+  const sent = await (await s.call('POST', '/api/admin/notify', { token: await owner(), body: { slug: 'corgi' } })).json();
+  assert.equal(sent.left, 1);
+  assert.equal(s.g.docs['interest_sandbox/corgi'].count.integerValue, '1');
+});

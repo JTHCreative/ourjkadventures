@@ -19,6 +19,8 @@
 //   POST /api/admin/preorder-date  { slug, date: "2026-12-15" }  when a pre-order pin is expected in stock and shipping
 //   GET  /api/admin/notify   who is waiting for an "it's here" email, per product, and today's email count
 //   POST /api/admin/notify   { slug }  send "it's here" to everyone waiting for it (up to today's allowance)
+//   DELETE /api/admin/notify/person  { slug, email }  take one address off a product's list -> { removed: { slug, email, at } }
+//   PUT  /api/admin/notify/person    { slug, email, at }  put it back (undo), keeping the day they signed up
 //   GET  /api/admin/media    the owner's own photos for the photos section under the pup board (server/media.js)
 //   POST /api/admin/media    { slug, jpeg: "<base64>", alt }  add one (shrunk to a 1600px JPEG in the browser first)
 //   DELETE /api/admin/media?id=…  take one down
@@ -40,9 +42,9 @@ import { pendingReviews, setReviewStatus, REVIEW_STATUSES, ownerPhoto } from './
 import { siteProducts, siteKeys, readLinks, saveLinks, freshCatalog, readFeatured, saveFeatured, stockOf, MAX_FEATURED, forgetCatalog } from './catalog.js';
 import { squareConfigured, squareMode, listVariations, stockCounts } from './square.js';
 import { instagramStatus } from './instagram.js';
-import { readAvailability, setAvailable, readPreorder, setPreorder, readInterest, readPreorderDates, setPreorderDate, cleanDate } from './interest.js';
+import { readAvailability, setAvailable, readPreorder, setPreorder, readInterest, readAsked, readPreorderDates, setPreorderDate, cleanDate } from './interest.js';
 import { shopToday } from './preorder-words.js';
-import { notifySummary, sendItsHere } from './notify.js';
+import { notifySummary, sendItsHere, removeWaiting, restoreWaiting } from './notify.js';
 import { adminMedia, addMedia, removeMedia } from './media.js';
 import { giftList, giftDone } from './ship-to.js';
 import { ordersToShip, markShipped, sendMoved } from './shipped.js';
@@ -181,6 +183,18 @@ export async function admin(request, env, fetchFn = fetch) {
       return json({ slug: body.slug, date: checked.date });
     }
 
+    if (route === 'notify/person') {
+      // one address on one product's list: DELETE { slug, email } takes it off, PUT { slug, email, at } puts it back
+      const origin = url.origin;
+      const body = await readJson(request);
+      let result;
+      if (request.method === 'DELETE') result = await removeWaiting(env, origin, body.slug, body.email, fetchFn);
+      else if (request.method === 'PUT') result = await restoreWaiting(env, origin, body.slug, body.email, body.at, fetchFn);
+      else return json({ error: 'method' }, 405);
+      if (result.error) return json(result, result.status || 400);
+      return json({ ...result, ...(await notifySummary(env, origin, fetchFn)) });
+    }
+
     if (route === 'notify') {
       const origin = new URL(request.url).origin;
       if (request.method === 'GET') return json(await notifySummary(env, origin, fetchFn));
@@ -282,7 +296,9 @@ async function productLinks(request, env, fetchFn) {
   const preorder = Object.fromEntries(slugs.map((s) => [s, onPreorder[s] === true]));
   // each pre-order date, as set ("2026-12-15"), and today in the shop's time zone, so the page can flag a passed date
   const preorderDates = await readPreorderDates(env, fetchFn);
-  return { mode: squareMode(env), products: keys, links, square, squareError, available, preorder, preorderDates, today: shopToday(), interest: await readInterest(env, fetchFn) };
+  return { mode: squareMode(env), products: keys, links, square, squareError, available, preorder, preorderDates, today: shopToday(), interest: await readInterest(env, fetchFn),
+    // how many asked in the last round, for products that arrived and had their "it's here" sent
+    asked: await readAsked(env, fetchFn) };
 }
 
 async function changeLinks(request, env, wanted, fetchFn) {

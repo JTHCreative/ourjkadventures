@@ -687,15 +687,24 @@
 
   /* ---------- "i'm interested": products the owner marked not available yet (see server/interest.js) ---------- */
   // the server is what counts one vote each; this only remembers which buttons this browser already tapped
+  // each entry is "corgi@2": the pin and the round it was tapped in. when the owner sends "it's here", that pin's round
+  // ends and the server clears its votes, so a tap from an earlier round no longer counts and the button is fresh
+  // again. a plain "corgi" (saved before rounds existed) is round 0
   function interestedIn() {
     try { var a = JSON.parse(read('jka_interest') || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
   }
-  function rememberInterest(slug) {
-    var a = interestedIn();
-    if (a.indexOf(slug) < 0) { a.push(slug); save('jka_interest', JSON.stringify(a)); }
+  function entrySlug(e) { return String(e).split('@')[0]; }
+  function hasInterest(p) {
+    var want = p.slug + '@' + (p.interest_round || 0);
+    return interestedIn().some(function (e) { return e === want || (e === p.slug && !p.interest_round); });
+  }
+  function rememberInterest(p) {
+    var a = interestedIn().filter(function (e) { return entrySlug(e) !== p.slug; });
+    a.push(p.slug + '@' + (p.interest_round || 0));
+    save('jka_interest', JSON.stringify(a));
   }
   function forgetInterest(slug) {
-    var a = interestedIn().filter(function (s) { return s !== slug; });
+    var a = interestedIn().filter(function (e) { return entrySlug(e) !== slug; });
     save('jka_interest', a.length ? JSON.stringify(a) : null);
   }
 
@@ -721,7 +730,7 @@
     msg.setAttribute('role', 'status');
     after.appendChild(thanks);
     after.appendChild(msg);
-    var voted = interestedIn().indexOf(p.slug) >= 0;
+    var voted = hasInterest(p);
     var sorry = 'we could not count that just now. try again in a moment.';
     function paint(note) {
       line.textContent = 'not in the shop yet.' + (p.interest > 0 ? ' ' + interestedWords(p.interest) : '');
@@ -753,7 +762,7 @@
         if (typeof j.count === 'number') p.interest = j.count;
         if (j.counted || j.reason === 'already') {
           voted = true;
-          rememberInterest(p.slug);
+          rememberInterest(p);
           paint();
         } else if (j.reason === 'limit') {
           // lots of taps from one connection today (a shared wifi, say): this one wasn't added, and that's fine
