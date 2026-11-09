@@ -28,6 +28,7 @@
 
 import { configured, firestoreGet, firestoreSet, firestoreList, firestoreCommit } from './firebase.js';
 import { squareMode } from './square.js';
+import { fromOurSite } from './same-site.js';
 
 export const IP_DAILY_CAP = 10;
 const COOKIE = 'jka_voter';
@@ -155,8 +156,7 @@ export async function interestRoute(request, env, fetchFn = fetch, onCounted) {
   if (request.method !== 'POST' && request.method !== 'DELETE') return json({ error: 'method' }, 405);
   if (!configured(env)) return json({ error: 'not configured' }, 503);
   // only taps from our own pages: another website can't make its visitors vote
-  const origin = request.headers.get('Origin');
-  if (origin && origin !== new URL(request.url).origin) return json({ error: 'origin' }, 403);
+  if (!fromOurSite(request)) return json({ error: 'origin' }, 403);
 
   let body = {};
   try { body = (await request.json()) || {}; } catch (e) {}

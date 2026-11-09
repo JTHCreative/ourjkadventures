@@ -39,6 +39,11 @@ const RENAMED_PUPS = { poodle: 'doodle' };
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    // one real address: a page asked for at www.ourjkadventures.com moves to ourjkadventures.com, so sign-ins, saved
+    // bags and the "i'm interested" ticket all live in one place. only page visits (GET/HEAD): a POST is let through
+    if (url.hostname.startsWith('www.') && (request.method === 'GET' || request.method === 'HEAD')) {
+      return Response.redirect(url.protocol + '//' + url.hostname.slice(4) + url.pathname + url.search, 301);
+    }
     if (url.pathname === '/api/checkout') return checkout(request, env, url);
     if (url.pathname === '/api/catalog') return catalogRoute(request, env);
     if (url.pathname === '/api/account' || url.pathname === '/api/account/orders') return account(request, env);

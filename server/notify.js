@@ -26,6 +26,7 @@ import { readShopStates, isAvailable, isPreorder, scramble } from './interest.js
 import { readShopSwitch } from './shop.js';
 import { emailConfigured, emailsLeftToday, sentToday, dailyLimit, sendBatch, escapeHtml } from './email.js';
 import { emailPage, emailImages, para } from './email-look.js';
+import { fromOurSite } from './same-site.js';
 
 export const SIGNUPS_PER_DAY = 5;
 const BATCH = 100;
@@ -129,8 +130,7 @@ export async function notifyRoute(request, env, fetchFn = fetch) {
   const url = new URL(request.url);
   if (request.method !== 'POST') return json({ error: 'method' }, 405);
   if (!configured(env)) return json({ error: 'not configured' }, 503);
-  const origin = request.headers.get('Origin');
-  if (origin && origin !== url.origin) return json({ error: 'origin' }, 403);
+  if (!fromOurSite(request)) return json({ error: 'origin' }, 403);
 
   let body = {};
   const type = request.headers.get('Content-Type') || '';
