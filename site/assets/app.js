@@ -1281,22 +1281,83 @@
     if (ask) ask.hidden = !!p;
   }
 
+  // switching pups, or closing one, is a little scene change rather than a jump cut: the open pup's heading, card,
+  // reviews and photos fade and slide out together (PUP_LEAVE_MS), the page glides back up to the top of the board
+  // if you'd scrolled down past it, and the next pup's fade in (pup-in in styles.css). like a stage crew swapping the
+  // set between acts while the curtain dips. each tap gets a number (pupSwap), so tapping quickly through several
+  // pups only ever paints the last one. with "reduce motion" on, everything changes at once and the page jumps
+  var PUP_LEAVE_MS = 200;
+  var pupSwap = 0;
+  function calmMotion() { return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches); }
+  function narrowBoard() { return !!(window.matchMedia && window.matchMedia('(max-width: 760px)').matches); }
+  // everything that belongs to the open pup, to fade out together
+  function pupParts() {
+    var parts = [document.getElementById('pup-panel'), document.querySelector('[data-pup-heading]'), document.querySelector('[data-media]')];
+    return parts.filter(function (n) { return n && !n.hidden; });
+  }
+  function leavePup(parts, then) {
+    var swap = ++pupSwap;
+    if (calmMotion() || !parts.length) { then(); return; }
+    parts.forEach(function (n) { n.classList.remove('pup-arriving'); n.classList.add('pup-leaving'); });
+    setTimeout(function () {
+      if (swap !== pupSwap) return;
+      // in the same moment as the new pup is painted, so the old one never flashes back between frames
+      parts.forEach(function (n) { n.classList.remove('pup-leaving'); });
+      then();
+    }, PUP_LEAVE_MS);
+  }
+  function arrive(node) {
+    if (!node || calmMotion()) return;
+    node.classList.remove('pup-arriving');
+    void node.offsetWidth; // start the fade over, even if the last one hadn't finished
+    node.classList.add('pup-arriving');
+  }
+  // side by side: back up to the "pup club" line above the heading, so the heading, the board and the pin's card are
+  // all in view (only ever up: from above it, the page stays put). on a phone the card sits above the board: its top
+  function scrollToPup() {
+    var target = narrowBoard() ? document.getElementById('pup-panel') : document.querySelector('[data-pup-heading]');
+    if (!target) return;
+    if (!narrowBoard()) target = target.parentNode.querySelector('.eyebrow') || target;
+    var y = Math.max(0, target.getBoundingClientRect().top + window.pageYOffset - 16);
+    if (!narrowBoard() && window.pageYOffset <= y + 4) return;
+    window.scrollTo({ top: y, behavior: calmMotion() ? 'auto' : 'smooth' });
+  }
+
   function closePup() {
     var panel = document.getElementById('pup-panel');
     if (!panel || panel.hidden) return;
-    pupAddress(null);
-    panel.hidden = true;
-    panel.textContent = '';
-    loadMedia(null);
     var on = document.querySelector('.pup-pin[aria-current]');
     if (on) { on.removeAttribute('aria-current'); on.focus(); }
+    loadMedia(null, true);
+    leavePup(pupParts(), function () {
+      pupAddress(null);
+      panel.hidden = true;
+      panel.textContent = '';
+      loadMedia(null);
+      arrive(document.querySelector('[data-pup-heading]'));
+    });
   }
 
   function showPup(p, btn) {
     var panel = document.getElementById('pup-panel');
     if (!panel) return;
+    var open = !panel.hidden;
+    // the same pup again: nothing to swap, just bring it back into view
+    if (open && btn.getAttribute('aria-current') && panel.getAttribute('data-slug') === p.slug) { scrollToPup(); return; }
     Array.prototype.forEach.call(document.querySelectorAll('.pup-pin'), function (b) { b.removeAttribute('aria-current'); });
     btn.setAttribute('aria-current', 'page');
+    if (!open) { ++pupSwap; paintPup(p, panel); scrollToPup(); return; }
+    // a pup is open: it steps out while the page heads back up, then the new one steps in
+    scrollToPup();
+    loadMedia(null, true);
+    leavePup(pupParts(), function () {
+      paintPup(p, panel);
+      arrive(document.querySelector('[data-pup-heading]'));
+    });
+  }
+
+  function paintPup(p, panel) {
+    panel.setAttribute('data-slug', p.slug);
     pupAddress(p);
     panel.textContent = '';
     var sheet = el('div', 'card clean pup-sheet');
@@ -1340,9 +1401,6 @@
     panel.appendChild(reviewBlock(p, starLine));
     panel.hidden = false;
     loadMedia(p);
-    if (window.matchMedia && window.matchMedia('(max-width: 760px)').matches) {
-      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
   }
 
   /* ---------- reviews: stars and notes on each pup, approved by us first (see server/reviews.js) ---------- */
@@ -1541,10 +1599,12 @@
     var p = catalog && catalog.items[slug];
     return slug === 'golden' ? 'goldie' : (p && p.name) || PUP_BREED[slug] || slug.replace(/-/g, ' ');
   }
-  function loadMedia(p) {
+  // keep: only forget any answer still on its way, and leave the photos showing (they're fading out with their pup)
+  function loadMedia(p, keep) {
     var box = document.querySelector('[data-media]');
     if (!box) return;
     var ask = ++mediaAsk;
+    if (keep) return;
     if (!p) { box.hidden = true; return; }
     box.hidden = true;
     // always asked fresh (not from the browser's own copy), so a photo just uploaded isn't hidden by an old answer
@@ -1599,8 +1659,11 @@
       });
       box.appendChild(all);
     }
+    var was = box.hidden;
     box.hidden = false;
     watchMedia(box);
+    // the photos fade in after their pup's card (styles.css fades what's inside, so the scroll fade still works)
+    if (was) arrive(box);
   }
 
   // Before a photo leaves the phone: shrink it (long side 1600px) and save it as a JPEG. Drawing it fresh like
