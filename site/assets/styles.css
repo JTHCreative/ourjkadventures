@@ -759,10 +759,20 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .media-tile:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 @media (hover: hover) { .media-tile:hover .media-photo { transform: scale(1.04); } }
 .pup-media .link-btn { align-self: center; }
+/* fade and rise in as it scrolls into view, fade back out as it scrolls away (app.js adds can-reveal and is-in,
+   and leaves both off with "reduce motion" on). the photos follow one after another, --i beats apart */
+.pup-media.can-reveal { opacity: 0; transform: translateY(32px); transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.pup-media.can-reveal.is-in { opacity: 1; transform: none; }
+.pup-media.can-reveal .media-tile { opacity: 0; transform: translateY(16px) scale(0.97); transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1); transition-delay: 0s; }
+.pup-media.can-reveal.is-in .media-tile { opacity: 1; transform: none; transition-delay: calc(0.15s + var(--i, 0) * 0.06s); }
 @media (max-width: 760px) {
   .media-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: var(--space-2); }
 }
-@media (prefers-reduced-motion: reduce) { .media-tile .media-photo { transition: none; } .media-tile:hover .media-photo { transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .media-tile .media-photo { transition: none; }
+  .media-tile:hover .media-photo { transform: none; }
+  .pup-media.can-reveal, .pup-media.can-reveal .media-tile { opacity: 1; transform: none; transition: none; }
+}
 
 @media (max-width: 760px) {
   .pup-stage { flex-direction: column; align-items: stretch; }

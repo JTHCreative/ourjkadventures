@@ -1091,6 +1091,20 @@
   // only the newest answer is painted, so tapping pups quickly never leaves the wrong pup's photos showing
   var MEDIA_FIRST = 12;
   var mediaAsk = 0;
+  // the card fades and rises into place as it scrolls into view, and fades back out as it scrolls away, like a
+  // light on a sensor that comes on as you walk up. an IntersectionObserver is the browser telling us when the card
+  // comes on or goes off screen, so nothing runs on every scroll. with "reduce motion" on (or an older browser) the
+  // photos simply stay put, no animation
+  var mediaWatch = null;
+  function watchMedia(box) {
+    if (mediaWatch || !window.IntersectionObserver) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    box.classList.add('can-reveal');
+    mediaWatch = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { box.classList.toggle('is-in', en.isIntersecting); });
+    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+    mediaWatch.observe(box);
+  }
   function mediaPupName(slug) {
     var p = catalog && catalog.items[slug];
     return slug === 'golden' ? 'goldie' : (p && p.name) || PUP_BREED[slug] || slug.replace(/-/g, ' ');
@@ -1136,6 +1150,8 @@
       var b = el('button', 'media-tile');
       b.type = 'button';
       b.setAttribute('aria-label', 'open ' + pic.alt);
+      // each photo arrives a beat after the one before it (the later ones after "show all" start their own ripple)
+      b.style.setProperty('--i', String(Math.min(i % MEDIA_FIRST, 11)));
       var img = el('img', 'media-photo');
       img.alt = '';
       img.loading = 'lazy';
@@ -1159,6 +1175,7 @@
       box.appendChild(all);
     }
     box.hidden = false;
+    watchMedia(box);
   }
 
   // Before a photo leaves the phone: shrink it (long side 1600px) and save it as a JPEG. Drawing it fresh like
