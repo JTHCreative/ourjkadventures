@@ -534,81 +534,134 @@ function paintOrders(data, done) {
   if (cards) lines.push(cards + (cards === 1 ? ' gift card to write.' : ' gift cards to write.'));
   if (!data.email) lines.push('email isn\'t set up, so "mark shipped" only marks it in square. see docs/setup/email.md.');
   state.textContent = lines.join(' ');
-  data.orders.forEach((o) => {
-    const row = el('div', 'link-product order-row');
-    row.appendChild(el('p', 'link-product-name', 'order ' + o.number + (o.date ? ', ' + new Date(o.date).toLocaleDateString() : '')));
-    const tags = [];
-    if (o.gift) tags.push('gift');
-    if (o.preorder) tags.push('pre-order' + (o.expected ? ', ships about ' + new Date(o.expected).toLocaleDateString() : ''));
-    if (o.shipping) tags.push(o.shipping + ' shipping');
-    if (tags.length) row.appendChild(el('p', 'caption', tags.join(' · ')));
-    const what = el('ul', 'order-items');
-    o.items.forEach((it) => what.appendChild(el('li', null, (it.qty > 1 ? it.qty + ' × ' : '') + it.name)));
-    row.appendChild(what);
-    const a = o.address;
-    const to = el('p', 'body-sm gift-address');
-    [o.name, a.line1, a.line2, a.city + ', ' + a.state + ' ' + a.zip].filter(Boolean).forEach((l, i) => {
-      if (i) to.appendChild(document.createElement('br'));
-      to.appendChild(document.createTextNode(l));
-    });
-    row.appendChild(to);
-    row.appendChild(el('p', 'caption notify-email', 'buyer: ' + o.email));
-    if (o.gift) row.appendChild(giftCard(o.id, o.number));
-    // the pre-order part of the shipping note (a gift's part shows as its card above)
-    const extra = o.note.split(' / ').filter((x) => !/^gift\./.test(x)).join(' / ');
-    if (extra) row.appendChild(el('p', 'caption', 'note: ' + extra));
+  data.orders.forEach((o) => box.appendChild(orderRow(o, data)));
+}
 
-    const form = el('form', 'admin-actions order-ship');
-    const id = 'track-' + o.id;
-    const lab = el('label', 'sr-only', 'usps tracking number for order ' + o.number);
-    lab.htmlFor = id;
-    const input = el('input');
-    input.id = id;
-    input.type = 'text';
-    input.placeholder = 'usps tracking number';
-    input.autocomplete = 'off';
-    input.setAttribute('inputmode', 'text');
-    input.maxLength = 60;
-    const go = el('button', 'jka-btn jka-btn--sm', 'mark shipped');
-    go.type = 'submit';
-    const note = el('span', 'caption');
-    note.setAttribute('role', 'status');
-    form.append(lab, input, go, note);
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const t = input.value.replace(/[\s-]/g, '');
-      if (!/^[A-Za-z0-9]{8,40}$/.test(t)) { note.textContent = 'that tracking number doesn\'t look right.'; input.focus(); return; }
-      if (!confirm('mark order ' + o.number + ' shipped' + (data.email ? ' and email ' + o.email : '') + '?\ntracking: ' + t)) return;
-      go.disabled = true;
-      note.textContent = 'sending.';
-      try {
-        const res = await api('POST', '/api/admin/orders', { id: o.id, tracking: t });
-        paintOrders(res, 'order ' + o.number + ' is marked shipped' + (res.emailed ? ' and ' + o.email + ' has the email.' : '.'));
-        // a gift's card went in the box: the server ticked it off, so fetch the cards again
-        if (o.gift) loadGifts();
-      } catch (err) {
-        const why = err.data && err.data.error;
-        note.textContent = why === 'already shipped' ? 'this one is already marked shipped.'
-          : why === 'email limit' ? 'today\'s emails are used up. try again tomorrow.'
-          : why === 'tracking' ? 'that tracking number doesn\'t look right.'
-          : 'that didn\'t go through. press it again: the email won\'t go out twice.';
-        go.disabled = false;
-      }
-    });
-    row.appendChild(form);
-
-    // what the buyer will get, word for word (with a stand-in tracking number)
-    const peek = el('details', 'notify-preview');
-    peek.appendChild(el('summary', 'link-btn', 'see the email'));
-    peek.appendChild(el('p', 'caption', 'subject: ' + o.preview.subject));
-    const frame = el('iframe', 'notify-preview-frame');
-    frame.setAttribute('sandbox', '');
-    frame.title = 'the "on its way" email for order ' + o.number;
-    frame.srcdoc = o.preview.html;
-    peek.appendChild(frame);
-    row.appendChild(peek);
-    box.appendChild(row);
+// which orders are open, so a repaint (after "card written", say) doesn't fold them all shut
+const openOrders = new Set();
+// "nov 9, 2026"
+function orderDay(iso) {
+  const d = new Date(iso);
+  return isNaN(d) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).toLowerCase();
+}
+// one labelled part inside an order: a small heading, then its contents
+function orderPart(title, ...kids) {
+  const part = el('section', 'order-part');
+  part.appendChild(el('h3', 'order-part-title', title));
+  kids.filter(Boolean).forEach((k) => part.appendChild(k));
+  return part;
+}
+function addressLines(name, a) {
+  const p = el('p', 'body-sm gift-address');
+  [name, a.line1, a.line2, a.city + ', ' + a.state + ' ' + a.zip].filter(Boolean).forEach((l, i) => {
+    if (i) p.appendChild(document.createElement('br'));
+    p.appendChild(document.createTextNode(l));
   });
+  return p;
+}
+
+// one order to ship, folded: its number, day and a few tags on the fold; opened, its parts in the order you'd pack it
+function orderRow(o, data) {
+  const fold = el('details', 'order-fold');
+  fold.open = openOrders.has(o.id);
+  fold.addEventListener('toggle', () => { if (fold.open) openOrders.add(o.id); else openOrders.delete(o.id); });
+  const sum = el('summary', 'order-summary');
+  sum.appendChild(el('span', 'order-summary-name', 'order ' + o.number));
+  const count = o.items.reduce((n, it) => n + it.qty, 0);
+  const bits = [orderDay(o.date), count + (count === 1 ? ' item' : ' items')];
+  if (o.gift) bits.push('gift');
+  if (o.preorder) bits.push('pre-order');
+  sum.appendChild(el('span', 'caption', bits.filter(Boolean).join(' · ')));
+  fold.appendChild(sum);
+  const body = el('div', 'order-body');
+
+  // the order: its number and day, and square's full id to find it in the dashboard
+  body.appendChild(orderPart('order',
+    el('p', 'body-sm', 'order ' + o.number + ', placed ' + orderDay(o.date) + '.'),
+    el('p', 'caption', 'square order id: ' + o.id)));
+
+  // what's in it, and how it ships
+  const what = el('ul', 'order-items');
+  o.items.forEach((it) => what.appendChild(el('li', null, (it.qty > 1 ? it.qty + ' × ' : '') + it.name)));
+  const how = [];
+  if (o.shipping) how.push('usps ' + o.shipping + ' shipping.');
+  if (o.preorder) how.push('has a pre-order: the whole order ships together' + (o.expected ? ' around ' + orderDay(o.expected) : '') + '.');
+  body.appendChild(orderPart('what\'s in it', what, how.length ? el('p', 'caption', how.join(' ')) : null));
+
+  // the buyer. on a gift, the name is the person it's going to; the email is always the buyer's
+  body.appendChild(orderPart('buyer',
+    el('p', 'body-sm', (o.gift ? 'going to: ' : 'name: ') + (o.name || '')),
+    el('p', 'body-sm notify-email', 'email: ' + o.email)));
+
+  // where it ships, with a button to copy the address for the label
+  const copy = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', 'copy the address');
+  copy.type = 'button';
+  const copied = el('span', 'caption');
+  copied.setAttribute('role', 'status');
+  copy.addEventListener('click', async () => {
+    const a = o.address;
+    const text = [o.name, a.line1, a.line2, a.city + ', ' + a.state + ' ' + a.zip].filter(Boolean).join('\n');
+    try { await navigator.clipboard.writeText(text); copied.textContent = 'copied.'; } catch (e) { copied.textContent = 'your browser wouldn\'t copy. you can select it instead.'; }
+  });
+  const copyRow = el('div', 'admin-actions');
+  copyRow.append(copy, copied);
+  body.appendChild(orderPart('ships to', addressLines(o.name, o.address), copyRow));
+
+  // a gift: the card to write, and "card written"
+  if (o.gift) body.appendChild(orderPart('gift card', giftCard(o.id, o.number, o.giftNote)));
+
+  // shipping it: the tracking number, "mark shipped", and the email the buyer will get
+  const form = el('form', 'admin-actions order-ship');
+  const id = 'track-' + o.id;
+  const lab = el('label', 'sr-only', 'usps tracking number for order ' + o.number);
+  lab.htmlFor = id;
+  const input = el('input');
+  input.id = id;
+  input.type = 'text';
+  input.placeholder = 'usps tracking number';
+  input.autocomplete = 'off';
+  input.maxLength = 60;
+  const go = el('button', 'jka-btn jka-btn--sm', 'mark shipped');
+  go.type = 'submit';
+  const note = el('span', 'caption');
+  note.setAttribute('role', 'status');
+  form.append(lab, input, go, note);
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const t = input.value.replace(/[\s-]/g, '');
+    if (!/^[A-Za-z0-9]{8,40}$/.test(t)) { note.textContent = 'that tracking number doesn\'t look right.'; input.focus(); return; }
+    if (!confirm('mark order ' + o.number + ' shipped' + (data.email ? ' and email ' + o.email : '') + '?\ntracking: ' + t)) return;
+    go.disabled = true;
+    note.textContent = 'sending.';
+    try {
+      const res = await api('POST', '/api/admin/orders', { id: o.id, tracking: t });
+      openOrders.delete(o.id);
+      paintOrders(res, 'order ' + o.number + ' is marked shipped' + (res.emailed ? ' and ' + o.email + ' has the email.' : '.'));
+      // a gift's card went in the box: the server ticked it off, so fetch the cards again
+      if (o.gift) loadGifts();
+    } catch (err) {
+      const why = err.data && err.data.error;
+      note.textContent = why === 'already shipped' ? 'this one is already marked shipped.'
+        : why === 'email limit' ? 'today\'s emails are used up. try again tomorrow.'
+        : why === 'tracking' ? 'that tracking number doesn\'t look right.'
+        : 'that didn\'t go through. press it again: the email won\'t go out twice.';
+      go.disabled = false;
+    }
+  });
+  // what the buyer will get, word for word (with a stand-in tracking number)
+  const peek = el('details', 'notify-preview');
+  peek.appendChild(el('summary', 'link-btn', 'see the email'));
+  peek.appendChild(el('p', 'caption', 'subject: ' + o.preview.subject));
+  const frame = el('iframe', 'notify-preview-frame');
+  frame.setAttribute('sandbox', '');
+  frame.title = 'the "on its way" email for order ' + o.number;
+  frame.srcdoc = o.preview.html;
+  peek.appendChild(frame);
+  body.appendChild(orderPart('ship it', el('p', 'caption', 'type the usps tracking number. the buyer gets the "on its way" email' +
+    (o.gift ? ', and the gift card counts as written' : '') + '.'), form, peek));
+
+  fold.appendChild(body);
+  return fold;
 }
 
 async function loadOrders() {
@@ -617,13 +670,13 @@ async function loadOrders() {
 
 /* ---------- gift cards: the note to write by hand, shown inside its order in "orders to ship" ---------- */
 // the card box for one gift order: the note to write, and "card written" to tick it off
-function giftCard(id, number) {
+function giftCard(id, number, orderNote) {
   const box = el('div', 'gift-card');
   const card = giftCards && giftCards.find((g) => g.id === id);
-  box.appendChild(el('p', 'caption gift-card-title', 'card to write'));
+  const message = card ? card.message : (orderNote || '');
+  box.appendChild(el('p', 'gift-note', message ? '\u201c' + message + '\u201d' : 'no note: a blank card.'));
   if (!giftCards) { box.appendChild(el('p', 'caption', 'one moment.')); return box; }
-  if (!card) { box.appendChild(el('p', 'caption', 'card written.')); return box; }
-  box.appendChild(el('p', 'gift-note', card.message ? '\u201c' + card.message + '\u201d' : 'no note: a blank card.'));
+  if (!card) { box.appendChild(el('p', 'caption gift-card-done', 'card written.')); return box; }
   const actions = el('div', 'admin-actions');
   const done = el('button', 'jka-btn jka-btn--sm jka-btn--quiet', 'card written');
   done.type = 'button';
@@ -654,18 +707,17 @@ function paintGifts(data) {
   box.appendChild(el('h3', 'admin-subtitle', 'cards still to write'));
   box.appendChild(el('p', 'caption', 'gift orders already marked shipped (in square, say) whose card wasn\'t ticked off here.'));
   left.forEach((g) => {
-    const row = el('div', 'link-product gift-row');
-    row.appendChild(el('p', 'link-product-name', 'order ' + g.number + (g.date ? ', ' + new Date(g.date).toLocaleDateString() : '')));
-    const a = g.address;
-    const to = el('p', 'body-sm gift-address');
-    [g.name, a.line1, a.line2, a.city + ', ' + a.state + ' ' + a.zip].filter(Boolean).forEach((l, n) => {
-      if (n) to.appendChild(document.createElement('br'));
-      to.appendChild(document.createTextNode(l));
-    });
-    row.appendChild(to);
-    row.appendChild(el('p', 'caption notify-email', 'buyer: ' + g.email));
-    row.appendChild(giftCard(g.id, g.number));
-    box.appendChild(row);
+    const fold = el('details', 'order-fold');
+    const sum = el('summary', 'order-summary');
+    sum.appendChild(el('span', 'order-summary-name', 'order ' + g.number));
+    sum.appendChild(el('span', 'caption', [orderDay(g.date), 'gift card'].filter(Boolean).join(' · ')));
+    fold.appendChild(sum);
+    const body = el('div', 'order-body');
+    body.appendChild(orderPart('buyer', el('p', 'body-sm', 'going to: ' + g.name), el('p', 'body-sm notify-email', 'email: ' + g.email)));
+    body.appendChild(orderPart('ships to', addressLines(g.name, g.address)));
+    body.appendChild(orderPart('gift card', giftCard(g.id, g.number)));
+    fold.appendChild(body);
+    box.appendChild(fold);
   });
 }
 

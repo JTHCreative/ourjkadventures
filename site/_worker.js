@@ -165,7 +165,8 @@ async function checkout(request, env, url) {
     try { buyer = await userFromRequest(request, env); } catch (e) { buyer = null; }
   }
   if (buyer) order.metadata = { uid: buyer.sub };
-  if (gift) order.metadata = { ...(order.metadata || {}), gift: 'yes' };
+  // the card note rides on the order itself, where /admin reads it (our own gift record keeps no personal details)
+  if (gift) order.metadata = { ...(order.metadata || {}), gift: 'yes', ...(gift.message ? { gift_note: gift.message } : {}) };
   if (preorderKeys.length) order.metadata = { ...(order.metadata || {}), preorder: 'yes' };
   // sales tax: Square applies each item's own tax, the same one the booth uses (today "Millbrae Sales Tax"), so
   // web and booth sales sit under one tax in Square's reports and the rate lives in one place. the shipping line
@@ -238,7 +239,7 @@ async function checkout(request, env, url) {
   // a gift goes on the owner's list of cards to write (/admin), shown once Square says it was paid.
   // never blocks checkout: the note is on the Square order either way
   if (gift && link.order_id && firebaseConfigured(env)) {
-    try { await noteGift(env, link.order_id, address, gift, shipWords, fetch); } catch (e) { console.log('gift note failed', e.message); }
+    try { await noteGift(env, link.order_id, fetch); } catch (e) { console.log('gift note failed', e.message); }
   }
   return json({ url: target });
 }

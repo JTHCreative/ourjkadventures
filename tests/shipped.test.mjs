@@ -134,6 +134,15 @@ test('a gift says so, and never greets the buyer by the person getting it', asyn
   assert.match(mail.text, /left the receipt out of the box/);
 });
 
+test('each gift order to ship carries its card note, read from the Square order', async () => {
+  const s = setup({ orders: { G1: order('G1', { metadata: { gift: 'yes', gift_note: 'we love luna!' } }), P1: order('P1') } });
+  const res = await (await s.call('GET')).json();
+  const byId = Object.fromEntries(res.orders.map((o) => [o.id, o]));
+  assert.equal(byId.G1.gift, true);
+  assert.equal(byId.G1.giftNote, 'we love luna!');
+  assert.equal(byId.P1.giftNote, '');
+});
+
 test('marking a gift shipped ticks off its card to write (it went in the box)', async () => {
   const s = setup({ orders: { G1: order('G1', { metadata: { gift: 'yes' } }) } });
   s.g.docs['gifts/G1'] = { message: { stringValue: 'we love luna!' }, email: { stringValue: 'buyer@example.com' } };
