@@ -868,3 +868,15 @@ account emails to look and sound like the rest.
   whether or not an account exists. Limits: 3 of a kind a day to one address, 10 reset requests a day per connection.
   Firebase still sends "your email was changed" to the old address; its template is drafted in `setup/firebase.md`.
 
+
+## One address: www moves to ourjkadventures.com (2026-11-09)
+Signing up for "email me when it's here" from `www.ourjkadventures.com/pup-club/doodle` failed with "we could not
+do that just now". The POSTs that change things ("i'm interested", the email list, the account emails) only accept
+requests from our own pages, and that check compared the exact address, so `www.` and the plain address counted as
+two different sites. Cloudflare logged nothing, because a refusal isn't an error.
+- **The check treats both as one site** (`server/same-site.js`, used by `interest.js`, `notify.js`, `account-emails.js`).
+  Other websites are still refused.
+- **Page visits to www move to the plain address** (a 301 in `_worker.js`), the one the sitemap, canonical links and
+  emails already use. Sign-ins, saved bags and the "i'm interested" ticket are kept per address by the browser, so one
+  address means nobody loses them by arriving through the other door. Only GET and HEAD move: a POST already on its
+  way from an old www page is let through.
