@@ -26,6 +26,7 @@ import { reelsRoute } from '../server/instagram.js';
 import { mediaRoute } from '../server/media.js';
 import { pupPageRoute } from '../server/pup-pages.js';
 import { staticOrNotFound } from '../server/not-found.js';
+import { cleanShipTo, cleanGift, squareAddress, addressLine, noteGift } from '../server/ship-to.js';
 
 const MAX_LINES = 30;
 const MAX_QTY = 20;
@@ -87,6 +88,15 @@ async function checkout(request, env, url) {
   const ship = shipOptions.find((o) => o.id === shipId);
   if (!ship) return json({ error: 'bad shipping' }, 400);
 
+  // where it goes: u.s. states and d.c. only, checked here (server/ship-to.js), never trusted from the browser.
+  // the field tells the bag which box needs another look
+  const shipTo = cleanShipTo(body.ship_to);
+  if (!shipTo.ok) return json({ error: 'address', field: shipTo.field, reason: shipTo.error }, 400);
+  const address = shipTo.value;
+  // a gift: a short note we write by hand on a card. null when it isn't one
+  const gift = cleanGift(body.gift);
+  if (gift && gift.error) return json({ error: 'gift', reason: gift.error }, 400);
+
   const qtyByKey = {};
   for (const w of wanted) {
     const key = w && w.key;
@@ -112,7 +122,24 @@ async function checkout(request, env, url) {
   const lines = keys.map((k) => ({ catalog_object_id: catalog.byKey[k].variation_id, quantity: String(qtyByKey[k]) }));
   const currency = catalog.currency;
 
-  const order = { location_id: env.SQUARE_LOCATION_ID, line_items: lines };
+  const shipWords = ship.name + ' shipping' + (ship.days ? ' (' + ship.days + ')' : '');
+  const giftWords = gift ? (gift.message ? 'gift. write on the card: "' + gift.message + '"' : 'gift. blank card, no note') : '';
+  // the address rides on the order itself, so it shows in the Square dashboard with the order and its buyer.
+  // Square's own address form is switched off below: the address can't be changed to one we don't ship to
+  const order = {
+    location_id: env.SQUARE_LOCATION_ID,
+    line_items: lines,
+    fulfillments: [{
+      type: 'SHIPMENT',
+      state: 'PROPOSED',
+      shipment_details: {
+        recipient: { display_name: address.name, email_address: address.email, address: squareAddress(address) },
+        carrier: 'USPS',
+        shipping_type: ship.name,
+        ...(gift ? { shipping_note: giftWords } : {})
+      }
+    }]
+  };
 
   // a signed-in buyer: tag the order with their account so the Collector's Path can find it later,
   // and fill in their email on Square's page. A missing or bad ticket just means a signed-out checkout.
@@ -121,25 +148,29 @@ async function checkout(request, env, url) {
     try { buyer = await userFromRequest(request, env); } catch (e) { buyer = null; }
   }
   if (buyer) order.metadata = { uid: buyer.sub };
+  if (gift) order.metadata = { ...(order.metadata || {}), gift: 'yes' };
   const tax = Number(env.TAX_PERCENT);
   if (tax > 0) order.taxes = [{ uid: 'sales-tax', name: 'sales tax', percentage: String(tax), scope: 'ORDER' }];
 
   const options = {
     redirect_url: url.origin + '/thank-you.html',
-    ask_for_shipping_address: true
+    ask_for_shipping_address: false
   };
   // Square shows this one line on its page and on the receipt, so it says which choice they made.
   // free ground (pins over $40): no shipping line to charge, and a note on the payment says how to send it
   const charge = shippingCharge(ship, keys.map((k) => ({ kind: catalog.byKey[k].kind, price_cents: catalog.byKey[k].price_cents, qty: qtyByKey[k] })));
-  const shipWords = ship.name + ' shipping' + (ship.days ? ' (' + ship.days + ')' : '');
-  let paymentNote = null;
+  const notes = [];
   if (charge.free) {
-    paymentNote = 'free ' + shipWords;
+    notes.push('free ' + shipWords);
   } else {
     options.shipping_fee = { name: shipWords, charge: { amount: charge.cents, currency: currency } };
   }
+  // the payment note shows on the payment in the Square dashboard: a gift says so, with where it goes
+  if (gift) notes.push(giftWords + ' ship to: ' + addressLine(address));
+  // Square takes at most 500 characters here; the full note and address are on the shipment too
+  const paymentNote = notes.length ? notes.join(' / ').slice(0, 500) : null;
   if (env.SUPPORT_EMAIL) options.merchant_support_email = env.SUPPORT_EMAIL;
-  const prefill = buyer && buyer.email ? { buyer_email: buyer.email } : null;
+  const prefill = { buyer_email: address.email };
 
   let res;
   try {
@@ -155,7 +186,7 @@ async function checkout(request, env, url) {
         order: order,
         checkout_options: options,
         ...(paymentNote ? { payment_note: paymentNote } : {}),
-        ...(prefill ? { pre_populated_data: prefill } : {})
+        pre_populated_data: prefill
       })
     });
   } catch (e) {
@@ -172,6 +203,11 @@ async function checkout(request, env, url) {
   // never blocks checkout: a missed note only means the order won't be listed.
   if (buyer && link.order_id) {
     try { await noteOrder(env, buyer.sub, link.order_id); } catch (e) { console.log('order note failed', e.message); }
+  }
+  // a gift goes on the owner's list of cards to write (/admin), shown once Square says it was paid.
+  // never blocks checkout: the note is on the Square order either way
+  if (gift && link.order_id && firebaseConfigured(env)) {
+    try { await noteGift(env, link.order_id, address, gift, shipWords, fetch); } catch (e) { console.log('gift note failed', e.message); }
   }
   return json({ url: target });
 }

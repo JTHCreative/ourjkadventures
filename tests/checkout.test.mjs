@@ -24,10 +24,12 @@ function setup(shopOpen, links = { aussie: 'V_AUS', 'aussie:large': 'V_AUS_L', p
   const env = { ...baseEnv, ASSETS: { fetch: async () => Response.json(products) } };
   return { ...w, env };
 }
+// every checkout carries where it ships (u.s. states only, see tests/ship-to.test.mjs)
+const HOME = { name: 'pup person', email: 'buyer@example.com', line1: '1 main st', line2: '', city: 'oakland', state: 'CA', zip: '94607' };
 const checkout = (env, items, token, extra = {}) => worker.fetch(new Request('https://x.test/api/checkout', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
-  body: JSON.stringify({ items: items || [{ key: 'aussie', qty: 1 }], ...extra })
+  body: JSON.stringify({ items: items || [{ key: 'aussie', qty: 1 }], ship_to: HOME, ...extra })
 }), env);
 const catalog = async (env) => (await worker.fetch(new Request('https://x.test/api/catalog'), env)).json();
 
@@ -166,12 +168,12 @@ test('checkout refuses keys it does not sell and silly quantities', async () => 
   }
 });
 
-test('a signed-in checkout tags the order, fills in the email and notes it for order history', async () => {
+test('a signed-in checkout tags the order, fills in the email from the bag and notes it for order history', async () => {
   const { env, sq, g } = setup(true);
   const r = await checkout(env, null, await sign({}));
   assert.equal(r.status, 200);
   assert.deepEqual(sq.links[0].order.metadata, { uid: 'uid123' });
-  assert.equal(sq.links[0].pre_populated_data.buyer_email, 'pup@example.com');
+  assert.equal(sq.links[0].pre_populated_data.buyer_email, 'buyer@example.com');
   assert.ok(g.docs['users/uid123/orders/ORDER_1']);
 });
 
@@ -180,6 +182,6 @@ test('signed out, or with a bad ticket, checkout still works but nothing is tagg
   assert.equal((await checkout(env)).status, 200);
   assert.equal((await checkout(env, null, 'not-a-ticket')).status, 200);
   assert.equal(sq.links[0].order.metadata, undefined);
-  assert.equal(sq.links[1].pre_populated_data, undefined);
+  assert.deepEqual(sq.links[1].pre_populated_data, { buyer_email: 'buyer@example.com' });
   assert.deepEqual(Object.keys(g.docs).filter((k) => !k.startsWith('settings/')), []);
 });

@@ -18,6 +18,7 @@ import { isShopOpen } from './shop.js';
 import { squareConfigured, squareMode, getVariations, stockCounts } from './square.js';
 import { readShopStates, isAvailable, isPreorder, readInterest } from './interest.js';
 import { emailConfigured } from './email.js';
+import { stateList, GIFT_MAX } from './ship-to.js';
 
 const CACHE_MS = 60 * 1000;
 const RETRY_MS = 10 * 1000;
@@ -209,7 +210,8 @@ export async function catalogRoute(request, env, fetchFn = fetch) {
   try {
     const c = await getCatalog(env, request.url, fetchFn);
     // email: whether "email me when it's here" can be offered (server/notify.js)
-    return new Response(JSON.stringify({ ...publicCatalog(c), email: emailConfigured(env) }), {
+    // states: where we ship (u.s. states and d.c.), for the bag's address step (server/ship-to.js)
+    return new Response(JSON.stringify({ ...publicCatalog(c), email: emailConfigured(env), states: stateList(), gift_max: GIFT_MAX }), {
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
     });
   } catch (e) {
