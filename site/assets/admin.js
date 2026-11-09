@@ -397,6 +397,51 @@ async function loadNotify() {
   try { paintNotify(await api('GET', '/api/admin/notify')); } catch (e) { $('[data-notify-state]').textContent = RESTING; }
 }
 
+/* ---------- gift cards: the note to write by hand, and which order and address it goes with ---------- */
+function paintGifts(data) {
+  const state = $('[data-gifts-state]');
+  const box = $('[data-gift-list]');
+  box.textContent = '';
+  if (!data.square) { state.textContent = 'square isn\'t set up yet, so there are no orders to show.'; return; }
+  const n = data.gifts.length;
+  state.textContent = n ? n + (n === 1 ? ' card to write.' : ' cards to write.') : 'no gift cards to write right now.';
+  data.gifts.forEach((g) => {
+    const row = el('div', 'link-product gift-row');
+    row.appendChild(el('p', 'link-product-name', 'order ' + g.number + (g.date ? ', ' + new Date(g.date).toLocaleDateString() : '')));
+    row.appendChild(el('p', 'gift-note', g.message ? '“' + g.message + '”' : 'no note: a blank card.'));
+    const a = g.address;
+    const to = el('p', 'body-sm gift-address');
+    [g.name, a.line1, a.line2, a.city + ', ' + a.state + ' ' + a.zip].filter(Boolean).forEach((l, i) => {
+      if (i) to.appendChild(document.createElement('br'));
+      to.appendChild(document.createTextNode(l));
+    });
+    row.appendChild(to);
+    row.appendChild(el('p', 'caption notify-email', 'buyer: ' + g.email));
+    const what = g.items.map((it) => (it.qty > 1 ? it.qty + ' × ' : '') + it.name).join(', ');
+    row.appendChild(el('p', 'caption', what + (g.shipping ? '. ' + g.shipping + '.' : '')));
+    row.appendChild(el('p', 'caption', 'square order id: ' + g.id));
+    const actions = el('div', 'admin-actions');
+    const done = el('button', 'jka-btn jka-btn--sm', 'card written');
+    done.type = 'button';
+    const note = el('span', 'caption');
+    note.setAttribute('role', 'status');
+    done.addEventListener('click', async () => {
+      done.disabled = true;
+      try { paintGifts(await api('POST', '/api/admin/gifts', { id: g.id })); } catch (e) {
+        note.textContent = 'that didn\'t save. try again in a moment.';
+        done.disabled = false;
+      }
+    });
+    actions.append(done, note);
+    row.appendChild(actions);
+    box.appendChild(row);
+  });
+}
+
+async function loadGifts() {
+  try { paintGifts(await api('GET', '/api/admin/gifts')); } catch (e) { $('[data-gifts-state]').textContent = RESTING; }
+}
+
 /* ---------- featured: what turns in the carousel at the top of the shop ---------- */
 // picks keep the order they were ticked in, which is the order they stand on the ring
 let picks = [];
@@ -799,6 +844,7 @@ async function open() {
   $('#admin-view').hidden = false;
   wireFolds();
   try { wireShop(await api('GET', '/api/admin/shop')); } catch (e) { $('[data-shop-state]').textContent = RESTING; }
+  loadGifts();
   wireProducts();
   loadProducts();
   wireFeatured();
