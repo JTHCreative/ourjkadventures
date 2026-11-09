@@ -660,6 +660,14 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .pup-sheet .price { font-size: 20px; line-height: 26px; color: var(--ink-soft); }
 .pup-sheet .about { font-size: 18px; line-height: 27px; color: var(--ink-muted); margin: var(--space-2) 0 var(--space-3); }
 @keyframes pup-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+/* switching pups (app.js, leavePup): the open pup's heading, cards and photos fade and lift away together, then the
+   next pup's arrive. 0.2s matches PUP_LEAVE_MS in app.js. the heading fades back in on its own; the photos fade what's
+   inside the card, so the scroll fade on the card itself keeps working */
+.pup-leaving { animation: pup-out 0.2s ease both; pointer-events: none; }
+@keyframes pup-out { to { opacity: 0; transform: translateY(-10px); } }
+[data-pup-heading].pup-arriving { animation: pup-fade-in 0.3s ease both; }
+.pup-media.pup-arriving > * { animation: pup-fade-in 0.4s ease 0.12s both; }
+@keyframes pup-fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* ---------- reviews ---------- */
 .stars { position: relative; display: inline-block; font-size: 18px; line-height: 1; letter-spacing: 2px; white-space: nowrap; }
@@ -811,6 +819,7 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
   .pup-pin img, .pup-pin::before, .pup-pin::after { transition: none; }
   .pup-pin:hover img, .pup-pin:focus-visible img, .pup-pin.is-held img { animation: none; }
   .pup-sheet, .pup-reviews { animation: none; }
+  .pup-leaving, [data-pup-heading].pup-arriving, .pup-media.pup-arriving > * { animation: none; }
   .float-shop, .float-shop.show { transition: none; transform: none; }
 }
 
