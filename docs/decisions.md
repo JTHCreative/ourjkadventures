@@ -880,3 +880,11 @@ two different sites. Cloudflare logged nothing, because a refusal isn't an error
   emails already use. Sign-ins, saved bags and the "i'm interested" ticket are kept per address by the browser, so one
   address means nobody loses them by arriving through the other door. Only GET and HEAD move: a POST already on its
   way from an old www page is let through.
+
+## "i'm interested" starts fresh once "it's here" goes out (2026-11-09)
+After "it's here" was sent, the pin kept its tally and every browser still showed "you're interested.", but no one was
+on the email list any more, so a pin switched off again looked like it had fans waiting who would never hear. The
+owner chose a fresh start: once everyone waiting has the email (not while the day's limit leaves some waiting), the
+pin's round ends. The tally goes to 0, its votes are deleted, and a round number on the tally goes up. Browsers
+remember a tap as `slug@round`, so a tap from an earlier round no longer counts and the button reads "i'm interested!"
+again. The last round's count is kept as `asked`, so `/admin` still says how many asked for it before it arrived.

@@ -16,7 +16,7 @@
 import { configured, firestoreGet, firestoreSet } from './firebase.js';
 import { isShopOpen } from './shop.js';
 import { squareConfigured, squareMode, getVariations, stockCounts } from './square.js';
-import { readShopStates, isAvailable, isPreorder, readInterest } from './interest.js';
+import { readShopStates, isAvailable, isPreorder, readTallies } from './interest.js';
 import { preorderDateFor } from './preorder-words.js';
 import { emailConfigured } from './email.js';
 import { stateList, GIFT_MAX } from './ship-to.js';
@@ -112,8 +112,11 @@ async function build(env, origin, fetchFn) {
 
   // the tallies are only a nice-to-have: if they can't be read, the buttons still work and the counts read 0
   let interest = {};
+  let rounds = {};
   if (configured(env)) {
-    try { interest = await readInterest(env, fetchFn); } catch (e) { console.log('interest: ' + e.message); }
+    try {
+      for (const [slug, t] of Object.entries(await readTallies(env, fetchFn))) { interest[slug] = t.count; rounds[slug] = t.round; }
+    } catch (e) { console.log('interest: ' + e.message); }
   }
 
   const byKey = {};
@@ -138,6 +141,8 @@ async function build(env, origin, fetchFn) {
       // a pup's breed and its few sentences, shown on the board and on its own page (server/pup-pages.js)
       ...(p.breed ? { breed: p.breed } : {}), ...(p.about ? { about: p.about } : {}),
       available, preorder: onPreorder, interest: available || onPreorder ? 0 : interest[p.slug] || 0,
+      // which round of "i'm interested" this is: a browser's remembered vote from an earlier round no longer counts
+      interest_round: rounds[p.slug] || 0,
       // when it's expected in stock and shipping, "2026-12-15". only while on pre-order with a date
       ...(preorderDate ? { preorder_date: preorderDate } : {})
     };

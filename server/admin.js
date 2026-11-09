@@ -42,7 +42,7 @@ import { pendingReviews, setReviewStatus, REVIEW_STATUSES, ownerPhoto } from './
 import { siteProducts, siteKeys, readLinks, saveLinks, freshCatalog, readFeatured, saveFeatured, stockOf, MAX_FEATURED, forgetCatalog } from './catalog.js';
 import { squareConfigured, squareMode, listVariations, stockCounts } from './square.js';
 import { instagramStatus } from './instagram.js';
-import { readAvailability, setAvailable, readPreorder, setPreorder, readInterest, readPreorderDates, setPreorderDate, cleanDate } from './interest.js';
+import { readAvailability, setAvailable, readPreorder, setPreorder, readInterest, readAsked, readPreorderDates, setPreorderDate, cleanDate } from './interest.js';
 import { shopToday } from './preorder-words.js';
 import { notifySummary, sendItsHere, removeWaiting, restoreWaiting } from './notify.js';
 import { adminMedia, addMedia, removeMedia } from './media.js';
@@ -296,7 +296,9 @@ async function productLinks(request, env, fetchFn) {
   const preorder = Object.fromEntries(slugs.map((s) => [s, onPreorder[s] === true]));
   // each pre-order date, as set ("2026-12-15"), and today in the shop's time zone, so the page can flag a passed date
   const preorderDates = await readPreorderDates(env, fetchFn);
-  return { mode: squareMode(env), products: keys, links, square, squareError, available, preorder, preorderDates, today: shopToday(), interest: await readInterest(env, fetchFn) };
+  return { mode: squareMode(env), products: keys, links, square, squareError, available, preorder, preorderDates, today: shopToday(), interest: await readInterest(env, fetchFn),
+    // how many asked in the last round, for products that arrived and had their "it's here" sent
+    asked: await readAsked(env, fetchFn) };
 }
 
 async function changeLinks(request, env, wanted, fetchFn) {

@@ -299,3 +299,47 @@ test('only the owner can remove or put back an address, and only on a real produ
   assert.equal((await s.call('PUT', '/api/admin/notify/person', { token: await owner(), body: { slug: 'corgi', email: 'not an email' } })).status, 400);
   assert.deepEqual(await waiting(s), [['corgi', 1]]);
 });
+
+test('sending "it\'s here" to everyone ends that pin\'s round of "i\'m interested": it starts fresh', async () => {
+  const s = setup();
+  const vote = (cookie, ip) => s.call('POST', '/api/interest', { body: { slug: 'corgi' }, ip }).then(async (r) => ({ r, cookie }));
+  await vote(null, '1.1.1.1');
+  await vote(null, '2.2.2.2');
+  await signUp(s, 'corgi', 'pup@example.com');
+  const catalog = async () => (await (await s.call('GET', '/api/catalog')).json()).items.find((p) => p.slug === 'corgi');
+  assert.equal((await catalog()).interest, 2);
+  assert.equal((await catalog()).interest_round, 0);
+
+  await flip(s, 'corgi', true);
+  const sent = await (await s.call('POST', '/api/admin/notify', { token: await owner(), body: { slug: 'corgi' } })).json();
+  assert.equal(sent.sent, 1);
+  assert.equal(sent.left, 0);
+
+  // the tally is wiped, every vote cleared, and the round moves on; /admin keeps how many asked
+  assert.equal(s.g.docs['interest_sandbox/corgi'].count.integerValue, '0');
+  assert.equal(Object.keys(s.g.docs).filter((k) => k.startsWith('interest_votes_sandbox/')).length, 0);
+  const products = await (await s.call('GET', '/api/admin/products', { token: await owner() })).json();
+  assert.deepEqual(products.asked, { corgi: 2 });
+  assert.equal(products.interest.corgi, undefined);
+
+  // switched off again later: no one is interested yet, the round number tells browsers to forget old taps,
+  // and a new tap counts (the same browser's old vote is gone on the server too)
+  await flip(s, 'corgi', false);
+  const fresh = await catalog();
+  assert.equal(fresh.interest, 0);
+  assert.equal(fresh.interest_round, 1);
+  const again = await (await s.call('POST', '/api/interest', { body: { slug: 'corgi' }, ip: '1.1.1.1' })).json();
+  assert.equal(again.counted, true);
+  assert.equal(again.count, 1);
+});
+
+test('a send that leaves people waiting (the day\'s emails ran out) keeps the round open', async () => {
+  const s = setup({ limit: 1 });
+  await s.call('POST', '/api/interest', { body: { slug: 'corgi' } });
+  await signUp(s, 'corgi', 'a@example.com');
+  await signUp(s, 'corgi', 'b@example.com', { ip: '9.9.9.9' });
+  await flip(s, 'corgi', true);
+  const sent = await (await s.call('POST', '/api/admin/notify', { token: await owner(), body: { slug: 'corgi' } })).json();
+  assert.equal(sent.left, 1);
+  assert.equal(s.g.docs['interest_sandbox/corgi'].count.integerValue, '1');
+});

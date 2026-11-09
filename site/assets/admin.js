@@ -165,6 +165,7 @@ function paintProducts(data) {
   const dates = data.preorderDates || {};
   const today = data.today || new Date().toISOString().slice(0, 10);
   const interest = data.interest || {};
+  const asked = data.asked || {};
   paintInterest(data);
   mode.textContent = data.mode === 'sandbox' ? 'connected to square sandbox, the practice account.' : 'connected to your square account.';
   // without square there is nothing to link, but the available switches still work
@@ -243,7 +244,8 @@ function paintProducts(data) {
       pre.sw.setAttribute('aria-checked', preOn ? 'true' : 'false');
       box.classList.toggle('is-unavailable', !on && !preOn);
       box.classList.toggle('is-preorder', preOn);
-      words.textContent = availableWords(on, interest[p.slug] || 0, preOn, dates[p.slug], today) + (extra ? ' ' + extra : '');
+      // in the shop: how many asked before it arrived (this round's tally, or the last round's once "it's here" went out)
+      words.textContent = availableWords(on, (interest[p.slug] || 0) || (on ? asked[p.slug] || 0 : 0), preOn, dates[p.slug], today) + (extra ? ' ' + extra : '');
       // the heading's "n not available" and "n on pre-order" counts listen for this
       box.dispatchEvent(new Event('change', { bubbles: true }));
     };

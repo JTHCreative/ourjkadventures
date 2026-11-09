@@ -22,7 +22,8 @@
 
 import { configured, firestoreGet, firestoreSet, firestoreQuery, firestoreCommit } from './firebase.js';
 import { squareMode } from './square.js';
-import { readShopStates, isAvailable, isPreorder, scramble } from './interest.js';
+import { readShopStates, isAvailable, isPreorder, scramble, closeRound } from './interest.js';
+import { forgetCatalog } from './catalog.js';
 import { readShopSwitch } from './shop.js';
 import { emailConfigured, emailsLeftToday, sentToday, dailyLimit, sendBatch, escapeHtml } from './email.js';
 import { emailPage, emailImages, para } from './email-look.js';
@@ -268,5 +269,11 @@ export async function sendItsHere(env, origin, slug, fetchFn = fetch) {
   const key = 'its-here-' + slug + '-' + (await scramble(env, now.map((d) => d.id).sort().join(','))).slice(0, 24);
   await sendBatch(env, messages, key, fetchFn);
   await firestoreCommit(env, now.map((d) => ({ remove: list(env) + '/' + encodeURIComponent(d.id), any: true })), fetchFn);
-  return { sent: now.length, left: waiting.length - now.length };
+  const left = waiting.length - now.length;
+  // everyone has their email: this pin's "i'm interested" round is over, and starts fresh if it's ever switched off
+  // again. never undoes the send: the emails are out either way
+  if (!left) {
+    try { await closeRound(env, slug, fetchFn); forgetCatalog(); } catch (e) { console.log('close interest round failed', e.message); }
+  }
+  return { sent: now.length, left };
 }
