@@ -45,6 +45,8 @@
       // where we ship (u.s. states and d.c.) and how long a gift note may be. the server checks both again
       catalog.states = Array.isArray(j.states) ? j.states : [];
       catalog.giftMax = Number(j.gift_max) || 200;
+      // how long a pre-order takes to ship (products.json "preorder_weeks")
+      catalog.preorderWeeks = Number(j.preorder_weeks) || 4;
       (j.items || []).forEach(function (p) {
         p.sizes = p.sizes || [];
         catalog.items[p.slug] = p;
@@ -225,7 +227,8 @@
       ctl.appendChild(qty);
       ctl.appendChild(rm);
       row.appendChild(ctl);
-      if (catalog.open && entry && q >= entry.size.stock) row.appendChild(el('p', 'caption lnote', 'that is all we have of this one.'));
+      if (entry && entry.size.preorder) row.appendChild(el('p', 'caption lnote', preorderText()));
+      else if (catalog.open && entry && q >= entry.size.stock) row.appendChild(el('p', 'caption lnote', 'that is all we have of this one.'));
       bodyEl.appendChild(row);
     });
     if (trimmed) { saveCart(); paintCount(); }
@@ -239,10 +242,19 @@
       return;
     }
     paintShipping(sum);
+    if (hasPreorder()) footEl.appendChild(el('p', 'caption', preorderTogether()));
     var go = el('button', 'jka-btn', 'check out');
     go.type = 'button';
     go.addEventListener('click', function () { step = 'address'; paintAddress(); });
     footEl.appendChild(go);
+  }
+
+  // a pre-order in the bag holds the whole order: it all ships together once the pins are made
+  function hasPreorder() {
+    return Object.keys(cart).some(function (k) { var en = catalog.byKey[k]; return buyable(en) && en.size.preorder; });
+  }
+  function preorderTogether() {
+    return 'your order has a pre-order in it, so it all ships together in about ' + catalog.preorderWeeks + ' weeks, once the pins are made.';
   }
 
   /* ---------- step two: where it goes (u.s. states only, for now) and the gift note ---------- */
@@ -423,6 +435,7 @@
     go.addEventListener('click', submit);
     footEl.appendChild(go);
     footEl.appendChild(back);
+    if (hasPreorder()) footEl.appendChild(el('p', 'caption', preorderTogether()));
     footEl.appendChild(el('p', 'caption', 'next is square\'s payment page. tax is added there.'));
 
     if (problem && boxes[problem.field]) {
@@ -609,10 +622,17 @@
   }
   function buttonLabel(sz) {
     if (!catalog.open) return 'coming soon';
+    if (sz && sz.preorder) return 'pre-order';
     return sz && sz.stock > 0 ? 'add to bag' : 'sold out';
   }
-  // a plain count, the same calm words whether there are 2 or 200
-  function stockText(sz) { return catalog.open && sz && sz.stock > 0 ? sz.stock + ' in stock.' : ''; }
+  // "pre-order. ships in about 4 weeks."
+  function preorderText() { return 'pre-order. ships in about ' + catalog.preorderWeeks + ' weeks.'; }
+  // a plain count, the same calm words whether there are 2 or 200. a pre-order says when it ships instead
+  function stockText(sz) {
+    if (!catalog.open || !sz) return '';
+    if (sz.preorder) return preorderText();
+    return sz.stock > 0 ? sz.stock + ' in stock.' : '';
+  }
 
   /* ---------- "i'm interested": products the owner marked not available yet (see server/interest.js) ---------- */
   // the server is what counts one vote each; this only remembers which buttons this browser already tapped
@@ -708,8 +728,9 @@
   }
 
   /* ---------- pre-order: the owner says it's being made (see server/interest.js) ---------- */
-  // same shape as buyArea. no price, no button to buy and no vote: just that it's on its way, and (when the
-  // site's email is set up) the box to be emailed when it arrives
+  // while the shop is open and the pin is linked to square, a pre-order is bought like any pin (buyArea says when it
+  // ships). otherwise, the same shape as buyArea with no price and no button: just that it's on its way, and (when
+  // the site's email is set up) the box to be emailed when it arrives. never a vote
   function preorderArea(p) {
     var area = el('div', 'buy');
     area.appendChild(el('p', 'price', ''));
@@ -883,8 +904,8 @@
 
   // the buy button, the price and the stock line for one size, kept in step when the size changes
   function buyArea(p, btnClass) {
-    if (p.preorder) return preorderArea(p);
-    if (p.available === false) return interestArea(p, btnClass);
+    if (p.preorder && !(catalog.open && p.sizes.length)) return preorderArea(p);
+    if (p.available === false && !p.preorder) return interestArea(p, btnClass);
     var area = el('div', 'buy');
     var price = el('p', 'price', '');
     var stock = el('p', 'caption stock-line', '');
@@ -2256,6 +2277,13 @@
     countEls = Array.prototype.slice.call(document.querySelectorAll('[data-cart-count]'));
     // square sends people back to thank-you.html after paying: empty the bag
     if (/thank-you(\.html)?$/.test(location.pathname)) save('jka_cart', null);
+    // back from square with a pre-order in the order (?preorder=4): say when it ships
+    var pre = /[?&]preorder=(\d{1,2})(&|$)/.exec(location.search);
+    var preNote = document.querySelector('[data-preorder-thanks]');
+    if (pre && preNote) {
+      preNote.textContent = 'your order has a pre-order in it, so it all ships together in about ' + pre[1] + ' weeks, once the pins are made.';
+      preNote.hidden = false;
+    }
     loadCart();
     buildDrawer();
     Array.prototype.forEach.call(document.querySelectorAll('[data-cart]'), function (b) {
