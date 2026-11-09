@@ -564,10 +564,37 @@ function paintAsking() {
     div.appendChild(el('p', 'link-product-name', r.name));
     // the tally only when there is one: a product can have people waiting for an email without any taps counted
     div.appendChild(el('p', 'caption', (r.interest ? peopleWords(r.interest) + ' ' : '') + shelfWords(r.slug)));
+    if (r.interest) div.appendChild(clearCount(r));
     if (r.list) emailBits(r.list, done).forEach((x) => div.appendChild(x));
     else if (n && n.configured) div.appendChild(el('p', 'caption', 'no one waiting for an email.'));
     box.appendChild(div);
   });
+}
+
+// "clear the count": the tally back to 0 and its votes forgotten (a stray or test tap, say). the email list stays
+function clearCount(r) {
+  const row = el('div', 'admin-actions');
+  const go = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', 'clear the count');
+  go.type = 'button';
+  go.setAttribute('aria-label', 'clear the "i\'m interested" count for the ' + r.name);
+  const note = el('span', 'caption');
+  note.setAttribute('role', 'status');
+  go.addEventListener('click', async () => {
+    if (!confirm('clear the ' + r.name + '\'s "i\'m interested" count (' + r.interest + ') back to 0?' +
+      (r.list && r.list.waiting ? ' its email list stays as it is.' : '') + ' this can\'t be undone.')) return;
+    go.disabled = true;
+    note.textContent = 'clearing.';
+    try {
+      const res = await api('DELETE', '/api/admin/interest', { slug: r.slug });
+      if (askingProducts) askingProducts.interest = res.interest || {};
+      paintAsking();
+    } catch (e) {
+      note.textContent = 'that didn\'t clear. try again in a moment.';
+      go.disabled = false;
+    }
+  });
+  row.append(go, note);
+  return row;
 }
 
 async function loadNotify() {
