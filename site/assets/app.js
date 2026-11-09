@@ -44,7 +44,7 @@
       catalog.shipping = Array.isArray(j.shipping) ? j.shipping : [];
       // where we ship (u.s. states and d.c.) and how long a gift note may be. the server checks both again
       catalog.states = Array.isArray(j.states) ? j.states : [];
-      catalog.giftMax = Number(j.gift_max) || 200;
+      catalog.giftMax = Number(j.gift_max) || 100;
       // how long a pre-order takes to ship (products.json "preorder_weeks")
       catalog.preorderWeeks = Number(j.preorder_weeks) || 4;
       (j.items || []).forEach(function (p) {
@@ -369,7 +369,8 @@
     note.id = 'ship-gift-note';
     note.maxLength = catalog.giftMax;
     note.rows = 3;
-    note.value = v.message || '';
+    // a note saved before the limit came down is trimmed to fit, so checkout doesn't refuse it
+    note.value = (v.message || '').slice(0, catalog.giftMax);
     var noteHint = el('p', 'hint');
     noteHint.id = 'ship-gift-hint';
     note.setAttribute('aria-describedby', noteHint.id);

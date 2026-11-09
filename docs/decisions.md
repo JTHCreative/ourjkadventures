@@ -672,7 +672,7 @@ gift option with a note we write by hand on a card, tied to its order, buyer ema
   state line are listed under both states, so a real address isn't turned away.
 - **Not a full address check.** We don't look addresses up with USPS (a paid or rate-limited service). The state and
   zip are checked; the street is taken as written.
-- **The gift note** (up to 200 letters, a blank card is fine) goes on the order's shipment as its shipping note,
+- **The gift note** (up to 100 letters, lowered from 200 the same day at the owner's ask, so it fits a small card in the owner's handwriting; a blank card is fine) goes on the order's shipment as its shipping note,
   on the payment note with the ship-to address, as `gift: yes` in the order's metadata, and in Firestore
   `gifts/<square order id>` for the "gift cards to write" card on `/admin`. That card shows only orders Square says
   were paid; unpaid ones (a checkout left half way) are removed after two days. Pressing "card written" removes it.
@@ -698,3 +698,26 @@ handled:
 - Still no "i'm interested" votes on a pre-order, and the "email me when it's here" list stays as it was for
   anyone already on it.
 - Google sees these pins as `PreOrder` in the product card on each pup's page.
+
+## Order emails: Square's receipt, our "on its way" email (2026-11-09)
+The owner asked for branded emails after a purchase and when it ships, and whether Square or the website should
+send them.
+- **After paying: Square's receipt, branded in Square's settings** (logo, colour, contact, a line of text). Square
+  sends it anyway and, as far as we know, it can't be switched off for online payments, so a second "receipt" from
+  us would mean two emails. Our own "thanks for your order" note comes later, and needs the Square webhook to know
+  the moment an order is paid (roadmap, phase 2).
+- **When it ships: our own email, from `/admin`** ("orders to ship", `server/shipped.js`). This is where the
+  branding and the tracking link matter most, and it needs nothing new from Square. Square's own shipped email
+  comes from its dashboard and we couldn't confirm it works for orders made through payment links, or that it
+  always includes the tracking number.
+- **The list is read from Square each time** (paid, open orders with a shipment not yet completed), so there's
+  nothing of ours to keep in step.
+- **Email first, then Square.** The email's idempotency key is the order and tracking number, so pressing again
+  after a hiccup (say Square didn't answer) can't send it twice: Resend keeps the key for a day. A corrected
+  tracking number is a new key, so the fixed email goes out.
+- **Square moves a shipment one step at a time** (proposed, reserved, prepared, completed), so we step it through
+  rather than jumping straight to completed, each step with the version Square gave back.
+- **Words:** "your order is on its way" (or "your gift is on its way"), our names for the pins with their pictures,
+  a "track your package" button to USPS, the address, signed by justin and kitty. A gift never greets the buyer by
+  the name on the package (that's the person getting it) and says the note is in and the receipt is out.
+- USPS only, like the rest of shipping. Not live tracking on our site: the button goes to USPS.

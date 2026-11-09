@@ -65,11 +65,13 @@ test('every box but the apartment is needed, and odd characters are cleaned', ()
   assert.equal(cleanShipTo(null).field, 'name');
 });
 
-test('the gift note: only with the tick, at most 200 letters, a blank card is fine', () => {
+test('the gift note: only with the tick, at most 100 letters, a blank card is fine', () => {
   assert.equal(cleanGift(null), null);
   assert.equal(cleanGift({ gift: 'yes', message: 'hi' }), null);
   assert.deepEqual(cleanGift({ gift: true }), { message: '' });
   assert.deepEqual(cleanGift({ gift: true, message: '  happy birthday <3\r\nlove, k  ' }), { message: 'happy birthday 3\nlove, k' });
+  assert.equal(GIFT_MAX, 100);
+  assert.deepEqual(cleanGift({ gift: true, message: 'a'.repeat(100) }), { message: 'a'.repeat(100) });
   assert.ok(cleanGift({ gift: true, message: 'a'.repeat(GIFT_MAX + 1) }).error);
 });
 
@@ -118,7 +120,7 @@ test('a gift: the note goes on the order and the payment, and on the owner\'s li
   assert.equal(doc.email.stringValue, 'buyer@example.com');
   assert.equal(doc.zip.stringValue, '94607');
   // too long a note is refused, not cut short
-  assert.equal((await checkout(env, { gift: { gift: true, message: 'a'.repeat(201) } })).status, 400);
+  assert.equal((await checkout(env, { gift: { gift: true, message: 'a'.repeat(101) } })).status, 400);
 });
 
 test('a gift that also ships free keeps both notes for the owner', async () => {
@@ -167,5 +169,5 @@ test('the catalog tells the bag which states we ship to', async () => {
   const c = await (await worker.fetch(new Request('https://x.test/api/catalog'), env)).json();
   assert.equal(c.states.length, 51);
   assert.deepEqual(c.states.find((s) => s.code === 'CA'), { code: 'CA', name: 'california' });
-  assert.equal(c.gift_max, 200);
+  assert.equal(c.gift_max, 100);
 });

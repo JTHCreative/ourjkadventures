@@ -111,6 +111,37 @@ A pin with **pre-order** switched on (on `/admin`, beside available) can be boug
    **pre-order off** on `/admin` (and available on). Until the count is fixed, a negative count reads as sold out.
 6. To change "about 4 weeks", ask Claude to change `preorder_weeks` in `site/products.json`.
 
+### Branded receipts and the "on its way" email (built 2026-11-09)
+Square emails a receipt when someone pays; the website emails "your order is on its way" when you ship.
+
+**A. Brand Square's receipt (about 5 minutes, no code)**
+1. Square Dashboard > **Settings** > **Account & Settings** > **My business** > **About** (on some accounts it's
+   **Business information** > **Receipts**).
+2. Under **Branding**, press **+ Create new**. Upload the full logo (at least 1280 × 648 px) and the small logo
+   (400 × 400 px), PNG or JPG. `site/assets/img/email/logo.png` is a start; a bigger copy of the logo looks sharper.
+3. Pick the brand colour: `#bf5249` (the site's red).
+4. Turn on **Show location**, and add support@ourjkadventures.com and @ourjkadventures under **Contact**.
+5. Optional, under **Additional text**: a short line in our voice, for example "thank you for supporting our little
+   shop! questions? write to support@ourjkadventures.com."
+6. Apply the brand to your location and save. The layout and wording of the receipt stay Square's.
+
+**B. Ship an order from `/admin`**
+1. Open **orders to ship** on `/admin`. It lists paid website orders that haven't gone out, oldest first, with
+   what's in each, the address to copy onto the label, the buyer's email, and any gift or pre-order note.
+2. Buy the label (USPS), pack it, then type the tracking number into the box and press **mark shipped**.
+3. The buyer gets the "on its way" email (logo, a picture of each pin, a **track your package** button, the
+   address), and the order is marked shipped in Square with the tracking number on it. It leaves the list.
+4. **See the email** under each order shows exactly what will go out (with a stand-in tracking number).
+5. If it says "that didn't go through", press it again. The email won't go out twice.
+
+Good to know:
+- The website needs to change orders in Square for this (`ORDERS_WRITE`). A personal access token has it.
+- Test once in the sandbox: a test order, then mark it shipped with any tracking number, e.g. `9400100000000000000000`.
+  Check the order shows as shipped in Square and the email arrives. Square may also send its own shipped email
+  when an order is marked shipped; if buyers get two, tell Claude.
+- Without Resend set up (`docs/setup/email.md`), **mark shipped** only marks it in Square.
+- These emails count toward the site's 100 a day, shared with the "it's here" emails.
+
 ### When a pin is renamed (poodle became doodle, 2026-11)
 The website files a pin's settings under its short name, so a renamed pin starts fresh. After the poodle became
 the doodle:
