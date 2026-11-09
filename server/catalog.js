@@ -17,6 +17,7 @@ import { configured, firestoreGet, firestoreSet } from './firebase.js';
 import { isShopOpen } from './shop.js';
 import { squareConfigured, squareMode, getVariations, stockCounts } from './square.js';
 import { readShopStates, isAvailable, isPreorder, readInterest } from './interest.js';
+import { preorderDateFor } from './preorder-words.js';
 import { emailConfigured } from './email.js';
 import { stateList, GIFT_MAX } from './ship-to.js';
 
@@ -96,11 +97,12 @@ async function build(env, origin, fetchFn) {
   let counts = {};
   let availability = {};
   let preorder = {};
+  let dates = {};
   let ok = true;
   try {
     if (configured(env)) {
       links = await readLinks(env, fetchFn);
-      ({ available: availability, preorder } = await readShopStates(env, fetchFn));
+      ({ available: availability, preorder, dates } = await readShopStates(env, fetchFn));
     }
     const ids = [...new Set(Object.values(links))];
     if (ids.length && squareConfigured(env)) {
@@ -126,12 +128,12 @@ async function build(env, origin, fetchFn) {
     const available = isAvailable(availability, p.slug);
     const onPreorder = isPreorder(preorder, p.slug);
     // not available: no sizes, no price and nothing in byKey, so checkout can't sell it either.
-    // on pre-order: sold at its Square price without looking at the shelf (the pins are being made), and ships
-    // in about preorder_weeks. ticked "sold out" in Square still means not for sale, since Square's page would refuse it
+    // on pre-order: sold at its Square price without looking at the shelf or Square's "sold out" tick (the pins are
+    // being made, so Square rightly calls them sold out), and ships around its pre-order date (or in about
+    // preorder_weeks when no date is set)
     for (const k of available || onPreorder ? siteKeys({ items: [p] }) : []) {
       const v = variations[links[k.key]];
       if (!v || !v.sellable || v.price_cents === null) continue;
-      if (onPreorder && v.marked_sold_out) continue;
       const stock = onPreorder ? PREORDER_MAX : v.marked_sold_out ? 0 : (counts[v.id] || 0);
       byKey[k.key] = { variation_id: v.id, price_cents: v.price_cents, currency: v.currency, stock, marked_sold_out: onPreorder ? false : v.marked_sold_out, slug: p.slug, size: k.size, kind: p.kind, ...(onPreorder ? { preorder: true } : {}) };
       sizes.push({ size: k.size, key: k.key, price_cents: v.price_cents, stock, ...(onPreorder ? { preorder: true } : {}) });
@@ -140,7 +142,9 @@ async function build(env, origin, fetchFn) {
       slug: p.slug, name: p.name, kind: p.kind, series: p.series || '', description: p.description || '', sizes,
       // a pup's breed and its few sentences, shown on the board and on its own page (server/pup-pages.js)
       ...(p.breed ? { breed: p.breed } : {}), ...(p.about ? { about: p.about } : {}),
-      available, preorder: onPreorder, interest: available || onPreorder ? 0 : interest[p.slug] || 0
+      available, preorder: onPreorder, interest: available || onPreorder ? 0 : interest[p.slug] || 0,
+      // when it's expected in stock and shipping, "2026-12-15". only while on pre-order and not yet passed
+      ...(onPreorder && preorderDateFor(dates[p.slug]) ? { preorder_date: dates[p.slug] } : {})
     };
   });
 

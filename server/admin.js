@@ -16,6 +16,8 @@
 //   POST /api/admin/availability  { slug, available: true|false }  not available: off sale, shows "i'm interested"
 //   POST /api/admin/preorder  { slug, preorder: true|false }  pre-order: off sale (whatever the available switch says),
 //                             shows "being made now" and "email me when it's here", no "i'm interested"
+//   POST /api/admin/preorder-date  { slug, date: "2026-12-15" | "" }  when a pre-order pin is expected in stock and
+//                             shipping ("" clears it: the shop then says "about 4 weeks")
 //   GET  /api/admin/notify   who is waiting for an "it's here" email, per product, and today's email count
 //   POST /api/admin/notify   { slug }  send "it's here" to everyone waiting for it (up to today's allowance)
 //   GET  /api/admin/media    the owner's own photos for the photos section under the pup board (server/media.js)
@@ -36,7 +38,8 @@ import { pendingReviews, setReviewStatus, REVIEW_STATUSES, ownerPhoto } from './
 import { siteProducts, siteKeys, readLinks, saveLinks, freshCatalog, readFeatured, saveFeatured, stockOf, MAX_FEATURED, forgetCatalog } from './catalog.js';
 import { squareConfigured, squareMode, listVariations, stockCounts } from './square.js';
 import { instagramStatus } from './instagram.js';
-import { readAvailability, setAvailable, readPreorder, setPreorder, readInterest } from './interest.js';
+import { readAvailability, setAvailable, readPreorder, setPreorder, readInterest, readPreorderDates, setPreorderDate, cleanDate } from './interest.js';
+import { shopToday } from './preorder-words.js';
 import { notifySummary, sendItsHere } from './notify.js';
 import { adminMedia, addMedia, removeMedia } from './media.js';
 import { giftList, giftDone } from './ship-to.js';
@@ -146,6 +149,24 @@ export async function admin(request, env, fetchFn = fetch) {
       return json({ slug: body.slug, preorder: body.preorder });
     }
 
+    if (route === 'preorder-date') {
+      if (request.method !== 'POST') return json({ error: 'method' }, 405);
+      const body = await readJson(request);
+      const slugs = new Set((await siteProducts(env, request.url)).items.map((p) => p.slug));
+      if (typeof body.slug !== 'string' || !slugs.has(body.slug)) return json({ error: 'unknown product' }, 400);
+      let date = null;
+      if (body.date !== '' && body.date !== null) {
+        date = cleanDate(body.date);
+        if (!date) return json({ error: 'date' }, 400);
+        const today = shopToday();
+        if (date < today) return json({ error: 'past' }, 400);
+        if (date > String(Number(today.slice(0, 4)) + 2) + today.slice(4)) return json({ error: 'too far' }, 400);
+      }
+      await setPreorderDate(env, body.slug, date, fetchFn);
+      forgetCatalog();
+      return json({ slug: body.slug, date: date || '' });
+    }
+
     if (route === 'notify') {
       const origin = new URL(request.url).origin;
       if (request.method === 'GET') return json(await notifySummary(env, origin, fetchFn));
@@ -237,7 +258,9 @@ async function productLinks(request, env, fetchFn) {
   // the pre-order switch, as set. it wins over available, so the page shows both as they are
   const onPreorder = await readPreorder(env, fetchFn);
   const preorder = Object.fromEntries(slugs.map((s) => [s, onPreorder[s] === true]));
-  return { mode: squareMode(env), products: keys, links, square, squareError, available, preorder, interest: await readInterest(env, fetchFn) };
+  // each pre-order date, as set ("2026-12-15"), and today in the shop's time zone, so the page can flag a passed date
+  const preorderDates = await readPreorderDates(env, fetchFn);
+  return { mode: squareMode(env), products: keys, links, square, squareError, available, preorder, preorderDates, today: shopToday(), interest: await readInterest(env, fetchFn) };
 }
 
 async function changeLinks(request, env, wanted, fetchFn) {
