@@ -277,5 +277,24 @@ export async function deleteAuthUser(env, uid, fetchFn = fetch) {
   }
 }
 
+// A Firebase account link (confirm your email, choose a new password, confirm your new email) made but not sent:
+// Firebase hands it back and we send it ourselves, in the shop's own letterhead (server/account-emails.js).
+// body: { requestType: "VERIFY_EMAIL" | "PASSWORD_RESET" | "VERIFY_AND_CHANGE_EMAIL", email, newEmail?, continueUrl? }
+// Returns the link. Throws an error whose code is Firebase's word for what went wrong ("EMAIL_NOT_FOUND", ...)
+export async function accountLink(env, body, fetchFn = fetch) {
+  const token = await accessToken(env, fetchFn);
+  const res = await fetchFn('https://identitytoolkit.googleapis.com/v1/projects/' + encodeURIComponent(projectId(env)) + '/accounts:sendOobCode', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, returnOobLink: true })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.ok && typeof data.oobLink === 'string') return data.oobLink;
+  const word = String((data.error && data.error.message) || '').split(/[\s:]/)[0];
+  const e = new Error('account link ' + res.status + ' ' + word);
+  e.code = word || 'UNKNOWN';
+  throw e;
+}
+
 // for tests
 export function _resetCaches() { keyCache = { keys: null, until: 0 }; accessCache = { token: null, until: 0, account: null }; }

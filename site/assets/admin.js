@@ -127,7 +127,8 @@ function preorderSettings(p, name, on, date, today, opener, saved) {
     ? 'pre-order is on for the ' + name + '. change its date here.'
     : 'pre-order needs a date. pick when the ' + name + ' is expected in stock and shipping, and pre-order turns on when you save.';
   d.querySelector('[data-settings-hint]').textContent =
-    'buyers see "pre-order. expected in stock and shipping around <date>." a bag with this pin ships all together then.';
+    'buyers see "pre-order. expected in stock and shipping around <date>." a bag with this pin ships all together then.' +
+    (on ? ' orders already paid for it will show "new date to email" under orders to ship.' : '');
   d.querySelector('[data-settings-save]').textContent = on ? 'save date' : 'save and turn on pre-order';
   input.min = today;
   // a date that has passed isn't offered again: pick a new one
@@ -532,6 +533,8 @@ function paintOrders(data, done) {
   lines.push(n ? n + (n === 1 ? ' order to ship.' : ' orders to ship.') : 'nothing to ship right now.');
   const cards = giftCards ? giftCards.length : 0;
   if (cards) lines.push(cards + (cards === 1 ? ' gift card to write.' : ' gift cards to write.'));
+  const moved = data.orders.filter((o) => o.moved).length;
+  if (moved) lines.push(moved + (moved === 1 ? ' pre-order needs its new date emailed.' : ' pre-orders need their new date emailed.'));
   if (!data.email) lines.push('email isn\'t set up, so "mark shipped" only marks it in square. see docs/setup/email.md.');
   state.textContent = lines.join(' ');
   data.orders.forEach((o) => box.appendChild(orderRow(o, data)));
@@ -571,6 +574,7 @@ function orderRow(o, data) {
   const bits = [orderDay(o.date), count + (count === 1 ? ' item' : ' items')];
   if (o.gift) bits.push('gift');
   if (o.preorder) bits.push('pre-order');
+  if (o.moved) bits.push('new date to email');
   sum.appendChild(el('span', 'caption', bits.filter(Boolean).join(' · ')));
   fold.appendChild(sum);
   const body = el('div', 'order-body');
@@ -587,6 +591,9 @@ function orderRow(o, data) {
   if (o.shipping) how.push('usps ' + o.shipping + ' shipping.');
   if (o.preorder) how.push('has a pre-order: the whole order ships together' + (o.expected ? ' around ' + orderDay(o.expected) : '') + '.');
   body.appendChild(orderPart('what\'s in it', what, how.length ? el('p', 'caption', how.join(' ')) : null));
+
+  // a pre-order whose date moved since it was paid for: tell the buyer, and the date moves on the square order too
+  if (o.moved) body.appendChild(orderPart('new pre-order date', movedPart(o, data)));
 
   // the buyer. on a gift, the name is the person it's going to; the email is always the buyer's
   body.appendChild(orderPart('buyer',
@@ -662,6 +669,46 @@ function orderRow(o, data) {
 
   fold.appendChild(body);
   return fold;
+}
+
+// "the date moved from dec 15 to jan 10", the button that emails it, and the email word for word
+function movedPart(o, data) {
+  const wrap = el('div', 'order-moved');
+  const day = (d) => orderDay(d + 'T12:00:00');
+  wrap.appendChild(el('p', 'body-sm', 'the pre-order date moved since this was paid for: it said around ' + day(o.moved.from) +
+    ', now around ' + day(o.moved.to) + '.'));
+  const row = el('div', 'admin-actions');
+  const go = el('button', 'jka-btn jka-btn--sm', data.email ? 'email the new date' : 'update the date in square');
+  go.type = 'button';
+  const note = el('span', 'caption');
+  note.setAttribute('role', 'status');
+  row.append(go, note);
+  wrap.appendChild(row);
+  go.addEventListener('click', async () => {
+    if (!confirm((data.email ? 'email ' + o.email + ' that order ' + o.number + ' now ships around ' : 'move order ' + o.number + ' to ') + day(o.moved.to) + '?')) return;
+    go.disabled = true;
+    note.textContent = 'sending.';
+    try {
+      const res = await api('POST', '/api/admin/orders', { id: o.id, moved: true });
+      paintOrders(res, 'order ' + o.number + ' now ships around ' + day(res.date) + (res.emailed ? ' and ' + o.email + ' has the email.' : '.'));
+    } catch (err) {
+      const why = err.data && err.data.error;
+      note.textContent = why === 'email limit' ? 'today\'s emails are used up. try again tomorrow.'
+        : why === 'not moved' ? 'its date is already up to date.'
+        : 'that didn\'t go through. press it again: the email won\'t go out twice.';
+      go.disabled = false;
+    }
+  });
+  const peek = el('details', 'notify-preview');
+  peek.appendChild(el('summary', 'link-btn', 'see the email'));
+  peek.appendChild(el('p', 'caption', 'subject: ' + o.moved.preview.subject));
+  const frame = el('iframe', 'notify-preview-frame');
+  frame.setAttribute('sandbox', '');
+  frame.title = 'the "new date" email for order ' + o.number;
+  frame.srcdoc = o.moved.preview.html;
+  peek.appendChild(frame);
+  wrap.appendChild(peek);
+  return wrap;
 }
 
 async function loadOrders() {

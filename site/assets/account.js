@@ -57,6 +57,25 @@ export async function signOutHere() {
 }
 export { friendly as friendlyError };
 
+/* ---------- the account emails ---------- */
+// Our own server sends "confirm your email", "choose a new password" and "confirm your new email" in the shop's
+// letterhead (server/account-emails.js). If it can't (email not set up, or a hiccup), Firebase sends its own
+// plainer one instead, so a link always goes out. Returns true when ours went, false when Firebase should send.
+// Answers that mean "no" (too many tries, that email is taken) come back as errors friendly() understands.
+async function ourEmail(kind, body, user) {
+  let res;
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (user) headers.Authorization = 'Bearer ' + (await user.getIdToken(kind === 'change'));
+    res = await fetch('/api/account/email/' + kind, { method: 'POST', headers: headers, body: JSON.stringify(body || {}) });
+  } catch (e) { return false; }
+  if (res.ok) return true;
+  const data = await res.json().catch(function () { return {}; });
+  const code = { limit: 'auth/too-many-requests', taken: 'auth/email-already-in-use', email: 'auth/invalid-email', 'sign in again': 'auth/requires-recent-login' }[data.error];
+  if (code) { const e = new Error(data.error); e.code = code; throw e; }
+  return false;
+}
+
 function friendly(err) {
   const code = (err && err.code) || '';
   switch (code) {
@@ -205,10 +224,9 @@ async function createPage() {
     try {
       const cred = await createUserWithEmailAndPassword(auth, form.email.value.trim(), form.password.value);
       if (name) await updateProfile(cred.user, { displayName: name }).catch(function () {});
-      await sendEmailVerification(cred.user, { url: location.origin + '/account.html' })
-        .catch(function () { return sendEmailVerification(cred.user); })
-        .catch(function () {});
+      // the folder first, so the confirm email can say hi with their name
       await hello(cred.user, name).catch(function () {});
+      await sendVerify(cred.user).catch(function () {});
       location.href = 'account.html';
     } catch (err) {
       kit.busy(false);
@@ -225,7 +243,8 @@ function resetPage() {
     kit.say('');
     kit.busy(true);
     try {
-      await sendPasswordResetEmail(auth, form.email.value.trim());
+      const email = form.email.value.trim();
+      if (!(await ourEmail('reset', { email: email }))) await sendPasswordResetEmail(auth, email);
     } catch (err) {
       // the same answer whether or not the account exists, so nobody can check who has one
       if (err && (err.code === 'auth/invalid-email' || err.code === 'auth/network-request-failed' || err.code === 'auth/too-many-requests')) {
@@ -250,7 +269,8 @@ function couldNotOpen(notice) {
   notice.textContent = 'we could not open your account just now. try again in a moment, or write to us at ' + CONTACT_EMAIL + '.';
   notice.hidden = false;
 }
-function sendVerify(user) {
+async function sendVerify(user) {
+  if (await ourEmail('verify', {}, user)) return;
   return sendEmailVerification(user, { url: location.origin + '/account.html' }).catch(function () { return sendEmailVerification(user); });
 }
 
@@ -367,8 +387,10 @@ async function detailsPage() {
       ekit.busy(true);
       try {
         await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, ef.password.value));
-        await verifyBeforeUpdateEmail(user, next, { url: location.origin + '/account.html' })
-          .catch(function (err) { if (err && err.code === 'auth/unauthorized-continue-uri') return verifyBeforeUpdateEmail(user, next); throw err; });
+        if (!(await ourEmail('change', { newEmail: next }, user))) {
+          await verifyBeforeUpdateEmail(user, next, { url: location.origin + '/account.html' })
+            .catch(function (err) { if (err && err.code === 'auth/unauthorized-continue-uri') return verifyBeforeUpdateEmail(user, next); throw err; });
+        }
         ekit.busy(false);
         ef.reset();
         ekit.say('we sent a link to ' + next + '. click it to finish the change. until then, keep signing in with ' + user.email + '.', true);

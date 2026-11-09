@@ -19,7 +19,8 @@
 
 import { configured, userFromRequest, firestoreGet, firestoreSet, firestoreUpdate, firestoreQuery, firestoreDelete, firestoreCommit } from './firebase.js';
 import { scramble } from './interest.js';
-import { cleanEmail, domainTakesMail } from './notify.js';
+import { cleanEmail, domainTakesMail, productNoun } from './notify.js';
+import { alertReview } from './owner-alerts.js';
 import { photosOn, parsePhotos, photoString, planPhotos, storePhotos, deletePhotos, photoResponse, isPhotoId } from './photos.js';
 
 const MAX_TEXT = 600;
@@ -90,6 +91,22 @@ export async function approvedReviewPhotos(env, fetchFn = fetch) {
     view.photos.forEach((p) => out.push({ ...p, slug: view.slug, name: view.name, date: view.date }));
   }
   return out;
+}
+
+// "the corgi pin", for the owner's "a review is waiting" email
+async function pinNoun(request, env, slug) {
+  try {
+    const res = await env.ASSETS.fetch(new Request(new URL('/products.json', request.url)));
+    const p = ((await res.json()).items || []).find((x) => x.slug === slug);
+    return p ? 'the ' + productNoun(p) : 'the ' + slug + ' pin';
+  } catch (e) { return 'the ' + slug + ' pin'; }
+}
+// a bell in the back room: the owner hears there's a review to look at. never stops the review being saved
+async function ringOwner(request, env, r, fetchFn) {
+  await alertReview(env, new URL(request.url).origin, {
+    id: r.id, at: r.at, slug: r.slug, noun: await pinNoun(request, env, r.slug), name: r.name, rating: r.rating,
+    text: r.text, photos: r.photos, guest: !!r.guest
+  }, fetchFn);
 }
 
 async function pinSlugs(request, env) {
@@ -185,6 +202,7 @@ export async function reviews(request, env, fetchFn = fetch) {
     }
     await deletePhotos(env, plan.remove);
     if (before && before.status === 'approved') approvedCache = { list: null, until: 0 };
+    await ringOwner(request, env, { id: reviewId(body.slug, user.sub), at: now.toISOString(), slug: body.slug, name: displayName(profile), rating, text, photos: plan.list.length }, fetchFn);
     return json({ saved: true, status: 'pending' });
   } catch (e) {
     console.log('reviews error', e.message);
@@ -237,6 +255,7 @@ async function guestReview(request, env, fetchFn) {
     throw e;
   }
   await firestoreCommit(env, [{ add: ipPath, field: 'count', data: { day } }], fetchFn);
+  await ringOwner(request, env, { id: reviewId(body.slug, 'g' + who), at: now.toISOString(), slug: body.slug, name, rating, text: cleanText(body.text), photos: plan.list.length, guest: true }, fetchFn);
   return json({ saved: true, status: 'pending' });
 }
 
