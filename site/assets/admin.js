@@ -720,6 +720,51 @@ async function loadInstagram() {
   try { paintInstagram(await api('GET', '/api/admin/instagram')); } catch (e) { $('[data-instagram-state]').textContent = RESTING; }
 }
 
+/* ---------- folding: each card's title is a button that hides or shows the rest of the card ---------- */
+// like folders in a drawer: close the ones you don't need today. which are closed is remembered in this browser only
+// (localStorage), so it can come back empty in a private window; then every card simply starts open
+const FOLD_KEY = 'jka_admin_folded';
+function foldedCards() {
+  try { const a = JSON.parse(localStorage.getItem(FOLD_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+}
+function rememberFolds(list) {
+  try { if (list.length) localStorage.setItem(FOLD_KEY, JSON.stringify(list)); else localStorage.removeItem(FOLD_KEY); } catch (e) {}
+}
+function wireFolds() {
+  const folded = new Set(foldedCards());
+  document.querySelectorAll('.admin-card').forEach((card) => {
+    const title = card.querySelector('.admin-title');
+    if (!title || !title.id) return;
+    const id = title.id;
+    // everything under the title moves into one box that the button hides and shows
+    const body = el('div', 'admin-card-body');
+    body.id = id + '-body';
+    while (title.nextSibling) body.appendChild(title.nextSibling);
+    card.appendChild(body);
+    const btn = el('button', 'admin-fold');
+    btn.type = 'button';
+    btn.setAttribute('aria-controls', body.id);
+    const words = el('span', null, title.textContent);
+    const mark = el('span', 'admin-fold-mark');
+    mark.setAttribute('aria-hidden', 'true');
+    btn.append(words, mark);
+    title.textContent = '';
+    title.appendChild(btn);
+    const paint = (open) => {
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      body.hidden = !open;
+      card.classList.toggle('is-folded', !open);
+    };
+    paint(!folded.has(id));
+    btn.addEventListener('click', () => {
+      const open = btn.getAttribute('aria-expanded') !== 'true';
+      paint(open);
+      if (open) folded.delete(id); else folded.add(id);
+      rememberFolds([...folded]);
+    });
+  });
+}
+
 /* ---------- start ---------- */
 function showSignIn() {
   gate(NOT_OWNER);
@@ -752,6 +797,7 @@ async function open() {
     location.href = 'index.html';
   });
   $('#admin-view').hidden = false;
+  wireFolds();
   try { wireShop(await api('GET', '/api/admin/shop')); } catch (e) { $('[data-shop-state]').textContent = RESTING; }
   wireProducts();
   loadProducts();
