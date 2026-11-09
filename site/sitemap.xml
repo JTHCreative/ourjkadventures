@@ -10,7 +10,7 @@
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://ourjkadventures.com/</loc>
-    <lastmod>2026-11-05</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/aussie.webp</image:loc></image:image>
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/corgi.webp</image:loc></image:image>
     <image:image><image:loc>https://ourjkadventures.com/assets/img/pins/shiba.webp</image:loc></image:image>
@@ -141,11 +141,11 @@
   </url>
   <url>
     <loc>https://ourjkadventures.com/about</loc>
-    <lastmod>2026-11-05</lastmod>
+    <lastmod>2026-11-09</lastmod>
   </url>
   <url>
     <loc>https://ourjkadventures.com/contact</loc>
-    <lastmod>2026-11-05</lastmod>
+    <lastmod>2026-11-09</lastmod>
   </url>
   <url>
     <loc>https://ourjkadventures.com/pin-request</loc>
