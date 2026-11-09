@@ -250,3 +250,31 @@ website either, because the checkout page is on Square's own web address, which 
 5. If the button doesn't show: make sure Apple Pay is on in Square (step 1), that you're in Safari (or Chrome on
    iOS 16+), and that Wallet has a card. A Square account that can't take Apple Pay just shows the card form, and the
    order still works.
+
+### The checkout page, with Square's card form inside it (built 2026-11-09)
+"check out" in the bag now opens our own page, `/checkout`: your email, where it goes, shipping, payment, an optional
+tip, and the order summary beside it. The card box on that page belongs to Square (its "Web Payments SDK"): the card
+number goes straight to Square and never touches our site. Until step 2 is done, the page still collects the address
+and then sends people to Square's hosted payment page exactly as before (no tip on that route).
+
+1. Open the **Square Developer Console** (developer.squareup.com), pick the same app your access token comes from,
+   and open **Credentials**. Copy the **Application ID**. Sandbox and production have different ones: the sandbox one
+   starts with `sandbox-sq0idb-`. It isn't secret (every shop using Square's card form shows it in the page).
+2. In Cloudflare (Workers > ourjkadventures > Settings > Variables and secrets), add `SQUARE_APPLICATION_ID` with
+   the ID that matches `SQUARE_ENV` (sandbox ID while `SQUARE_ENV=sandbox`). Deploy, or wait for the next deploy.
+3. Make sure the access token can create orders and take payments (`ORDERS_WRITE` and `PAYMENTS_WRITE`). A personal
+   access token from the Developer Console already can; it's the same token checkout uses today.
+4. Try it on sandbox: add a pin, check out, fill in the form, and use Square's sandbox test card `4111 1111 1111 1111`,
+   any future expiry date, CVV `111`, zip `94103`. You should land on the thank-you page, and the order should show in
+   "orders to ship" on `/admin` and in the sandbox Square Dashboard, with the tip on the payment if you picked one.
+5. On the live site, once `SQUARE_ENV=production` and the production Application ID are set, place one small real
+   order with your own card, then refund it in Square. Check that the receipt and our "thank you for your order"
+   email both arrive.
+6. **Apple Pay on our own page** needs our web address proven to Apple, because the payment now happens on
+   ourjkadventures.com instead of Square's page. In the Developer Console, open the app's **Apple Pay** page, add
+   `ourjkadventures.com`, and download the **domain verification file** Square gives you. Send it to us to put on
+   the site (it has to live at `/.well-known/apple-developer-merchantid-domain-association`), then press **Verify** in
+   the console. Until then the Apple Pay button simply doesn't show; cards and Google Pay still work.
+7. **Google Pay** needs nothing from you: the button shows in Chrome and on Android for people with a card saved.
+8. **Tips** show on each payment in the Square Dashboard and in **Reports > Sales summary** under tips. They're the
+   buyer's own choice, "no tip" is picked to start with, and they're never taken off anything.

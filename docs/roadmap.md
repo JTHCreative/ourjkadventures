@@ -43,6 +43,8 @@ Work top to bottom. Each phase ships on its own. Tick boxes as you go and add no
 - [x] `/admin` as sections (2026-11-09): the menu shows one full-width card at a time instead of two columns
 - [x] "On its way" email (2026-11-09): "orders to ship" on `/admin`, type the USPS tracking number, the buyer gets a branded email and the order is marked shipped in Square (see decisions)
 - [ ] Owner: brand Square's receipt (logo, colour, contact) and test "mark shipped" once in the sandbox (`setup/square.md`)
+- [x] Our own checkout page (2026-11-09): `/checkout` with email, address, gift note, shipping, Square's card form (Web Payments SDK) with Apple Pay and Google Pay, an optional tip, and the order summary with Square's tax. Falls back to Square's hosted page until set up
+- [ ] Owner: add `SQUARE_APPLICATION_ID` in Cloudflare and try a sandbox order with the test card; then Apple Pay's domain file (`setup/square.md`, "the checkout page")
 - [x] "Thank you for your order" email after payment (2026-11-09), from the webhook. Gift orders also email the owner "a gift card to write"
 - [x] "A new date for your pre-order" (2026-11-09): orders to ship flags paid orders whose pre-order date moved; one button emails the buyer and moves the date on the Square order
 - [x] Owner alerts (2026-11-09): "a review is waiting" (at most 10 a day) to `ADMIN_EMAILS`

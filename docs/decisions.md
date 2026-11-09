@@ -934,3 +934,31 @@ promise. Spam guards without a puzzle to solve: requests only from our own pages
 burst can't use up the day's emails. Requests aren't tied to "i'm interested": those tallies are for products that
 exist in `products.json`, while a request is free text about one that doesn't yet. The drop-down offers the three pin
 sets; boards weren't asked for.
+
+## Our own checkout page, with Square's card form inside it (2026-11-09)
+The owner asked for a checkout page on our site, laid out like a typical one (contact, delivery, shipping method,
+payment, a tip, the order summary beside it), instead of handing buyers to Square's hosted page.
+- **How:** Square's Web Payments SDK puts Square's own card box (and Apple Pay / Google Pay) inside `/checkout`. The
+  card number goes straight to Square, which hands the page a one-time token; `/api/checkout/pay` makes the Square
+  order (the same order as before: items, shipment, gift note, untaxed shipping line, Square's own tax) and charges
+  the token for the order's own total. Like a bank's card terminal on our counter. The SDK is Square's, the company
+  that already takes our payments, so no new company is involved; it loads only on the checkout page.
+- **Prices stay on the server.** The order summary is `/api/checkout/quote`, which asks Square to work the order out
+  (`orders/calculate`) without making it, so the tax shown is the tax charged.
+- **The tip:** "no tip" is picked to start with; 5, 10 or 15 percent of the items (worked out on the server from
+  Square's prices) or their own amount, up to $100. It goes on the payment as Square's `tip_money`, on top of the
+  order. It adds, never subtracts, so it isn't a discount, and the words carry no pressure ("totally optional...
+  thank you either way!").
+- **Left out on purpose:** the example's "discount code or gift card" box (no discounts, ever), the "email me with
+  news and offers" tick (there's no newsletter, and it would be opt-out by default), PayPal and Shop Pay (Square
+  doesn't offer them; Shop Pay is Shopify's), phone number and company name (not needed to ship a pin).
+- **Apple Pay and Google Pay sit in the payment section**, not at the top as "express checkout": with our U.S.-only
+  rule the address has to be checked first, and taking it from the wallet would skip that check. They use the
+  address typed on the page.
+- **One press, one charge:** the page sends an id for each "pay" press, kept while retrying after a dropped
+  connection and replaced after a declined card; the server turns it into Square's idempotency keys, so a double
+  press or a retry can't make a second order or charge twice.
+- **Fallback:** without `SQUARE_APPLICATION_ID` the page collects the address the same way, then goes to Square's
+  hosted page (`/api/checkout`, unchanged). The bag no longer has its own address step; the checkout page has it.
+- Apple Pay on our own domain needs Apple's domain verification file (`setup/square.md`); until then the button is
+  just not shown.

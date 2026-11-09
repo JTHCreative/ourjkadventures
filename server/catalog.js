@@ -230,14 +230,28 @@ export async function catalogRoute(request, env, fetchFn = fetch) {
   try {
     const c = await getCatalog(env, request.url, fetchFn);
     // email: whether "email me when it's here" can be offered (server/notify.js)
-    // states: where we ship (u.s. states and d.c.), for the bag's address step (server/ship-to.js)
-    return new Response(JSON.stringify({ ...publicCatalog(c), email: emailConfigured(env), states: stateList(), gift_max: GIFT_MAX }), {
+    // states: where we ship (u.s. states and d.c.), for the checkout page's address (server/ship-to.js)
+    // card: what the checkout page needs for Square's embedded card form (all public, nothing secret), or null
+    // while SQUARE_APPLICATION_ID isn't set, and the page sends people to Square's hosted page instead
+    return new Response(JSON.stringify({ ...publicCatalog(c), email: emailConfigured(env), states: stateList(), gift_max: GIFT_MAX, card: cardForm(env) }), {
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
     });
   } catch (e) {
     console.log('catalog error', e.message);
     return new Response('{"error":"unavailable"}', { status: 503, headers: { 'Content-Type': 'application/json' } });
   }
+}
+
+// Square's Web Payments SDK: the application id and location are public by design (they're in every page that
+// uses it); the access token never leaves the server
+export function cardForm(env) {
+  if (!squareConfigured(env) || !env.SQUARE_APPLICATION_ID) return null;
+  const sandbox = squareMode(env) === 'sandbox';
+  return {
+    app_id: env.SQUARE_APPLICATION_ID,
+    location_id: env.SQUARE_LOCATION_ID,
+    sdk: sandbox ? 'https://sandbox.web.squarecdn.com/v1/square.js' : 'https://web.squarecdn.com/v1/square.js'
+  };
 }
 
 // the owner changed something (an available or pre-order switch): read everything fresh on the next visit

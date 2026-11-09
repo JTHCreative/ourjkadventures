@@ -1,5 +1,5 @@
 /* j+k adventures: shop and bag. The shelf comes from /api/catalog (our products, with Square's prices and stock);
-   checkout is handed to Square by /api/checkout (see _worker.js). The bag holds keys: "aussie" is the standard
+   "check out" goes to our own checkout page (/checkout, site/assets/checkout.js, server/checkout.js). The bag holds keys: "aussie" is the standard
    aussie pin, "aussie:large" the large one. */
 (function () {
   'use strict';
@@ -45,6 +45,8 @@
       // where we ship (u.s. states and d.c.) and how long a gift note may be. the server checks both again
       catalog.states = Array.isArray(j.states) ? j.states : [];
       catalog.giftMax = Number(j.gift_max) || 100;
+      // the checkout page's embedded card form (Square's Web Payments SDK), or null for Square's hosted page
+      catalog.card = j.card || null;
       (j.items || []).forEach(function (p) {
         p.sizes = p.sizes || [];
         catalog.items[p.slug] = p;
@@ -90,8 +92,6 @@
   /* ---------- the bag: lives in this browser until checkout ---------- */
   var cart = {};
   var drawer, scrim, bodyEl, footEl, countEls, lastFocus;
-  // the bag has two steps: what's in it ('bag'), then where it goes and whether it's a gift ('address')
-  var step = 'bag';
 
   function loadCart() {
     try {
@@ -107,7 +107,14 @@
       if (renamed) saveCart();
     } catch (e) { cart = {}; }
   }
-  function saveCart() { save('jka_cart', Object.keys(cart).length ? JSON.stringify(cart) : null); }
+  function saveCart() {
+    save('jka_cart', Object.keys(cart).length ? JSON.stringify(cart) : null);
+    cartChanged();
+  }
+  // the checkout page repaints its order summary when the bag or the shipping choice changes (site/assets/checkout.js)
+  function cartChanged() {
+    try { document.dispatchEvent(new CustomEvent('jka:cart')); } catch (e) {}
+  }
   function itemCount() { return Object.keys(cart).reduce(function (n, s) { return n + cart[s]; }, 0); }
   function paintCount() {
     var n = itemCount();
@@ -143,8 +150,7 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && drawer.classList.contains('open')) closeBag();
     });
-    // back from square's page with the back button: the browser may show this page just as it was left, button
-    // still saying "taking you to square." so paint the bag afresh, ready to try again
+    // back with the back button: the browser may show this page just as it was left, so paint the bag afresh
     window.addEventListener('pageshow', function (e) {
       if (e.persisted && drawer.classList.contains('open')) refreshCart(true);
     });
@@ -152,7 +158,6 @@
 
   function openBag() {
     lastFocus = document.activeElement;
-    step = 'bag';
     drawer.classList.add('open');
     scrim.classList.add('open');
     drawer.setAttribute('aria-hidden', 'false');
@@ -167,18 +172,13 @@
     if (lastFocus && lastFocus.focus) lastFocus.focus();
   }
 
-  function showError(msg) {
-    var old = footEl.querySelector('.err');
-    if (old) old.remove();
-    footEl.insertBefore(el('p', 'err', msg), footEl.firstChild);
-  }
+  function onCheckout() { return !!document.querySelector('[data-checkout]'); }
 
   // the most of one thing the bag may hold: what is on the shelf, and never more than 20
   function maxQty(entry) { return catalog.open ? Math.min(20, entry.size.stock) : 20; }
   function buyable(entry) { return !!entry && catalog.open && entry.size.stock > 0; }
 
   function paintDrawer() {
-    if (step === 'address') return paintAddress();
     bodyEl.textContent = '';
     footEl.textContent = '';
     // keys for products we know, even ones not for sale right now, so the bag can say so
@@ -251,15 +251,11 @@
     }
     paintShipping(sum, summary);
     if (hasPreorder()) summary.appendChild(el('p', 'caption', preorderTogether()));
-    paintFoot(sum + shipCents(shipChoice()), 'check out', function () { step = 'address'; paintAddress(); });
-  }
-
-  // what's in the bag that can be bought, in cents, at the prices from /api/catalog (for showing only)
-  function bagSum() {
-    return Object.keys(cart).reduce(function (n, k) {
-      var en = catalog.byKey[k];
-      return buyable(en) ? n + en.size.price_cents * cart[k] : n;
-    }, 0);
+    // the checkout page asks where it goes, takes the payment and shows the tax. on the checkout page itself the
+    // button just closes the bag, back to the page
+    paintFoot(sum + shipCents(shipChoice()), onCheckout() ? 'back to checkout' : 'check out', function () {
+      if (onCheckout()) closeBag(); else location.href = '/checkout';
+    });
   }
 
   // the strip at the bottom of the bag: the total (with shipping once it's chosen) and one button, always in sight.
@@ -290,195 +286,6 @@
   function preorderTogether() {
     var last = bagPreorders().map(function (en) { return preorderDate(en.product); }).sort().pop();
     return 'your order has a pre-order in it, so it all ships together around ' + prettyDate(last) + ', once the pins arrive.';
-  }
-
-  /* ---------- step two: where it goes (u.s. states only, for now) and the gift note ---------- */
-  // kept only in this tab (sessionStorage), so going back to the bag doesn't lose it
-  function readShipTo() {
-    try { return JSON.parse(sessionStorage.getItem('jka_ship_to') || '{}') || {}; } catch (e) { return {}; }
-  }
-  function saveShipTo(v) {
-    try { sessionStorage.setItem('jka_ship_to', JSON.stringify(v)); } catch (e) {}
-  }
-  var ADDRESS_SAYS = {
-    name: 'who should we send it to?',
-    email: 'that email doesn\'t look quite right.',
-    line1: 'we need a street address.',
-    city: 'which city?',
-    state: 'we ship to u.s. states only, for now.',
-    zip: 'that zip code doesn\'t look right. five numbers, like 94607.'
-  };
-  function stateName(code) {
-    for (var i = 0; i < catalog.states.length; i++) if (catalog.states[i].code === code) return catalog.states[i].name;
-    return code;
-  }
-
-  // problem: { field, words } from the server, to point at the box that needs another look
-  function paintAddress(problem) {
-    bodyEl.textContent = '';
-    footEl.textContent = '';
-    var v = readShipTo();
-    var form = el('form', 'ship-to');
-    form.noValidate = true;
-    form.appendChild(el('h3', 'ship-to-title', 'where should we send it?'));
-    form.appendChild(el('p', 'caption', 'we ship within the u.s. for now: all 50 states and d.c.'));
-
-    var boxes = {};
-    function field(key, label, type, auto, opts) {
-      opts = opts || {};
-      var f = el('div', 'field');
-      var id = 'ship-' + key;
-      var lab = el('label', null, label);
-      lab.htmlFor = id;
-      f.appendChild(lab);
-      var input;
-      if (type === 'select') {
-        input = el('select');
-        var none = el('option', null, 'pick one');
-        none.value = '';
-        input.appendChild(none);
-        catalog.states.forEach(function (st) {
-          var o = el('option', null, st.name);
-          o.value = st.code;
-          input.appendChild(o);
-        });
-      } else {
-        input = el('input');
-        input.type = type;
-      }
-      input.id = id;
-      input.name = key;
-      input.autocomplete = auto;
-      if (opts.inputmode) input.setAttribute('inputmode', opts.inputmode);
-      if (opts.max) input.maxLength = opts.max;
-      if (!opts.optional) input.required = true;
-      input.value = v[key] || '';
-      var msg = el('p', 'form-msg');
-      msg.id = id + '-msg';
-      msg.hidden = true;
-      input.setAttribute('aria-describedby', msg.id);
-      input.addEventListener('input', function () { input.removeAttribute('aria-invalid'); msg.hidden = true; });
-      f.appendChild(input);
-      f.appendChild(msg);
-      form.appendChild(f);
-      boxes[key] = { input: input, msg: msg, wrap: f };
-      return f;
-    }
-    field('name', 'name on the package', 'text', 'shipping name', { max: 80 });
-    var emailWrap = field('email', 'your email, for the receipt', 'email', 'email', { max: 254 });
-    field('line1', 'street address', 'text', 'shipping address-line1', { max: 100 });
-    field('line2', 'apartment, suite, unit (if there is one)', 'text', 'shipping address-line2', { max: 100, optional: true });
-    field('city', 'city', 'text', 'shipping address-level2', { max: 60 });
-    var row = el('div', 'ship-to-row');
-    row.appendChild(field('state', 'state', 'select', 'shipping address-level1'));
-    row.appendChild(field('zip', 'zip code', 'text', 'shipping postal-code', { inputmode: 'numeric', max: 10 }));
-    form.appendChild(row);
-
-    // "did you mean ...@gmail.com?", once, under the email box
-    var hint = el('p', 'caption');
-    emailWrap.appendChild(hint);
-    boxes.email.input.addEventListener('change', function () {
-      hint.textContent = '';
-      var fix = suggestEmail(boxes.email.input.value.trim());
-      if (!fix || boxes.email.input.value.indexOf('@') < 0) return;
-      hint.textContent = 'did you mean ' + fix + '? ';
-      var use = el('button', 'link-btn', 'yes, use that');
-      use.type = 'button';
-      use.addEventListener('click', function () { boxes.email.input.value = fix; hint.textContent = ''; boxes.email.input.focus(); });
-      hint.appendChild(use);
-    });
-
-    // the gift: a tick, then a short note we write by hand on a card
-    var giftBox = el('div', 'gift');
-    var tick = el('label', 'gift-tick');
-    var check = el('input');
-    check.type = 'checkbox';
-    check.checked = v.gift === true;
-    tick.appendChild(check);
-    tick.appendChild(el('span', null, 'this is a gift'));
-    giftBox.appendChild(tick);
-    var noteWrap = el('div', 'field');
-    var noteLab = el('label', null, 'a note for the card');
-    noteLab.htmlFor = 'ship-gift-note';
-    var note = el('textarea');
-    note.id = 'ship-gift-note';
-    note.maxLength = catalog.giftMax;
-    note.rows = 3;
-    // a note saved before the limit came down is trimmed to fit, so checkout doesn't refuse it
-    note.value = (v.message || '').slice(0, catalog.giftMax);
-    var noteHint = el('p', 'hint');
-    noteHint.id = 'ship-gift-hint';
-    note.setAttribute('aria-describedby', noteHint.id);
-    function paintLeft() {
-      noteHint.textContent = 'we\'ll write it by hand on a card and tuck it in with your order. put their address above. ' +
-        (catalog.giftMax - note.value.length) + ' letters left.';
-    }
-    note.addEventListener('input', paintLeft);
-    paintLeft();
-    noteWrap.appendChild(noteLab);
-    noteWrap.appendChild(note);
-    noteWrap.appendChild(noteHint);
-    noteWrap.hidden = !check.checked;
-    check.addEventListener('change', function () { noteWrap.hidden = !check.checked; if (check.checked) note.focus(); });
-    giftBox.appendChild(noteWrap);
-    form.appendChild(giftBox);
-    bodyEl.appendChild(form);
-
-    function values() {
-      var out = {};
-      Object.keys(boxes).forEach(function (k) { out[k] = boxes[k].input.value.trim(); });
-      out.gift = check.checked;
-      out.message = note.value;
-      return out;
-    }
-    function flag(key, words) {
-      var b = boxes[key];
-      if (!b) return;
-      b.input.setAttribute('aria-invalid', 'true');
-      b.msg.textContent = words;
-      b.msg.hidden = false;
-    }
-    // checked here to save a trip; the server checks it all again
-    function problems(o) {
-      var bad = [];
-      if (!o.name) bad.push(['name']);
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(o.email)) bad.push(['email']);
-      if (!o.line1) bad.push(['line1']);
-      if (!o.city) bad.push(['city']);
-      if (!o.state) bad.push(['state', 'pick the state it\'s going to.']);
-      if (!/^\d{5}(-?\d{4})?$/.test(o.zip)) bad.push(['zip']);
-      return bad;
-    }
-
-    var back = el('button', 'linklike', 'back to your bag');
-    back.type = 'button';
-    back.addEventListener('click', function () { saveShipTo(values()); step = 'bag'; paintDrawer(); });
-    function submit() {
-      var o = values();
-      saveShipTo(o);
-      Object.keys(boxes).forEach(function (k) { boxes[k].input.removeAttribute('aria-invalid'); boxes[k].msg.hidden = true; });
-      var bad = problems(o);
-      if (bad.length) {
-        bad.forEach(function (b) { flag(b[0], b[1] || ADDRESS_SAYS[b[0]]); });
-        boxes[bad[0][0]].input.focus();
-        return;
-      }
-      checkout(o);
-    }
-    form.addEventListener('submit', function (e) { e.preventDefault(); submit(); });
-    var after = el('div', 'bag-summary');
-    if (hasPreorder()) after.appendChild(el('p', 'caption', preorderTogether()));
-    after.appendChild(el('p', 'caption', 'next is square\'s payment page. tax is added there.'));
-    after.appendChild(back);
-    bodyEl.appendChild(after);
-    paintFoot(bagSum() + shipCents(shipChoice()), 'continue to payment', submit);
-
-    if (problem && boxes[problem.field]) {
-      flag(problem.field, problem.words || ADDRESS_SAYS[problem.field]);
-      boxes[problem.field].input.focus();
-    } else {
-      boxes.name.input.focus();
-    }
   }
 
   // the shipping choice: one radio per option from /api/catalog, remembered in this browser.
@@ -515,7 +322,7 @@
       radio.name = 'jka-ship';
       radio.value = o.id;
       radio.checked = o.id === shipChoice().id;
-      radio.addEventListener('change', function () { if (radio.checked) { save('jka_ship', o.id); paintGrand(); } });
+      radio.addEventListener('change', function () { if (radio.checked) { save('jka_ship', o.id); paintGrand(); cartChanged(); } });
       var words = el('span', 'ship-name', o.name);
       if (o.days) words.appendChild(el('span', 'ship-days', o.days));
       row.appendChild(radio);
@@ -559,63 +366,6 @@
     var p = catalog.items[parts[0]];
     if (!p) return key;
     return (parts[1] === 'large' ? 'large ' : '') + pupName(p) + (p.kind === 'board' ? '' : ' pin');
-  }
-
-  // o: the address step's answers (name, email, street, city, state, zip, gift, message)
-  function checkout(o) {
-    var btn = footEl.querySelector('.jka-btn');
-    var label = btn ? btn.textContent : '';
-    if (btn) { btn.disabled = true; btn.textContent = 'one moment.'; }
-    var shipTo = { name: o.name, email: o.email, line1: o.line1, line2: o.line2, city: o.city, state: o.state, zip: o.zip };
-    var gift = o.gift ? { gift: true, message: o.message.trim() } : null;
-    var items = Object.keys(cart).filter(function (k) { return buyable(catalog.byKey[k]); })
-      .map(function (k) { return { key: k, qty: cart[k] }; });
-    signInTicket().then(function (token) {
-      var headers = { 'Content-Type': 'application/json' };
-      if (token) headers.Authorization = 'Bearer ' + token;
-      return fetch('/api/checkout', { method: 'POST', headers: headers, body: JSON.stringify({ items: items, shipping: shipChoice().id, ship_to: shipTo, gift: gift }) });
-    }).then(function (r) {
-      return r.json().catch(function () { return {}; }).then(function (j) {
-        if (r.status === 409 || r.status === 403) {
-          // the server says exactly how many are left; the shared list may be up to a minute behind
-          (j.items || []).forEach(function (it) { var en = catalog.byKey[it.key]; if (en) en.size.stock = Math.max(0, Number(it.stock) || 0); });
-          var e = new Error('changed'); e.changed = true; e.closed = r.status === 403; throw e;
-        }
-        if (r.status === 400 && j.error === 'address') {
-          // the server read the address and one box needs another look
-          var a = new Error('address'); a.field = j.field;
-          if (j.reason === 'zip not in state') a.words = 'that zip code isn\'t in ' + stateName(o.state) + '. could you check both?';
-          throw a;
-        }
-        if (!r.ok || !j.url) throw new Error('checkout');
-        return j.url;
-      });
-    }).then(function (url) {
-      // on the way to square's payment page. if it doesn't open (a slow connection, a blocked redirect), a link does
-      if (btn) btn.textContent = 'taking you to square.';
-      location.href = url;
-      setTimeout(function () {
-        if (!drawer.classList.contains('open') || footEl.querySelector('.go-square')) return;
-        var p = el('p', 'caption go-square', 'square\'s page didn\'t open? ');
-        var a = el('a', null, 'go to the payment page');
-        a.href = url;
-        p.appendChild(a);
-        footEl.appendChild(p);
-      }, 8000);
-    }).catch(function (err) {
-      if (err && err.field) { paintAddress({ field: err.field, words: err.words }); return; }
-      if (err && err.changed) {
-        // someone else got there first, or the shop just closed: show the bag as it really is now
-        step = 'bag';
-        (err.closed ? refreshCart(true) : Promise.resolve(paintDrawer())).then(function () {
-          showError(err.closed ? 'the shop has just closed. your bag will keep these for you.'
-            : 'the shelf changed while you were shopping. your bag now shows what we have.');
-        });
-        return;
-      }
-      if (btn) { btn.disabled = false; btn.textContent = label; }
-      showError('we could not start checkout. try again, or write to us at ' + CONTACT_EMAIL + '.');
-    });
   }
 
   /* ---------- accounts: the header link, and a sign-in ticket for checkout (see account.js) ---------- */
@@ -2475,7 +2225,8 @@
   // or on the home page once you're halfway past the video
   function buildFloatShop() {
     var header = document.querySelector('.site-header');
-    if (!header) return;
+    // not on the checkout page: the order summary is right there
+    if (!header || onCheckout()) return;
     var bar = el('div', 'float-shop');
     var shop = el('a', 'float-shop-link', 'shop');
     shop.href = '/shop';
@@ -2538,7 +2289,15 @@
     initZoom();
   }
   // /admin shrinks the owner's product photos the same way as review photos (site/assets/admin.js)
-  window.JKA = { shrinkPhoto: shrinkPhoto };
+  // the checkout page (site/assets/checkout.js) shares the bag, the catalog and the words for them
+  window.JKA = {
+    shrinkPhoto: shrinkPhoto,
+    catalog: catalog, loadCatalog: loadCatalog, cart: function () { return cart; }, buyable: buyable,
+    lineName: lineName, pinImage: function (slug) { return PIN_IMG[slug] || BOARD_IMG[slug] || ''; },
+    money: money, el: el, svg: svg, save: save, read: read, suggestEmail: suggestEmail, signInTicket: signInTicket,
+    shipChoice: shipChoice, shipCents: shipCents, hasPreorder: hasPreorder, preorderTogether: preorderTogether,
+    prettyDate: prettyDate, openBag: openBag, contactEmail: CONTACT_EMAIL
+  };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
 })();
