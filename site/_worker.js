@@ -1,5 +1,5 @@
 // j+k adventures: serves the static site, each pup club pin's own page, the catalog (Square prices and stock), Square checkout links,
-// accounts, reviews, "i'm interested" votes for products not in the shop yet, and the owner's /admin.
+// accounts, reviews, "i'm interested" votes for products not in the shop yet, pin requests, and the owner's /admin.
 // Secrets live in Cloudflare (Settings > Variables and secrets), never in the page:
 //   SQUARE_ACCESS_TOKEN  (secret)  your Square access token
 //   SQUARE_LOCATION_ID             the Square location that takes the sale
@@ -21,6 +21,7 @@ import { admin } from '../server/admin.js';
 import { getCatalog, catalogRoute, noteInterest, shippingCharge } from '../server/catalog.js';
 import { interestRoute } from '../server/interest.js';
 import { notifyRoute } from '../server/notify.js';
+import { pinRequestRoute } from '../server/pin-requests.js';
 import { squareWebhook } from '../server/square-webhook.js';
 import { accountEmailRoute } from '../server/account-emails.js';
 import { stockCounts, squareHost, SQUARE_VERSION } from '../server/square.js';
@@ -54,6 +55,7 @@ export default {
     if (url.pathname === '/api/media' || url.pathname === '/api/media/photo') return mediaRoute(request, env);
     if (url.pathname === '/api/interest') return interestRoute(request, env, fetch, noteInterest);
     if (url.pathname === '/api/notify' || url.pathname.startsWith('/api/notify/')) return notifyRoute(request, env);
+    if (url.pathname === '/api/pin-request') return pinRequestRoute(request, env);
     if (url.pathname === '/api/admin' || url.pathname.startsWith('/api/admin/')) return admin(request, env);
     // a pup club pin's own page, e.g. /pup-club/corgi (server/pup-pages.js)
     const pup = /^\/pup-club\/([a-z0-9-]+)(\/?)$/.exec(url.pathname);

@@ -33,6 +33,8 @@
 //                            new date and put it on the Square order (each order in the list carries moved: { from, to })
 //   GET  /api/admin/gifts    paid gift orders: the note to write on the card, the buyer's email, the address it ships to
 //   POST /api/admin/gifts    { id }  the card is written: off the list
+//   GET  /api/admin/pin-requests   pins people asked us to make (server/pin-requests.js), newest first
+//   DELETE /api/admin/pin-requests { id }  take one off the list
 //   GET  /api/admin/instagram  does the key in cloudflare open @ourjkadventures, and how many reels (never the key)
 //
 // Cloudflare setting (Settings > Variables and secrets):
@@ -51,6 +53,7 @@ import { adminMedia, addMedia, removeMedia } from './media.js';
 import { giftList, giftDone } from './ship-to.js';
 import { ordersToShip, markShipped, sendMoved, orderHistory } from './shipped.js';
 import { emailConfigured } from './email.js';
+import { listRequests, removeRequest } from './pin-requests.js';
 
 // a pre-order date the owner picked: a real day, from today up to two years out. { date } or { error }
 function checkPreorderDate(raw) {
@@ -274,6 +277,14 @@ export async function admin(request, env, fetchFn = fetch) {
       const body = await readJson(request);
       if (!(await giftDone(env, body.id, fetchFn))) return json({ error: 'bad id' }, 400);
       return json({ gifts: await giftList(env, fetchFn), square: true });
+    }
+
+    if (route === 'pin-requests') {
+      if (request.method === 'GET') return json(await listRequests(env, fetchFn));
+      if (request.method !== 'DELETE') return json({ error: 'method' }, 405);
+      const out = await removeRequest(env, (await readJson(request)).id, fetchFn);
+      if (out.error) return json({ error: out.error }, out.status);
+      return json(await listRequests(env, fetchFn));
     }
 
     if (route === 'instagram') {

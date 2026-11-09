@@ -1179,6 +1179,56 @@ async function loadReviews() {
   }
 }
 
+/* ---------- pin requests: pins people asked us to make (server/pin-requests.js) ---------- */
+// "november 9, 2026"
+function requestDay(at) {
+  const d = new Date(at);
+  if (isNaN(d)) return '';
+  return FULL_MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+}
+function paintRequests(data) {
+  const state = $('[data-requests-state]');
+  const box = $('[data-requests-list]');
+  box.textContent = '';
+  const rows = data.requests || [];
+  state.textContent = !rows.length ? 'no requests yet.' : rows.length === 1 ? 'one request.' : rows.length + ' requests.';
+  rows.forEach((r) => {
+    const item = el('article', 'admin-request');
+    const head = el('p', 'admin-request-head');
+    head.appendChild(el('strong', null, r.setName));
+    const day = requestDay(r.at);
+    if (day) head.appendChild(el('span', 'caption', day));
+    item.appendChild(head);
+    item.appendChild(el('p', 'admin-request-about', r.about));
+    const who = el('p', 'caption admin-request-who');
+    who.appendChild(document.createTextNode((r.name || 'no name given') + '. '));
+    if (r.email) {
+      const a = el('a', null, r.email);
+      a.href = 'mailto:' + r.email;
+      who.appendChild(a);
+    } else {
+      who.appendChild(document.createTextNode('no email given.'));
+    }
+    item.appendChild(who);
+    const rm = el('button', 'link-btn', 'remove');
+    rm.type = 'button';
+    rm.setAttribute('aria-label', 'remove this ' + r.setName + ' request');
+    rm.addEventListener('click', async () => {
+      if (!confirm('remove this request? it can\'t be undone.')) return;
+      rm.disabled = true;
+      try { paintRequests(await api('DELETE', '/api/admin/pin-requests', { id: r.id })); } catch (e) {
+        rm.disabled = false;
+        state.textContent = "that didn't come off. try again in a moment.";
+      }
+    });
+    item.appendChild(rm);
+    box.appendChild(item);
+  });
+}
+async function loadRequests() {
+  try { paintRequests(await api('GET', '/api/admin/pin-requests')); } catch (e) { $('[data-requests-state]').textContent = RESTING; }
+}
+
 /* ---------- product photos: the owner's own, shown under the pup board (server/media.js) ---------- */
 // photos go up one at a time, each shrunk in the browser first by app.js (the same as review photos)
 let mediaProducts = [];
@@ -1505,6 +1555,7 @@ async function open() {
   wireFeatured();
   loadFeatured();
   loadNotify();
+  loadRequests();
   wireMedia();
   loadMedia();
   loadReviews();

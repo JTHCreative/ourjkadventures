@@ -112,6 +112,8 @@ test('each pup page has its own title, description, canonical address, heading, 
     assert.match(html, new RegExp('data-pup-heading data-pack="the pack.">the ' + name + '.</h1>'));
     // the words are in the pup's card (and the product card below), not repeated under the heading
     assert.match(html, /data-pup-words data-pack="[^"]+" hidden><\/p>/, p.slug + ': intro line hidden');
+    // "don't see your pup in the pack?" is for the whole pack, so a pup's page starts with it put away
+    assert.ok(html.includes('<div class="card clean pup-request" data-pin-request hidden>'), p.slug + ': pin request hidden');
     assert.equal(html.split('<base href="/">').length, 2, p.slug + ': one base');
     // home › shop › pup club › the pup
     assert.deepEqual(trail(html).itemListElement.map((s) => [s.position, s.name, s.item]), [

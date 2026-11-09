@@ -22,6 +22,7 @@ cream card, a lowercase heading, a red button, signed justin and kitty (`server/
 | "confirm your email", "choose a new password", "confirm your new email" | the account holder | they make an account, forget a password, or change their email | this page (Firebase sends its own if not, `setup/firebase.md`) |
 | "a review is waiting" | you (`ADMIN_EMAILS`) | someone leaves a review. at most 10 a day | this page |
 | "a gift card to write" | you (`ADMIN_EMAILS`) | a gift order is paid | this page, and the payment webhook |
+| "a pin request" | you (`ADMIN_EMAILS`) | someone asks for a pin on the pin request page. at most 10 a day | this page |
 
 Square sends its own receipt when someone pays, and Firebase sends "the email on your account changed" to an old
 address after a change. Those two are set up in Square and Firebase.

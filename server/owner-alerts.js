@@ -1,19 +1,22 @@
 // j+k adventures: little emails to the owner, so /admin doesn't need checking all day.
 //   - "a review is waiting": someone left a review (account or guest), it needs a look before it shows
 //   - "a gift card to write": a gift order was just paid, here's the note for the card
+//   - "a pin request": someone asked for a pin we don't make yet (server/pin-requests.js)
 // Like a bell on the shop door: it rings in the back room, it doesn't do anything by itself.
 //
 // They go to every address in ADMIN_EMAILS (the same list that may open /admin), in the same letterhead as the
 // customer emails (server/email-look.js). An alert never stops what rang it: a review is saved and a payment is
 // counted whether or not the bell works. Review alerts stop at REVIEW_ALERTS_PER_DAY, so a burst of reviews can't
-// use up the day's emails (they're all still on /admin). Firestore: owner_alert_days/{YYYY-MM-DD} { reviews }.
+// use up the day's emails (they're all still on /admin), and pin requests at PIN_REQUEST_ALERTS_PER_DAY.
+// Firestore: owner_alert_days/{YYYY-MM-DD} { reviews, pin_requests }.
 
 import { firestoreGet, firestoreCommit } from './firebase.js';
 import { emailConfigured, emailsLeftToday, sendBatch, escapeHtml as e } from './email.js';
-import { emailPage, para, section } from './email-look.js';
+import { emailPage, para, section, link as linkTo } from './email-look.js';
 import { adminEmails } from './admin.js';
 
 export const REVIEW_ALERTS_PER_DAY = 10;
+export const PIN_REQUEST_ALERTS_PER_DAY = 10;
 const FOOTER = 'sent by the website to the addresses in ADMIN_EMAILS. replies go to support@.';
 
 function stars(n) { return '★'.repeat(n) + '☆'.repeat(5 - n); }
@@ -54,6 +57,27 @@ export function giftAlertEmail(order, origin) {
   return { subject, text, html };
 }
 
+// request: { setName ("pup club"), about, name, email }
+export function pinRequestAlertEmail(request, origin) {
+  const link = origin + '/admin#admin-requests-title';
+  const subject = 'a pin request: ' + request.setName;
+  const who = request.name || 'someone';
+  const lead = who + ' asked for a ' + request.setName + ' pin we don\'t make yet. it\'s on /admin with the others.';
+  const reply = request.email ? 'write back: ' + request.email : 'no email left, so there\'s no one to write back to.';
+  const text = subject + '\n\n' + lead + '\n\nwhat they said:\n' + request.about + '\n\n' + reply + '\n\nsee them all on /admin: ' + link + '\n\n' + FOOTER;
+  const html = emailPage({
+    origin, title: 'a pin request.', preheader: lead,
+    body: [para(e(lead))],
+    sections: [
+      section('what they said', e(request.about).replace(/\n/g, '<br>')),
+      section('write back', request.email ? linkTo('mailto:' + request.email, request.email) : e('no email left.'))
+    ],
+    button: { href: link, label: 'see them all on /admin' },
+    signoff: '', footer: e(FOOTER)
+  });
+  return { subject, text, html };
+}
+
 // sends one alert to every owner address. returns how many went, 0 if email isn't set up or the day is used up
 async function ring(env, message, key, fetchFn) {
   const to = adminEmails(env);
@@ -82,4 +106,21 @@ export async function alertReview(env, origin, review, fetchFn = fetch) {
 // throws, so the payment doorbell (server/square-webhook.js) can try again later
 export async function alertGift(env, origin, order, fetchFn = fetch) {
   return ring(env, giftAlertEmail(order, origin), 'gift-' + order.id, fetchFn);
+}
+
+// never throws: a missed alert must not lose a request. at most PIN_REQUEST_ALERTS_PER_DAY a day
+export async function alertPinRequest(env, origin, request, fetchFn = fetch) {
+  if (!emailConfigured(env) || !adminEmails(env).length) return 0;
+  try {
+    const day = new Date().toISOString().slice(0, 10);
+    const doc = 'owner_alert_days/' + day;
+    const had = await firestoreGet(env, doc, fetchFn);
+    if (had && had.pin_requests >= PIN_REQUEST_ALERTS_PER_DAY) return 0;
+    const sent = await ring(env, pinRequestAlertEmail(request, origin), 'pin-request-' + request.id, fetchFn);
+    if (sent) await firestoreCommit(env, [{ add: doc, field: 'pin_requests', data: { day } }], fetchFn);
+    return sent;
+  } catch (err) {
+    console.log('pin request alert failed', err.message);
+    return 0;
+  }
 }
