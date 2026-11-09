@@ -47,6 +47,13 @@
       <h1 class="display center" style="margin-top:var(--space-2)">shop settings.</h1>
       <p class="caption center" style="margin-top:var(--space-2)" data-admin-who></p>
 
+      <!-- a list of every card below, filled in from their titles by admin.js; tapping one jumps there and opens it -->
+      <nav class="card clean admin-menu" aria-labelledby="admin-menu-title">
+        <h2 class="admin-menu-title" id="admin-menu-title">jump to</h2>
+        <ul class="admin-menu-list" data-admin-menu></ul>
+      </nav>
+
+      <div class="admin-grid">
       <section class="card clean admin-card" aria-labelledby="admin-shop-title">
         <h2 class="admin-title" id="admin-shop-title">the shop</h2>
         <div class="switch-row">
@@ -153,6 +160,7 @@
         <p class="caption">approve or hide each one. hide only spam, rudeness or private details, never a low rating.</p>
         <div class="admin-reviews" data-review-list></div>
       </section>
+      </div>
 
       <div class="account-actions">
         <button class="jka-btn jka-btn--quiet" type="button" data-admin-sign-out>sign out</button>
