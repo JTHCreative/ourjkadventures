@@ -1,4 +1,4 @@
-# Email setup (owner steps): "email me when it's here"
+# Email setup (owner steps): "email me when it's here" and "your order is on its way"
 
 The website sends email through **Resend** (resend.com). Think of Resend as the website's post office:
 Cloudflare Email Routing only *receives* mail for support@ and forwards it to Gmail, so anything the site

@@ -37,6 +37,9 @@ Work top to bottom. Each phase ships on its own. Tick boxes as you go and add no
 - [ ] Owner: one sandbox checkout with an address and a gift note, to confirm Square takes the address on the order (`setup/square.md`)
 - [x] Pre-orders can be bought (2026-11-09): no stock check, 20 per order, ships in about `preorder_weeks` (4), the whole order together (see decisions)
 - [ ] Maybe: a cap on how many of a pin can be pre-ordered in total (the size of the production run)
+- [x] "On its way" email (2026-11-09): "orders to ship" on `/admin`, type the USPS tracking number, the buyer gets a branded email and the order is marked shipped in Square (see decisions)
+- [ ] Owner: brand Square's receipt (logo, colour, contact) and test "mark shipped" once in the sandbox (`setup/square.md`)
+- [ ] "Thanks for your order" email after payment: needs `/api/square-webhook` (below) to know when an order is paid
 - [ ] Board shipping prices of its own before the Bay Area board goes on sale: today it would pay pin prices ($7 ground). Owner: weigh and measure one packed board, look up USPS and UPS rates
 - [x] Owner steps in `setup/square.md`
 
