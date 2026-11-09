@@ -968,3 +968,9 @@ payment, a tip, the order summary beside it), instead of handing buyers to Squar
   hosted page (`/api/checkout`, unchanged). The bag no longer has its own address step; the checkout page has it.
 - Apple Pay on our own domain needs Apple's domain verification file (`setup/square.md`); until then the button is
   just not shown.
+
+## A pin opens on the size that can be bought (2026-11-09)
+Asked for by the owners: a pin with two sizes always opened on standard, so when standard was sold out and large wasn't,
+the card read like the whole pin was sold out and a buyer could miss the large one. The size picked to start with is
+now the first one that can be bought (`startSize` in `app.js`); when both can, it's still standard. When neither can,
+standard, as before. The buyer can still pick the other size to see it's sold out.

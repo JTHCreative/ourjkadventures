@@ -834,7 +834,7 @@
     stock.setAttribute('aria-live', 'polite');
     var btn = el('button', btnClass, '');
     btn.type = 'button';
-    var current = p.sizes[0] || null;
+    var current = startSize(p);
     function show(sz) {
       current = sz;
       price.textContent = sz ? priceOf(sz) : '';
@@ -845,24 +845,31 @@
     }
     btn.addEventListener('click', function () { if (current) addToBag(current.key, btn, 'add to bag'); });
     area.appendChild(price);
-    if (p.sizes.length > 1) area.appendChild(sizePicker(p, show));
+    if (p.sizes.length > 1) area.appendChild(sizePicker(p, current, show));
     area.appendChild(stock);
     area.appendChild(btn);
     show(current);
     return area;
   }
 
-  function sizePicker(p, onPick) {
+  // the size picked to start with: the first one that can be bought, so a pin whose standard size is sold out opens on
+  // its large size (and doesn't look sold out). nothing can be bought: the first size, as before
+  function startSize(p) {
+    for (var i = 0; i < p.sizes.length; i++) if (buyable(catalog.byKey[p.sizes[i].key])) return p.sizes[i];
+    return p.sizes[0] || null;
+  }
+
+  function sizePicker(p, start, onPick) {
     var fs = el('fieldset', 'size-pick');
     fs.appendChild(el('legend', 'sr-only', 'size'));
-    p.sizes.forEach(function (sz, i) {
+    p.sizes.forEach(function (sz) {
       var id = 'size-' + p.slug + '-' + sz.size;
       var radio = el('input');
       radio.type = 'radio';
       radio.name = 'size-' + p.slug;
       radio.id = id;
       radio.value = sz.key;
-      if (i === 0) radio.checked = true;
+      if (sz === start) radio.checked = true;
       radio.addEventListener('change', function () { if (radio.checked) onPick(sz); });
       var lab = el('label', null, sz.size + ', ' + priceOf(sz));
       lab.htmlFor = id;
