@@ -41,11 +41,12 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
     than is there (409, with the real counts). Square's "sold out" tick counts as none
   - creates a Square payment link: `POST /v2/online-checkout/payment-links` with line items that point at
     the Square variation (`catalog_object_id` + quantity, no name or price, so Square charges its own
-    price and lowers its own stock), optional `order.taxes` from `TAX_PERCENT`, a `shipping_fee` for the
-    shipping choice the customer picked in the bag (the browser sends only its id, `ground`, `priority` or
+    price and lowers its own stock), optional `order.taxes` from `TAX_PERCENT`, a shipping line for the
+    shipping choice (an untaxed `order.service_charges` entry, since Square refuses `shipping_fee` while its
+    address form is off) the customer picked in the bag (the browser sends only its id, `ground`, `priority` or
     `express`; the price comes from `shipping` in `products.json`; none sent means the first; ground is free, with no shipping line and a
     `payment_note` instead, when the pins come to $40 or more and there's no board in the order),
-    `ask_for_shipping_address`, `redirect_url` = `/thank-you.html`
+    the address on the order as a shipment with `ask_for_shipping_address` off, `redirect_url` = `/thank-you.html`
   - uses `connect.squareupsandbox.com` when `SQUARE_ENV=sandbox`
   - Square API version is pinned in `SQUARE_VERSION` in `server/square.js`
 - **Header:** every page uses the same slim header (logo left, links right; stacked and centered on phones). Inner pages use the full-color logo `logo.svg`.
