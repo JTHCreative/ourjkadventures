@@ -728,6 +728,13 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .photo-view .icon-btn svg { width: 20px; height: 20px; }
 .photo-view .icon-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 /* the owner's product photos on /admin: upload, then each product's photos with a remove button */
+/* pin requests on /admin: one card-ish block each, newest first */
+.admin-requests { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-3); }
+.admin-request { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-3) var(--space-4); border: 1.5px solid var(--line); border-radius: var(--radius-sm); }
+.admin-request p { margin: 0; }
+.admin-request-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-3); }
+.admin-request-about { white-space: pre-line; overflow-wrap: anywhere; }
+.admin-request-who a { overflow-wrap: anywhere; font-size: 18px; }
 .admin-media-form { display: flex; flex-direction: column; gap: var(--space-3); }
 .admin-media-form[hidden] { display: none; }
 .admin-media-form select { width: 100%; min-height: 44px; padding: var(--space-2) var(--space-3); font: inherit; font-size: 16px; color: var(--ink); background: var(--surface); border: 1.5px solid var(--line-strong); border-radius: var(--radius-sm); }
@@ -744,6 +751,26 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .admin-review-photos img { width: 96px; height: 96px; object-fit: cover; display: block; }
 @media (prefers-reduced-motion: reduce) { .photo-pick-item.is-working { animation: none; opacity: 0.6; } }
 .kind-words[hidden] { display: none; }
+
+/* ---------- "don't see your pup in the pack?" under the board, and the pin request page ---------- */
+.pup-request { margin: var(--space-6) auto 0; max-width: 560px; display: flex; flex-direction: column; align-items: center; gap: var(--space-2); text-align: center; }
+.pup-request[hidden] { display: none; }
+.pup-request p { margin: 0; }
+.pup-request-ask { font-size: 24px; line-height: 30px; font-weight: 500; color: var(--ink); }
+.pup-request .jka-btn { margin-top: var(--space-2); }
+.pin-request { max-width: 560px; margin-top: var(--space-6); }
+.pin-request .form { padding: var(--space-6) var(--space-5); }
+.pin-request .form[hidden], .pin-request-thanks[hidden] { display: none; }
+.field select { width: 100%; min-height: 46px; padding: var(--space-2) var(--space-3); font-family: var(--font-serif); font-size: 18px; color: var(--ink); background: var(--surface); border: 1.5px solid var(--line-strong); border-radius: var(--radius-sm); }
+.field select:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.field textarea[aria-invalid="true"] { border-color: var(--accent-text); }
+.pin-request-thanks { padding: var(--space-6) var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); text-align: center; }
+.pin-request-thanks p { margin: 0; }
+.pin-request-thanks:focus { outline: none; }
+.pin-request-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--space-3) var(--space-5); margin-top: var(--space-2); }
+@media (max-width: 760px) {
+  .pin-request .form, .pin-request-thanks { padding: var(--space-5) var(--space-4); }
+}
 
 /* ---------- photos under the pup board: ours first, then the ones from reviews ---------- */
 /* it sits after .pup-stage, so the sticky board lets go at the bottom of the reviews, as before, and the photos

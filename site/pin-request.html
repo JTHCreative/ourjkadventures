@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>request a pin. j+k adventures</title>
+<meta name="description" content="don't see your pup, your hometown or your zodiac animal? tell j+k adventures which enamel pin you'd love to see us make next.">
+<link rel="canonical" href="https://ourjkadventures.com/pin-request">
+<!-- what a shared link shows (messages, instagram, facebook): pictures from scripts/share-pictures.py -->
+<meta property="og:site_name" content="j+k adventures">
+<meta property="og:type" content="website">
+<meta property="og:title" content="request a pin. j+k adventures">
+<meta property="og:description" content="don't see your pup, your hometown or your zodiac animal? tell j+k adventures which enamel pin you'd love to see us make next.">
+<meta property="og:url" content="https://ourjkadventures.com/pin-request">
+<meta property="og:image" content="https://ourjkadventures.com/assets/img/share/pup-club.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="five pup club enamel pins in a row: aussie, corgi, goldie, shiba and pug">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"home","item":"https://ourjkadventures.com/"},{"@type":"ListItem","position":2,"name":"shop","item":"https://ourjkadventures.com/shop"},{"@type":"ListItem","position":3,"name":"request a pin"}]}</script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <filter id="jka-rough" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="4"/></filter>
+  <filter id="jka-rough-fine" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="2" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.5"/></filter>
+</svg>
+<header class="site-header">
+  <div class="wrap">
+    <a class="logo-link" href="/" aria-label="j+k adventures, home"><img class="logo" src="assets/img/logo.svg" width="400" height="220" alt="j+k adventures"></a>
+    <nav class="nav" aria-label="main">
+      <a href="/">home</a>
+      <a href="/about">about us</a>
+      <a href="/shop" aria-current="page">shop</a>
+      <a href="/contact">contact</a>
+      <a href="/account" data-account-link>sign in</a>
+      <button class="cart-btn" type="button" data-cart aria-label="open your bag">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
+        <span class="cart-count" data-cart-count hidden>0</span>
+      </button>
+    </nav>
+  </div>
+</header>
+<main>
+
+<section class="section">
+  <div class="wrap narrow center">
+    <!-- app.js points this back at the pin set they came from (?set=pup-club) -->
+    <p class="crumb"><a href="/shop" data-request-back>&larr; all of the shop</a></p>
+    <p class="eyebrow">pin requests</p>
+    <h1 class="display" style="margin-top:var(--space-2)">tell us what to make next.</h1>
+    <p class="body-lg muted" style="margin-top:var(--space-4)">is there a pin you wish we made? a breed missing from the pup club, the town you call home, your zodiac animal? tell us about it! we read every request, and they really do help us decide what to make next.</p>
+  </div>
+  <div class="wrap pin-request">
+    <!-- app.js (initPinRequest) sends this to /api/pin-request (server/pin-requests.js) -->
+    <form class="card clean form" data-pin-request-form novalidate>
+      <div class="field">
+        <label for="request-set">which pin set?</label>
+        <select id="request-set" name="set" data-request-set>
+          <option value="pup-club">pup club</option>
+          <option value="hometown">hometown series</option>
+          <option value="zodiac">chinese zodiac</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="request-about">tell us about the pin you'd like to see</label>
+        <span class="hint" id="request-about-hint" data-request-hint>which breed? anything that makes them special helps too, like their colors, their ears or that one silly face.</span>
+        <textarea id="request-about" name="about" rows="5" maxlength="1000" aria-describedby="request-about-hint" placeholder="a bernese mountain dog! black, white and rust, with a big fluffy tail, like our neighbor's dog ollie." data-request-about></textarea>
+      </div>
+      <div class="field">
+        <label for="request-name">your name</label>
+        <span class="hint" id="request-name-hint">optional.</span>
+        <input id="request-name" name="name" type="text" maxlength="60" autocomplete="name" aria-describedby="request-name-hint" data-request-name>
+      </div>
+      <div class="field">
+        <label for="request-email">your email</label>
+        <span class="hint" id="request-email-hint">optional. only if you'd like us to be able to write back. we won't add you to any list.</span>
+        <input id="request-email" name="email" type="email" inputmode="email" autocomplete="email" aria-describedby="request-email-hint" data-request-email>
+      </div>
+      <!-- people never see this box; robots fill it in, and server/pin-requests.js quietly drops what they send -->
+      <div class="sr-only" aria-hidden="true">
+        <label for="request-website">leave this empty</label>
+        <input id="request-website" name="website" type="text" tabindex="-1" autocomplete="off" data-request-website>
+      </div>
+      <p class="form-msg" role="status" data-request-msg hidden></p>
+      <button class="jka-btn" type="submit">send it to us</button>
+    </form>
+    <div class="card clean pin-request-thanks" data-request-thanks tabindex="-1" hidden>
+      <p class="eyebrow">got it</p>
+      <p class="body-lg">thank you! we've got your request.</p>
+      <p class="muted">we can't make every pin people ask for, but we read each one, and they help us pick what comes next. keep an eye on our instagram, <a href="https://www.instagram.com/ourjkadventures/" target="_blank" rel="noopener">@ourjkadventures</a>, to see what we're working on.</p>
+      <div class="pin-request-actions">
+        <a class="jka-btn jka-btn--quiet" href="/pup-club" data-request-done>back to the pup club</a>
+        <button class="link-btn" type="button" data-request-again>ask for another pin</button>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="links">
+      <a href="/shop">shop</a>
+      <a href="/about">about us</a>
+      <a href="/contact">contact</a>
+      <a href="https://www.instagram.com/ourjkadventures/" target="_blank" rel="noopener">instagram</a>
+      <a href="mailto:support@ourjkadventures.com">email</a>
+      <a href="/privacy">privacy</a>
+    </div>
+    <p class="caption">&copy; 2026 j+k adventures.</p>
+  </div>
+</footer>
+<script src="assets/app.js"></script>
+</body>
+</html>

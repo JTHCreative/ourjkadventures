@@ -919,6 +919,118 @@
     return box;
   }
 
+  /* ---------- pin-request.html: "tell us what to make next" (server/pin-requests.js) ---------- */
+  // the pin set comes from the address (/pin-request?set=pup-club, the pup club board's "request a breed"), and the
+  // words under the big box follow whichever set is picked. name and email are optional; the email gets the same
+  // "did you mean ...@gmail.com?" check as the "notify me" box. nothing is sent back to them
+  var REQUEST_SETS = {
+    'pup-club': {
+      hint: 'which breed? anything that makes them special helps too, like their colors, their ears or that one silly face.',
+      placeholder: 'a bernese mountain dog! black, white and rust, with a big fluffy tail, like our neighbor\'s dog ollie.',
+      back: '/pup-club', backWords: 'back to the pup club'
+    },
+    hometown: {
+      hint: 'which town or city? tell us what makes it home, like a favorite spot, a landmark or a local food.',
+      placeholder: 'half moon bay, with the pumpkin patches and the foggy beach.',
+      back: '/hometown-series', backWords: 'back to the hometown series'
+    },
+    zodiac: {
+      hint: 'which animal, and is there anything you\'d love to see in it?',
+      placeholder: 'the rabbit, for my mom. she was born in the year of the rabbit.',
+      back: '/chinese-zodiac', backWords: 'back to the chinese zodiac'
+    }
+  };
+  function initPinRequest() {
+    var form = document.querySelector('[data-pin-request-form]');
+    if (!form) return;
+    var pick = form.querySelector('[data-request-set]');
+    var about = form.querySelector('[data-request-about]');
+    var hint = form.querySelector('[data-request-hint]');
+    var name = form.querySelector('[data-request-name]');
+    var email = form.querySelector('[data-request-email]');
+    var msg = form.querySelector('[data-request-msg]');
+    var go = form.querySelector('button[type="submit"]');
+    var thanks = document.querySelector('[data-request-thanks]');
+    var done = document.querySelector('[data-request-done]');
+    var back = document.querySelector('[data-request-back]');
+    var asked = /[?&]set=([a-z-]+)/.exec(location.search);
+    if (asked && REQUEST_SETS[asked[1]]) {
+      pick.value = asked[1];
+      // the little back link goes to the set they came from
+      if (back) { back.href = REQUEST_SETS[asked[1]].back; back.textContent = '\u2190 ' + REQUEST_SETS[asked[1]].backWords; }
+    }
+    function paintSet() {
+      var s = REQUEST_SETS[pick.value] || REQUEST_SETS['pup-club'];
+      hint.textContent = s.hint;
+      about.placeholder = s.placeholder;
+      done.href = s.back;
+      done.textContent = s.backWords;
+    }
+    pick.addEventListener('change', paintSet);
+    paintSet();
+    function say(text, field) {
+      msg.textContent = text;
+      msg.hidden = !text;
+      msg.classList.remove('ok');
+      go.disabled = false;
+      if (field) { field.setAttribute('aria-invalid', 'true'); field.focus(); }
+    }
+    [about, email, name].forEach(function (f) { f.addEventListener('input', function () { f.removeAttribute('aria-invalid'); }); });
+    // the address we already offered a fix for: sending again keeps it as typed
+    var offered = null;
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var words = about.value.trim();
+      var mail = email.value.trim();
+      if (words.length < 2) { say('tell us a little about the pin you\'d like to see.', about); return; }
+      if (mail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) { say('that email doesn\'t look quite right. it\'s optional, so you can leave it empty too.', email); return; }
+      var fix = mail && mail !== offered && suggestEmail(mail);
+      if (fix) {
+        offered = mail;
+        say('did you mean ' + fix + '? ');
+        var use = el('button', 'link-btn', 'yes, use that');
+        use.type = 'button';
+        use.addEventListener('click', function () {
+          email.value = fix;
+          offered = fix;
+          if (form.requestSubmit) form.requestSubmit(); else form.dispatchEvent(new Event('submit', { cancelable: true }));
+        });
+        msg.appendChild(use);
+        msg.appendChild(document.createTextNode(' or press send to keep it.'));
+        return;
+      }
+      say('one moment.');
+      msg.classList.add('ok');
+      go.disabled = true;
+      var body = { set: pick.value, about: words, name: name.value.trim(), email: mail, website: form.querySelector('[data-request-website]').value };
+      fetch('/api/pin-request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+        .then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (j) {
+          if (j.status === 'added') {
+            form.reset();
+            pick.value = body.set;
+            paintSet();
+            offered = null;
+            say('');
+            form.hidden = true;
+            thanks.hidden = false;
+            thanks.focus();
+          }
+          else if (j.status === 'limit') say('we\'ve had a lot of requests from this connection today. try again tomorrow, or write to us at ' + CONTACT_EMAIL + '.');
+          else if (j.error === 'about') say('tell us a little about the pin you\'d like to see, in 1000 letters or fewer.', about);
+          else if (j.error === 'name') say('that name is a little long. 60 letters at most.', name);
+          else if (j.error === 'email') say('that email doesn\'t look quite right. it\'s optional, so you can leave it empty too.', email);
+          else if (j.error === 'domain') say('we couldn\'t find mail at "' + mail.slice(mail.lastIndexOf('@') + 1) + '". check the part after the @, or leave it empty.', email);
+          else say('we couldn\'t send that just now. try again in a moment, or write to us at ' + CONTACT_EMAIL + '.');
+        }).catch(function () { say('we couldn\'t send that just now. try again in a moment, or write to us at ' + CONTACT_EMAIL + '.'); });
+    });
+    document.querySelector('[data-request-again]').addEventListener('click', function () {
+      thanks.hidden = true;
+      form.hidden = false;
+      about.focus();
+    });
+  }
+
   /* ---------- email.html: the stop link from our emails lands here ---------- */
   // nothing happens until the button is pressed, because some mail apps open every link in an email to check it
   function initEmailPage() {
@@ -1164,6 +1276,9 @@
     heading.textContent = p ? 'the ' + pupName(p) + '.' : heading.getAttribute('data-pack');
     if (words) { words.textContent = p ? '' : words.getAttribute('data-pack'); words.hidden = !!p; }
     if (title) document.title = p ? pupTitle(p) : title.getAttribute('data-pack');
+    // "don't see your pup in the pack?" is for the whole pack: it steps aside while a pup is open
+    var ask = document.querySelector('[data-pin-request]');
+    if (ask) ask.hidden = !!p;
   }
 
   function closePup() {
@@ -2355,6 +2470,7 @@
     initKindWords();
     loadShop();
     initEmailPage();
+    initPinRequest();
     initRoom();
     initZoom();
   }

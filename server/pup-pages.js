@@ -119,6 +119,8 @@ export const SPOTS = {
   canonical: /<link rel="canonical" href="[^"]*">/,
   heading: /(<h1 [^>]*data-pup-heading[^>]*>)([^<]*)(<\/h1>)/,
   words: /(<p [^>]*data-pup-words[^>]*>)([^<]*)(<\/p>)/,
+  // "don't see your pup in the pack?" under the board: only for the whole pack, so it starts hidden on a pup's page
+  request: /<div class="card clean pup-request" data-pin-request>/,
   // what a shared link shows: the pup's own title, words, address and picture (scripts/share-pictures.py)
   ogTitle: /<meta property="og:title" content="[^"]*">/,
   ogDescription: /<meta property="og:description" content="[^"]*">/,
@@ -144,6 +146,7 @@ export function fillPupPage(html, p, catalog, rv) {
     .replace(SPOTS.heading, (m, open, text, close) => open.replace('>', ' data-pack="' + text + '">') + esc('the ' + pupName(p) + '.') + close)
     // the pup's words are in its card on the board, so the pack's intro line steps aside instead of repeating them
     .replace(SPOTS.words, (m, open, text, close) => open.replace('>', ' data-pack="' + text + '" hidden>') + close)
+    .replace(SPOTS.request, (m) => m.replace('>', ' hidden>'))
     .replace(SPOTS.data, () => '<script type="application/ld+json">' + ld + '</script>');
 }
 

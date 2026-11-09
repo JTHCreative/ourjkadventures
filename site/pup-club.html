@@ -66,6 +66,13 @@
       </div>
       <aside class="pup-panel" id="pup-panel" aria-label="pin details" hidden></aside>
     </div>
+    <!-- under the board, only while no pup is open (app.js, pupAddress, hides it while one is; a pup's own page,
+         /pup-club/corgi, starts with it hidden, server/pup-pages.js). leads to the pin request page -->
+    <div class="card clean pup-request" data-pin-request>
+      <p class="pup-request-ask">don't see your pup in the pack?</p>
+      <p class="muted">tell us which breed you'd love to see next. we read every request!</p>
+      <a class="jka-btn jka-btn--quiet" href="/pin-request?set=pup-club">request a breed</a>
+    </div>
     <!-- below the board and its side cards, across the whole width: the open pup's photos, ours (uploaded on /admin) and
          the ones collectors shared with their reviews. app.js fills it from /api/media; hidden with no pup open, or none -->
     <section class="card clean pup-media" data-media aria-labelledby="pup-media-title" hidden>
