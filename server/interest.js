@@ -20,6 +20,7 @@
 // sandbox never touches the real tallies:
 //   settings/available_<mode>          { aussie: true, corgi: false, ... }   missing means available
 //   settings/preorder_<mode>           { corgi: true, ... }                   missing means not on pre-order
+//   settings/preorder_dates_<mode>     { corgi: "2026-12-15", ... }           when a pre-order pin is expected in
 //   interest_<mode>/{slug}             { slug, count }                        the public tally
 //   interest_votes_<mode>/{slug}_{h}   { slug, at, ipDoc }                    one per ticket per pin. ipDoc says which
 //                                                                             door count to give back if it's taken back
@@ -34,6 +35,7 @@ const YEAR = 365 * 24 * 60 * 60;
 
 function availableDoc(env) { return 'settings/available_' + squareMode(env); }
 function preorderDoc(env) { return 'settings/preorder_' + squareMode(env); }
+function preorderDatesDoc(env) { return 'settings/preorder_dates_' + squareMode(env); }
 function tallies(env) { return 'interest_' + squareMode(env); }
 function votes(env) { return 'interest_votes_' + squareMode(env); }
 function ips(env) { return 'interest_ips_' + squareMode(env); }
@@ -55,9 +57,8 @@ export async function setAvailable(env, slug, available, fetchFn = fetch) {
 }
 
 /* ---------- pre-order (set by the owner) ---------- */
-// Between "not in the shop yet" and "in the shop": the pin is being made. Like a "coming soon" sign in the window:
-// nothing to buy and nothing left to vote on, but you can leave your email for when it arrives.
-// Pre-order wins over the available switch, so turning it on takes a pin off sale whatever that switch says.
+// Between "not in the shop yet" and "in the shop": the pin is being made. It can be bought now and ships when it
+// arrives (since 2026-11-09), nothing left to vote on. Pre-order wins over the available switch.
 // { corgi: true, ... }
 export async function readPreorder(env, fetchFn = fetch) {
   const doc = (await firestoreGet(env, preorderDoc(env), fetchFn)) || {};
@@ -74,13 +75,35 @@ export async function setPreorder(env, slug, on, fetchFn = fetch) {
   await firestoreSet(env, preorderDoc(env), doc, fetchFn);
 }
 
-// what the shop goes by: both switches together. available here means for sale, so a pre-order pin counts as false.
-// { available: { corgi: false, ... }, preorder: { corgi: true, ... } }
+/* ---------- the pre-order date (set by the owner) ---------- */
+// when a pin on pre-order is expected in stock and ready to ship: "2026-12-15". { corgi: "2026-12-15", ... }
+// kept even while pre-order is off, so switching it back on brings the date back
+export function cleanDate(s) {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const d = new Date(s + 'T00:00:00Z');
+  return !isNaN(d) && d.toISOString().slice(0, 10) === s ? s : null;
+}
+export async function readPreorderDates(env, fetchFn = fetch) {
+  const doc = (await firestoreGet(env, preorderDatesDoc(env), fetchFn)) || {};
+  const out = {};
+  for (const [k, v] of Object.entries(doc)) if (cleanDate(v)) out[k] = v;
+  return out;
+}
+// date: "YYYY-MM-DD", or null to clear it
+export async function setPreorderDate(env, slug, date, fetchFn = fetch) {
+  const doc = await readPreorderDates(env, fetchFn);
+  if (date) doc[slug] = date;
+  else delete doc[slug];
+  await firestoreSet(env, preorderDatesDoc(env), doc, fetchFn);
+}
+
+// what the shop goes by: both switches together, and the pre-order dates. available here means for sale outright,
+// so a pre-order pin counts as false. { available: { corgi: false, ... }, preorder: { corgi: true, ... }, dates: { corgi: "2026-12-15" } }
 export async function readShopStates(env, fetchFn = fetch) {
-  const [availability, preorder] = await Promise.all([readAvailability(env, fetchFn), readPreorder(env, fetchFn)]);
+  const [availability, preorder, dates] = await Promise.all([readAvailability(env, fetchFn), readPreorder(env, fetchFn), readPreorderDates(env, fetchFn)]);
   const available = { ...availability };
   for (const slug of Object.keys(preorder)) available[slug] = false;
-  return { available, preorder };
+  return { available, preorder, dates };
 }
 
 /* ---------- the tallies ---------- */

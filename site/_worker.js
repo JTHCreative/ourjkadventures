@@ -26,6 +26,7 @@ import { mediaRoute } from '../server/media.js';
 import { pupPageRoute } from '../server/pup-pages.js';
 import { staticOrNotFound } from '../server/not-found.js';
 import { cleanShipTo, cleanGift, squareAddress, addressLine, noteGift } from '../server/ship-to.js';
+import { shopToday, preorderDateFor, whenWords } from '../server/preorder-words.js';
 
 const MAX_LINES = 30;
 const MAX_QTY = 20;
@@ -122,14 +123,27 @@ async function checkout(request, env, url) {
   const short = keys.filter((k) => qtyByKey[k] > left(k));
   if (short.length) return json({ error: 'stock', items: short.map((k) => ({ key: k, stock: left(k) })) }, 409);
 
-  // a pre-order in the bag: the whole order waits and ships together once the pins are made, in about N weeks
+  // a pre-order in the bag: the whole order waits and ships together once the last pre-order pin arrives.
+  // each pin's own date (set on /admin), or about N weeks from today for one without a date
   const weeks = catalog.preorder_weeks || 4;
-  const preorderWords = preorderKeys.length ? 'pre-order. ships in about ' + weeks + ' weeks' : '';
+  const today = shopToday();
+  const fallback = new Date(Date.parse(today + 'T00:00:00Z') + weeks * 7 * 86400000).toISOString().slice(0, 10);
+  const dateOf = (k) => {
+    const item = catalog.items.find((p) => p.slug === catalog.byKey[k].slug);
+    return preorderDateFor(item && item.preorder_date, today);
+  };
+  const pinWords = (k) => 'pre-order. expected to ship ' + whenWords(dateOf(k), weeks, today);
+  const dated = preorderKeys.map(dateOf);
+  // the order's ship date: the latest of them, an undated pin counting as about N weeks from today
+  const shipDate = preorderKeys.length ? dated.map((d) => d || fallback).sort().pop() : null;
+  // "around december 15" when any pin has a date, "in about 4 weeks" when none does
+  const orderWhen = whenWords(dated.some(Boolean) ? shipDate : null, weeks, today);
+  const preorderWords = preorderKeys.length ? 'pre-order: the whole order ships together ' + orderWhen : '';
 
   // pointing at the Square item (not typing a name and price) is what lets Square lower the stock count
   const lines = keys.map((k) => ({
     catalog_object_id: catalog.byKey[k].variation_id, quantity: String(qtyByKey[k]),
-    ...(catalog.byKey[k].preorder ? { note: preorderWords } : {})
+    ...(catalog.byKey[k].preorder ? { note: pinWords(k) } : {})
   }));
   const currency = catalog.currency;
 
@@ -147,8 +161,8 @@ async function checkout(request, env, url) {
         recipient: { display_name: address.name, email_address: address.email, address: squareAddress(address) },
         carrier: 'USPS',
         shipping_type: ship.name,
-        ...(preorderKeys.length ? { expected_shipped_at: new Date(Date.now() + weeks * 7 * 86400000).toISOString() } : {}),
-        ...(gift || preorderKeys.length ? { shipping_note: [preorderWords && 'pre-order: the whole order ships together in about ' + weeks + ' weeks', giftWords].filter(Boolean).join(' / ') } : {})
+        ...(shipDate ? { expected_shipped_at: shipDate + 'T17:00:00Z' } : {}),
+        ...(gift || preorderKeys.length ? { shipping_note: [preorderWords, giftWords].filter(Boolean).join(' / ') } : {})
       }
     }]
   };
@@ -169,7 +183,8 @@ async function checkout(request, env, url) {
 
   const options = {
     // the thank-you page says when a pre-order ships
-    redirect_url: url.origin + '/thank-you.html' + (preorderKeys.length ? '?preorder=' + weeks : ''),
+    // (the date when any pre-order pin has one, otherwise the weeks)
+    redirect_url: url.origin + '/thank-you.html' + (preorderKeys.length ? '?preorder=' + (dated.some(Boolean) ? shipDate : weeks) : ''),
     ask_for_shipping_address: false,
     // no discounts, ever (CLAUDE.md): no "add coupon" box and no loyalty rewards to redeem on Square's page,
     // whatever the Square account's own checkout settings say
@@ -182,7 +197,7 @@ async function checkout(request, env, url) {
   // choice they made. Not taxed. free ground (pins over $40): no line, and a note on the payment says how to send it
   const charge = shippingCharge(ship, keys.map((k) => ({ kind: catalog.byKey[k].kind, price_cents: catalog.byKey[k].price_cents, qty: qtyByKey[k] })));
   const notes = [];
-  if (preorderKeys.length) notes.push('pre-order: ship the whole order together in about ' + weeks + ' weeks');
+  if (preorderKeys.length) notes.push(preorderWords);
   if (charge.free) {
     notes.push('free ' + shipWords);
   } else {

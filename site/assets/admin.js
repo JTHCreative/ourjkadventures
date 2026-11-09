@@ -69,9 +69,21 @@ function shownName(p) { return p.slug === 'golden' ? 'goldie' : p.name; }
 // "1 person is interested." / "4 people are interested."
 function peopleWords(n) { return !n ? 'no one has asked yet.' : n === 1 ? '1 person is interested.' : n + ' people are interested.'; }
 // the line under each product's name: what the switch means for it right now, and its tally
-function availableWords(on, n, pre) {
+const FULL_MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+// "december 15", or "january 8, 2028" when it's not this year
+function prettyDate(date, today) {
+  const [y, m, d] = date.split('-');
+  return FULL_MONTHS[Number(m) - 1] + ' ' + Number(d) + (y !== String(today || '').slice(0, 4) ? ', ' + y : '');
+}
+// what a pre-order says about when it ships: the date set in "pre-order settings", or about 4 weeks without one
+function preorderWhen(date, today) {
+  if (date && date >= today) return 'expected in stock and shipping around ' + prettyDate(date, today);
+  if (date) return 'its date (' + prettyDate(date, today) + ') has passed, so the shop says about 4 weeks. set a new one with the gear';
+  return 'no date set, so the shop says about 4 weeks. set one with the gear';
+}
+function availableWords(on, n, pre, date, today) {
   // pre-order wins over the available switch
-  if (pre) return 'pre-order: for sale while the shop is open and it\'s linked, shipping in about 4 weeks (the whole order waits for it). no stock limit, no "i\'m interested".' + (n ? ' ' + peopleWords(n) : '');
+  if (pre) return 'pre-order: for sale while the shop is open and it\'s linked, ' + preorderWhen(date, today) + '. the whole order waits for it. no stock limit, no "i\'m interested".' + (n ? ' ' + peopleWords(n) : '');
   if (on) return n ? 'in the shop. ' + (n === 1 ? '1 person' : n + ' people') + ' asked for it before it arrived.' : 'in the shop.';
   return 'not in the shop. shows "i\'m interested". ' + peopleWords(n || 0);
 }
@@ -81,12 +93,75 @@ function optionLabel(s) {
   return bits.join(' · ');
 }
 
+/* ---------- "pre-order settings": the window behind each product's gear ---------- */
+// one native <dialog>, made the first time it's needed and reused. it keeps the keyboard inside while open,
+// closes on escape, and hands the keyboard back to the gear afterwards
+let settingsDialog = null;
+function preorderSettings(p, name, on, date, today, gear, saved) {
+  if (!settingsDialog) {
+    settingsDialog = el('dialog', 'card clean settings-dialog');
+    settingsDialog.setAttribute('aria-labelledby', 'settings-title');
+    settingsDialog.innerHTML =
+      '<form method="dialog" class="settings-form">' +
+        '<h2 class="admin-title" id="settings-title"></h2>' +
+        '<p class="caption" data-settings-state></p>' +
+        '<div class="field"><label for="settings-date">expected in stock and shipping</label>' +
+        '<input id="settings-date" type="date" data-settings-date>' +
+        '<p class="hint" data-settings-hint></p></div>' +
+        '<p class="caption" data-settings-note role="status"></p>' +
+        '<div class="admin-actions">' +
+          '<button class="jka-btn jka-btn--sm" type="submit" value="save">save date</button>' +
+          '<button class="jka-btn jka-btn--sm jka-btn--quiet" type="button" data-settings-clear>clear date</button>' +
+          '<button class="linklike" type="button" data-settings-cancel>cancel</button>' +
+        '</div>' +
+      '</form>';
+    document.body.appendChild(settingsDialog);
+    settingsDialog.querySelector('[data-settings-cancel]').addEventListener('click', () => settingsDialog.close());
+  }
+  const d = settingsDialog;
+  const input = d.querySelector('[data-settings-date]');
+  const note = d.querySelector('[data-settings-note]');
+  d.querySelector('#settings-title').textContent = 'pre-order settings: ' + name;
+  d.querySelector('[data-settings-state]').textContent = on
+    ? 'pre-order is on for the ' + name + '.'
+    : 'pre-order is off for the ' + name + '. the date is kept and shows once you switch pre-order on.';
+  d.querySelector('[data-settings-hint]').textContent = 'buyers see "pre-order. expected in stock and shipping around <date>." ' +
+    'a bag with this pin ships all together then. leave it empty for "about 4 weeks".';
+  input.min = today;
+  input.value = date;
+  note.textContent = '';
+  const send = async (value) => {
+    note.textContent = 'saving.';
+    try {
+      const res = await api('POST', '/api/admin/preorder-date', { slug: p.slug, date: value });
+      saved(res.date);
+      d.close();
+    } catch (e) {
+      const why = e.data && e.data.error;
+      note.textContent = why === 'past' ? 'pick today or a later date.' : why === 'too far' ? 'pick a date within two years.'
+        : why === 'date' ? 'that date doesn\'t look right.' : 'that didn\'t save. try again in a moment.';
+    }
+  };
+  const form = d.querySelector('form');
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    if (!input.value) { note.textContent = 'pick a date, or press clear date.'; input.focus(); return; }
+    send(input.value);
+  };
+  d.querySelector('[data-settings-clear]').onclick = () => send('');
+  d.onclose = () => gear.focus();
+  d.showModal();
+  input.focus();
+}
+
 function paintProducts(data) {
   const mode = $('[data-products-mode]');
   const note = $('[data-products-note]');
   const form = $('[data-products-form]');
   const available = data.available || {};
   const preorder = data.preorder || {};
+  const dates = data.preorderDates || {};
+  const today = data.today || new Date().toISOString().slice(0, 10);
   const interest = data.interest || {};
   paintInterest(data);
   mode.textContent = data.mode === 'sandbox' ? 'connected to square sandbox, the practice account.' : 'connected to your square account.';
@@ -146,8 +221,16 @@ function paintProducts(data) {
     };
     const avail = makeSwitch('available', 'available');
     const pre = makeSwitch('pre-order', 'on pre-order');
+    // the gear: "pre-order settings", a small window with this product's pre-order date
+    const gear = el('button', 'icon-btn gear-btn');
+    gear.type = 'button';
+    gear.title = 'pre-order settings';
+    gear.setAttribute('aria-label', 'pre-order settings for ' + shownName(p));
+    gear.setAttribute('aria-haspopup', 'dialog');
+    gear.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
     const switches = el('span', 'link-product-switches');
-    switches.append(avail.wrap, pre.wrap);
+    switches.append(avail.wrap, pre.wrap, gear);
     head.append(name, switches);
     const words = el('p', 'caption link-product-note');
     words.setAttribute('role', 'status');
@@ -158,7 +241,7 @@ function paintProducts(data) {
       pre.sw.setAttribute('aria-checked', preOn ? 'true' : 'false');
       box.classList.toggle('is-unavailable', !on && !preOn);
       box.classList.toggle('is-preorder', preOn);
-      words.textContent = availableWords(on, interest[p.slug] || 0, preOn) + (extra ? ' ' + extra : '');
+      words.textContent = availableWords(on, interest[p.slug] || 0, preOn, dates[p.slug], today) + (extra ? ' ' + extra : '');
       // the heading's "n not available" and "n on pre-order" counts listen for this
       box.dispatchEvent(new Event('change', { bubbles: true }));
     };
@@ -189,6 +272,10 @@ function paintProducts(data) {
       const want = !preOn;
       flip('/api/admin/preorder', 'preorder', want, () => { preOn = want; preorder[p.slug] = want; });
     });
+    gear.addEventListener('click', () => preorderSettings(p, shownName(p), preOn, dates[p.slug] || '', today, gear, (date) => {
+      if (date) dates[p.slug] = date; else delete dates[p.slug];
+      show('saved.');
+    }));
     box.append(head, words);
     if (linking) keys.forEach((k) => box.appendChild(linkRow(k, keys.length === 1)));
     return box;
@@ -853,79 +940,45 @@ async function loadInstagram() {
   try { paintInstagram(await api('GET', '/api/admin/instagram')); } catch (e) { $('[data-instagram-state]').textContent = RESTING; }
 }
 
-/* ---------- folding: each card's title is a button that hides or shows the rest of the card ---------- */
-// like folders in a drawer: close the ones you don't need today. which are closed is remembered in this browser only
-// (localStorage), so it can come back empty in a private window; then every card simply starts open
-const FOLD_KEY = 'jka_admin_folded';
-function foldedCards() {
-  try { const a = JSON.parse(localStorage.getItem(FOLD_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
-}
-function rememberFolds(list) {
-  try { if (list.length) localStorage.setItem(FOLD_KEY, JSON.stringify(list)); else localStorage.removeItem(FOLD_KEY); } catch (e) {}
-}
-// opens a folded card by its title's id; filled in by wireFolds, used by the "jump to" menu
-const openCard = {};
-function wireFolds() {
-  const folded = new Set(foldedCards());
-  document.querySelectorAll('.admin-card').forEach((card) => {
-    const title = card.querySelector('.admin-title');
-    if (!title || !title.id) return;
-    const id = title.id;
-    // everything under the title moves into one box that the button hides and shows
-    const body = el('div', 'admin-card-body');
-    body.id = id + '-body';
-    while (title.nextSibling) body.appendChild(title.nextSibling);
-    card.appendChild(body);
-    const btn = el('button', 'admin-fold');
-    btn.type = 'button';
-    btn.setAttribute('aria-controls', body.id);
-    const words = el('span', null, title.textContent);
-    const mark = el('span', 'admin-fold-mark');
-    mark.setAttribute('aria-hidden', 'true');
-    btn.append(words, mark);
-    title.textContent = '';
-    title.appendChild(btn);
-    const paint = (open) => {
-      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-      body.hidden = !open;
-      card.classList.toggle('is-folded', !open);
-    };
-    paint(!folded.has(id));
-    const toggle = (open) => {
-      paint(open);
-      if (open) folded.delete(id); else folded.add(id);
-      rememberFolds([...folded]);
-    };
-    btn.addEventListener('click', () => toggle(btn.getAttribute('aria-expanded') !== 'true'));
-    openCard[id] = () => { if (btn.getAttribute('aria-expanded') !== 'true') toggle(true); return btn; };
-  });
-}
-
-/* ---------- "jump to": a link per card, like a table of contents ---------- */
-// built from the card titles, so a new card shows up here on its own. a jump to a folded card opens it first,
-// then moves the keyboard to its title so the next tab lands inside that card
-function wireMenu() {
+/* ---------- sections: the menu at the top shows one card at a time, like tabs in a folder ---------- */
+// built from the card titles, so a new card gets its own button on its own. the open one is kept in the address
+// (/admin#admin-orders-title) and in this browser, so a reload comes back to it. localStorage can come back empty
+// in a private window: then the first card (the shop) opens
+const SECTION_KEY = 'jka_admin_section';
+function wireSections() {
   const list = $('[data-admin-menu]');
-  if (!list) return;
-  document.querySelectorAll('.admin-card .admin-title[id]').forEach((title) => {
-    const a = el('a', null, title.textContent.trim());
-    a.href = '#' + title.id;
-    a.addEventListener('click', (ev) => {
-      if (!openCard[title.id]) return;
-      ev.preventDefault();
-      const btn = openCard[title.id]();
-      const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      title.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
-      btn.focus({ preventScroll: true });
-      history.replaceState(null, '', '#' + title.id);
+  const cards = [...document.querySelectorAll('.admin-card')].filter((c) => c.querySelector('.admin-title[id]'));
+  if (!list || !cards.length) return;
+  const buttons = new Map();
+  const show = (id, focus) => {
+    cards.forEach((card) => {
+      const on = card.querySelector('.admin-title').id === id;
+      card.hidden = !on;
+      const b = buttons.get(card.querySelector('.admin-title').id);
+      b.setAttribute('aria-current', on ? 'page' : 'false');
+      b.classList.toggle('is-current', on);
     });
+    try { localStorage.setItem(SECTION_KEY, id); } catch (e) {}
+    history.replaceState(null, '', '#' + id);
+    if (focus) document.getElementById(id).focus({ preventScroll: true });
+  };
+  cards.forEach((card) => {
+    const title = card.querySelector('.admin-title');
+    // the title can take the keyboard after a switch, so the next tab lands inside the section
+    title.tabIndex = -1;
+    const b = el('button', 'admin-menu-btn', title.textContent.trim());
+    b.type = 'button';
+    b.setAttribute('aria-controls', card.id || (card.id = title.id + '-card'));
+    b.addEventListener('click', () => show(title.id, true));
+    buttons.set(title.id, b);
     const li = el('li');
-    li.appendChild(a);
+    li.appendChild(b);
     list.appendChild(li);
   });
-  // arriving with a card in the address (/admin#admin-orders-title): open it if it was folded
-  const id = decodeURIComponent(location.hash.slice(1));
-  if (id && openCard[id]) { openCard[id](); document.getElementById(id)?.scrollIntoView(); }
+  let start = decodeURIComponent(location.hash.slice(1));
+  if (!buttons.has(start)) { try { start = localStorage.getItem(SECTION_KEY) || ''; } catch (e) { start = ''; } }
+  if (!buttons.has(start)) start = cards[0].querySelector('.admin-title').id;
+  show(start, false);
 }
 
 /* ---------- start ---------- */
@@ -960,8 +1013,7 @@ async function open() {
     location.href = 'index.html';
   });
   $('#admin-view').hidden = false;
-  wireFolds();
-  wireMenu();
+  wireSections();
   try { wireShop(await api('GET', '/api/admin/shop')); } catch (e) { $('[data-shop-state]').textContent = RESTING; }
   loadOrders();
   loadGifts();

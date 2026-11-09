@@ -103,21 +103,28 @@ Good to know:
   always the buyer's (it's where Square sends the receipt).
 - Square's packing slip and receipt show prices. For a gift, leave the receipt out of the box.
 
-### Pre-orders (built 2026-11-09)
-A pin with **pre-order** switched on (on `/admin`, beside available) can be bought now and ships in about 4 weeks.
+### Pre-orders (built 2026-11-09, dates added the same day)
+A pin with **pre-order** switched on (on `/admin`, beside available) can be bought now with a **pre-order** button,
+and ships around its pre-order date.
 
-1. Link the pin to its Square item on `/admin` as usual, and set its price in Square. Without a link it shows
-   "being made now. coming soon." and can't be bought.
-2. In Square, make sure the item is **not ticked "sold out"**. Square's payment page may refuse a sold-out item, so the
-   website doesn't offer one. A stock count of zero is fine: the website doesn't check stock for pre-orders.
-3. Test one in the sandbox: pre-order the pin, pay with the test card, and check that Square's page didn't object.
-4. Each pre-order order is marked in the Square dashboard: "pre-order. ships in about 4 weeks" on the pin's line,
-   the same on the shipping note and the payment note, and an expected ship date on the shipment. If the bag also
-   had in-stock pins, the whole order waits and ships together.
-5. Square counts the item below zero as pre-orders sell (for example -12 means 12 pre-ordered). When the pins
+1. On `/admin`, open **products and square**. Link the pin to its Square item as usual (its price comes from Square).
+   Without a link it shows "being made now. coming soon." with the email box, and can't be bought.
+2. Switch **pre-order** on.
+3. Press the **gear** beside the switches (**pre-order settings**). Pick the date the pin is expected in stock and
+   ready to ship, and press **save date**. Buyers see "pre-order. expected in stock and shipping around december 15."
+   With no date, or once the date has passed, the shop says "about 4 weeks" instead (`preorder_weeks` in
+   `site/products.json`). **clear date** goes back to that.
+4. Square's **"sold out" tick doesn't matter** for a pre-order: the pin is being made, so Square rightly calls it sold
+   out. Nothing to change in Square.
+5. Each pre-order order is marked in the Square dashboard: "pre-order. expected to ship around december 15" on the
+   pin's line, "the whole order ships together around ..." on the shipping note and the payment note, and that date as
+   the shipment's expected ship date. If the bag also had in-stock pins, or other pre-orders, the whole order waits
+   for the last one and ships together.
+6. Square counts the item below zero as pre-orders sell (for example -12 means 12 pre-ordered). When the pins
    arrive, pack the pre-orders first, then set the count in Square to what's left on the shelf, and switch
    **pre-order off** on `/admin` (and available on). Until the count is fixed, a negative count reads as sold out.
-6. To change "about 4 weeks", ask Claude to change `preorder_weeks` in `site/products.json`.
+7. If a run is late, move the date with the gear. Orders already paid keep the date they were given; let those
+   buyers know by email.
 
 ### Branded receipts and the "on its way" email (built 2026-11-09)
 Square emails a receipt when someone pays; the website emails "your order is on its way" when you ship.
