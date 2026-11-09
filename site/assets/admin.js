@@ -75,15 +75,15 @@ function prettyDate(date, today) {
   const [y, m, d] = date.split('-');
   return FULL_MONTHS[Number(m) - 1] + ' ' + Number(d) + (y !== String(today || '').slice(0, 4) ? ', ' + y : '');
 }
-// what a pre-order says about when it ships: the date set in "pre-order settings", or about 4 weeks without one
+// what a pre-order says about when it ships: its date. without one (or once it passes) it isn't for sale
 function preorderWhen(date, today) {
   if (date && date >= today) return 'expected in stock and shipping around ' + prettyDate(date, today);
-  if (date) return 'its date (' + prettyDate(date, today) + ') has passed, so the shop shows a date 4 weeks from each day instead. set a new one with the gear';
-  return 'no date set, so the shop shows a date 4 weeks from each day. set one with the gear';
+  if (date) return 'but its date (' + prettyDate(date, today) + ') has passed, so it shows "being made now. coming soon." and can\'t be bought until you set a new one with the gear';
+  return 'but it has no date yet, so it shows "being made now. coming soon." and can\'t be bought until you set one with the gear';
 }
 function availableWords(on, n, pre, date, today) {
   // pre-order wins over the available switch
-  if (pre) return 'pre-order: for sale while the shop is open and it\'s linked, ' + preorderWhen(date, today) + '. the whole order waits for it. no stock limit, no "i\'m interested".' + (n ? ' ' + peopleWords(n) : '');
+  if (pre) return 'pre-order: for sale while the shop is open and it\'s linked, ' + preorderWhen(date, today) + '. a bag with it ships all together then. no stock limit, no "i\'m interested".' + (n ? ' ' + peopleWords(n) : '');
   if (on) return n ? 'in the shop. ' + (n === 1 ? '1 person' : n + ' people') + ' asked for it before it arrived.' : 'in the shop.';
   return 'not in the shop. shows "i\'m interested". ' + peopleWords(n || 0);
 }
@@ -93,11 +93,13 @@ function optionLabel(s) {
   return bits.join(' · ');
 }
 
-/* ---------- "pre-order settings": the window behind each product's gear ---------- */
-// one native <dialog>, made the first time it's needed and reused. it keeps the keyboard inside while open,
-// closes on escape, and hands the keyboard back to the gear afterwards
+/* ---------- "pre-order settings": the date window, behind each product's gear and its pre-order switch ---------- */
+// pre-order can't be on without a date. switching it on opens this window, and it only turns on once a date is
+// saved (cancel leaves it off). with pre-order already on, the gear opens it to change the date; there's no
+// "clear date". one native <dialog>, made the first time it's needed: it keeps the keyboard inside while open,
+// closes on escape, and hands the keyboard back to whatever opened it
 let settingsDialog = null;
-function preorderSettings(p, name, on, date, today, gear, saved) {
+function preorderSettings(p, name, on, date, today, opener, saved) {
   if (!settingsDialog) {
     settingsDialog = el('dialog', 'card clean settings-dialog');
     settingsDialog.setAttribute('aria-labelledby', 'settings-title');
@@ -106,12 +108,11 @@ function preorderSettings(p, name, on, date, today, gear, saved) {
         '<h2 class="admin-title" id="settings-title"></h2>' +
         '<p class="caption" data-settings-state></p>' +
         '<div class="field"><label for="settings-date">expected in stock and shipping</label>' +
-        '<input id="settings-date" type="date" data-settings-date>' +
+        '<input id="settings-date" type="date" required data-settings-date>' +
         '<p class="hint" data-settings-hint></p></div>' +
         '<p class="caption" data-settings-note role="status"></p>' +
         '<div class="admin-actions">' +
-          '<button class="jka-btn jka-btn--sm" type="submit" value="save">save date</button>' +
-          '<button class="jka-btn jka-btn--sm jka-btn--quiet" type="button" data-settings-clear>clear date</button>' +
+          '<button class="jka-btn jka-btn--sm" type="submit" data-settings-save></button>' +
           '<button class="linklike" type="button" data-settings-cancel>cancel</button>' +
         '</div>' +
       '</form>';
@@ -121,35 +122,35 @@ function preorderSettings(p, name, on, date, today, gear, saved) {
   const d = settingsDialog;
   const input = d.querySelector('[data-settings-date]');
   const note = d.querySelector('[data-settings-note]');
-  d.querySelector('#settings-title').textContent = 'pre-order settings: ' + name;
+  d.querySelector('#settings-title').textContent = (on ? 'pre-order settings: ' : 'turn on pre-order: ') + name;
   d.querySelector('[data-settings-state]').textContent = on
-    ? 'pre-order is on for the ' + name + '.'
-    : 'pre-order is off for the ' + name + '. the date is kept and shows once you switch pre-order on.';
-  d.querySelector('[data-settings-hint]').textContent = 'buyers see "pre-order. expected in stock and shipping around <date>." ' +
-    'a bag with this pin ships all together then. left empty, the shop shows a date 4 weeks from each day, which moves along daily.';
+    ? 'pre-order is on for the ' + name + '. change its date here.'
+    : 'pre-order needs a date. pick when the ' + name + ' is expected in stock and shipping, and pre-order turns on when you save.';
+  d.querySelector('[data-settings-hint]').textContent =
+    'buyers see "pre-order. expected in stock and shipping around <date>." a bag with this pin ships all together then.';
+  d.querySelector('[data-settings-save]').textContent = on ? 'save date' : 'save and turn on pre-order';
   input.min = today;
-  input.value = date;
+  // a date that has passed isn't offered again: pick a new one
+  input.value = date && date >= today ? date : '';
   note.textContent = '';
-  const send = async (value) => {
+  const form = d.querySelector('form');
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    if (!input.value) { note.textContent = 'pick a date first.'; input.focus(); return; }
     note.textContent = 'saving.';
     try {
-      const res = await api('POST', '/api/admin/preorder-date', { slug: p.slug, date: value });
-      saved(res.date);
+      const res = on
+        ? await api('POST', '/api/admin/preorder-date', { slug: p.slug, date: input.value })
+        : await api('POST', '/api/admin/preorder', { slug: p.slug, preorder: true, date: input.value });
+      saved(res.date || input.value);
       d.close();
-    } catch (e) {
-      const why = e.data && e.data.error;
+    } catch (err) {
+      const why = err.data && err.data.error;
       note.textContent = why === 'past' ? 'pick today or a later date.' : why === 'too far' ? 'pick a date within two years.'
-        : why === 'date' ? 'that date doesn\'t look right.' : 'that didn\'t save. try again in a moment.';
+        : why === 'date' || why === 'date required' ? 'that date doesn\'t look right.' : 'that didn\'t save. try again in a moment.';
     }
   };
-  const form = d.querySelector('form');
-  form.onsubmit = (e) => {
-    e.preventDefault();
-    if (!input.value) { note.textContent = 'pick a date, or press clear date.'; input.focus(); return; }
-    send(input.value);
-  };
-  d.querySelector('[data-settings-clear]').onclick = () => send('');
-  d.onclose = () => gear.focus();
+  d.onclose = () => opener.focus();
   d.showModal();
   input.focus();
 }
@@ -268,14 +269,21 @@ function paintProducts(data) {
       const want = !on;
       flip('/api/admin/availability', 'available', want, () => { on = want; available[p.slug] = want; });
     });
+    // a date saved in the window: pre-order is on with it (switching on saves both at once)
+    const dateSaved = (date) => {
+      dates[p.slug] = date;
+      const turnedOn = !preOn;
+      preOn = true;
+      preorder[p.slug] = true;
+      show(turnedOn ? 'pre-order is on.' : 'saved.');
+      if (turnedOn) { paintInterest(data); loadFeatured(); loadNotify(); }
+    };
     pre.sw.addEventListener('click', () => {
-      const want = !preOn;
-      flip('/api/admin/preorder', 'preorder', want, () => { preOn = want; preorder[p.slug] = want; });
+      // switching on needs a date first: the window asks for it, and pre-order turns on once it's saved
+      if (!preOn) { preorderSettings(p, shownName(p), false, dates[p.slug] || '', today, pre.sw, dateSaved); return; }
+      flip('/api/admin/preorder', 'preorder', false, () => { preOn = false; preorder[p.slug] = false; });
     });
-    gear.addEventListener('click', () => preorderSettings(p, shownName(p), preOn, dates[p.slug] || '', today, gear, (date) => {
-      if (date) dates[p.slug] = date; else delete dates[p.slug];
-      show('saved.');
-    }));
+    gear.addEventListener('click', () => preorderSettings(p, shownName(p), preOn, dates[p.slug] || '', today, gear, dateSaved));
     box.append(head, words);
     if (linking) keys.forEach((k) => box.appendChild(linkRow(k, keys.length === 1)));
     return box;

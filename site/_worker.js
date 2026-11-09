@@ -26,7 +26,7 @@ import { mediaRoute } from '../server/media.js';
 import { pupPageRoute } from '../server/pup-pages.js';
 import { staticOrNotFound } from '../server/not-found.js';
 import { cleanShipTo, cleanGift, squareAddress, addressLine, noteGift } from '../server/ship-to.js';
-import { shopToday, shipDateFor, whenWords } from '../server/preorder-words.js';
+import { shopToday, whenWords } from '../server/preorder-words.js';
 
 const MAX_LINES = 30;
 const MAX_QTY = 20;
@@ -124,13 +124,9 @@ async function checkout(request, env, url) {
   if (short.length) return json({ error: 'stock', items: short.map((k) => ({ key: k, stock: left(k) })) }, 409);
 
   // a pre-order in the bag: the whole order waits and ships together once the last pre-order pin arrives, around
-  // the latest of their dates (each pin's own, or N weeks from today for one without; the catalog has worked it out)
-  const weeks = catalog.preorder_weeks || 4;
+  // the latest of their dates. a pin is only on sale as a pre-order with its date, so every one has one
   const today = shopToday();
-  const dateOf = (k) => {
-    const item = catalog.items.find((p) => p.slug === catalog.byKey[k].slug);
-    return shipDateFor(item && item.preorder_date, weeks, today);
-  };
+  const dateOf = (k) => catalog.items.find((p) => p.slug === catalog.byKey[k].slug).preorder_date;
   const pinWords = (k) => 'pre-order. expected to ship ' + whenWords(dateOf(k), today);
   const shipDate = preorderKeys.length ? preorderKeys.map(dateOf).sort().pop() : null;
   const preorderWords = preorderKeys.length ? 'pre-order: the whole order ships together ' + whenWords(shipDate, today) : '';
