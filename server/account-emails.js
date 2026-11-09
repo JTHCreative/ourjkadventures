@@ -22,6 +22,7 @@ import { emailConfigured, emailsLeftToday, sendBatch, escapeHtml as e } from './
 import { emailPage, para, TEXT_SIGNOFF } from './email-look.js';
 import { cleanEmail } from './notify.js';
 import { scramble } from './interest.js';
+import { fromOurSite } from './same-site.js';
 
 export const PER_ADDRESS = 3;
 export const RESETS_PER_CONNECTION = 10;
@@ -109,8 +110,7 @@ export async function accountEmailRoute(request, env, fetchFn = fetch) {
   if (request.method !== 'POST') return json({ error: 'method' }, 405);
   // not set up: the browser sends Firebase's own email instead
   if (!configured(env) || !emailConfigured(env)) return json({ error: 'not set up' }, 503);
-  const from = request.headers.get('Origin');
-  if (from && from !== url.origin) return json({ error: 'origin' }, 403);
+  if (!fromOurSite(request)) return json({ error: 'origin' }, 403);
   const kind = url.pathname.replace(/^\/api\/account\/email\//, '');
   let body = {};
   try { body = (await request.json()) || {}; } catch (err) {}
