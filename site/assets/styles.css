@@ -1102,6 +1102,13 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .link-product-name { font-size: 19px; line-height: 24px; font-weight: 500; }
 .link-product-switch { display: inline-flex; align-items: center; gap: var(--space-2); }
 .link-product-note { margin-top: var(--space-1); }
+/* interest and emails: each product folds open and shut, with "expand all" on the right under the emails line */
+.asking-tools { display: flex; justify-content: flex-end; margin-top: var(--space-3); }
+.asking-summary { padding-left: 0; padding-right: 0; }
+.asking-fold[open] > .order-summary::before { transform: rotate(45deg); }
+.asking-fold.link-product { padding: 0; }
+.asking-body { display: flex; flex-direction: column; gap: var(--space-1); padding: 0 0 var(--space-4) calc(9px + var(--space-2) + 4px); }
+.asking-body .link-product-head { align-items: flex-start; }
 /* "clear the count" in interest and emails: on the right of the product's name, its status line before it */
 .clear-count { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--space-2); margin-left: auto; }
 .link-product.is-unavailable .link-product-name { color: var(--ink-muted); }

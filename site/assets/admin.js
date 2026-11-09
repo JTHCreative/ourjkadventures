@@ -560,17 +560,50 @@ function paintAsking() {
     return;
   }
   list.forEach((r) => {
-    const div = el('div', 'link-product');
-    // the name on the left; "clear the count" on the right of the same line, out of the way of the rest
+    // folded: the name and its counts. opened: the rest, with "clear the count" on the right of the first line
+    const fold = el('details', 'link-product asking-fold');
+    fold.dataset.slug = r.slug;
+    fold.open = openAsking.has(r.slug) || !!(done && done.slug === r.slug);
+    fold.addEventListener('toggle', () => { if (fold.open) openAsking.add(r.slug); else openAsking.delete(r.slug); syncAskingAll(); });
+    const sum = el('summary', 'order-summary asking-summary');
+    sum.appendChild(el('span', 'order-summary-name link-product-name', r.name));
+    const bits = [];
+    if (r.interest) bits.push(r.interest + ' interested');
+    if (r.list && r.list.waiting) bits.push(r.list.waiting + ' waiting');
+    sum.appendChild(el('span', 'caption', bits.join(' · ')));
+    fold.appendChild(sum);
+    const body = el('div', 'asking-body');
     const head = el('div', 'link-product-head');
-    head.appendChild(el('p', 'link-product-name', r.name));
-    if (r.interest) head.appendChild(clearCount(r));
-    div.appendChild(head);
     // the tally only when there is one: a product can have people waiting for an email without any taps counted
-    div.appendChild(el('p', 'caption', (r.interest ? peopleWords(r.interest) + ' ' : '') + shelfWords(r.slug)));
-    if (r.list) emailBits(r.list, done).forEach((x) => div.appendChild(x));
-    else if (n && n.configured) div.appendChild(el('p', 'caption', 'no one waiting for an email.'));
-    box.appendChild(div);
+    head.appendChild(el('p', 'caption', (r.interest ? peopleWords(r.interest) + ' ' : '') + shelfWords(r.slug)));
+    if (r.interest) head.appendChild(clearCount(r));
+    body.appendChild(head);
+    if (r.list) emailBits(r.list, done).forEach((x) => body.appendChild(x));
+    else if (n && n.configured) body.appendChild(el('p', 'caption', 'no one waiting for an email.'));
+    fold.appendChild(body);
+    box.appendChild(fold);
+  });
+  syncAskingAll();
+}
+
+// which products are open, so a repaint (after a send or a clear) doesn't fold them all shut
+const openAsking = new Set();
+// "expand all" / "collapse all": collapses when every product is open, otherwise opens them all
+function askingFolds() { return [...document.querySelectorAll('[data-asking-list] .asking-fold')]; }
+function syncAskingAll() {
+  const btn = $('[data-asking-all]');
+  const folds = askingFolds();
+  btn.hidden = !folds.length;
+  const allOpen = folds.length && folds.every((f) => f.open);
+  btn.textContent = allOpen ? 'collapse all' : 'expand all';
+  btn.setAttribute('aria-expanded', allOpen ? 'true' : 'false');
+}
+function wireAskingAll() {
+  $('[data-asking-all]').addEventListener('click', () => {
+    const folds = askingFolds();
+    const open = !folds.every((f) => f.open);
+    folds.forEach((f) => { f.open = open; if (open) openAsking.add(f.dataset.slug); else openAsking.delete(f.dataset.slug); });
+    syncAskingAll();
   });
 }
 
@@ -1465,6 +1498,7 @@ async function open() {
   wireSections();
   try { wireShop(await api('GET', '/api/admin/shop')); } catch (e) { $('[data-shop-state]').textContent = RESTING; }
   wireOrderGroups();
+  wireAskingAll();
   loadOrders().then(loadGifts);
   wireProducts();
   loadProducts();
