@@ -888,3 +888,11 @@ owner chose a fresh start: once everyone waiting has the email (not while the da
 pin's round ends. The tally goes to 0, its votes are deleted, and a round number on the tally goes up. Browsers
 remember a tap as `slug@round`, so a tap from an earlier round no longer counts and the button reads "i'm interested!"
 again. The last round's count is kept as `asked`, so `/admin` still says how many asked for it before it arrived.
+
+## Refund email from the same doorbell (2026-11-09)
+The owner wanted buyers told when a refund starts. Refunds are done in Square (dashboard or app), so the payment
+webhook also listens for `refund.created` / `refund.updated` and sends "your refund is on its way" in the shared
+letterhead (`server/refunds.js`). The refund is read fresh from Square (`GET /v2/refunds/{id}`), then its order, so the
+amount and buyer never come from the message. Once per refund (Firestore `refund_mail_<mode>/{refund id}` and Resend's
+idempotency key); turned-down refunds and booth sales send nothing. Square's own refund receipt still goes out; ours
+says when the money should arrive ("within 5 to 10 business days, depending on your bank") and that they can reply.

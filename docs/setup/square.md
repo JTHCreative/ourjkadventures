@@ -187,7 +187,7 @@ neither email goes out. Everything else keeps working.
    - **Notification URL**: `https://ourjkadventures.com/api/square-webhook` (exactly this, with `https://` and no
      slash at the end)
    - **API version**: leave the newest one it offers
-   - **Events**: tick `payment.created` and `payment.updated`. Nothing else is needed.
+   - **Events**: tick `payment.created`, `payment.updated`, `refund.created` and `refund.updated`. Nothing else is needed.
    - Press **Save**.
 4. Open the new subscription and find **Signature key**. Press **Show** and copy it. Treat it like a house key.
 5. Cloudflare > **Workers & Pages** > **ourjkadventures** > **Settings** > **Variables and Secrets** > **Add**:
@@ -208,6 +208,21 @@ Good to know:
   days. If the day's 100 emails are already used up, that order's thank-you is skipped rather than sent late.
 - Booth sales (Square Reader) have no shipment on them, so they never get our thank-you. Square's receipt is enough.
 - Later, the collector's path (charges) will listen on this same doorbell.
+
+### Refund emails (built 2026-11-09)
+When you refund a website order in Square (the dashboard or the app, all or part of it), the buyer gets "your refund
+is on its way" from us, with the amount and "within 5 to 10 business days, depending on your bank". Square still sends
+its own refund receipt too. It needs the refund events on the webhook:
+
+1. developer.squareup.com > **Apps** > your app > **Production** > **Webhooks** > **Subscriptions**, and open
+   `website payments`.
+2. Press **Edit**, tick `refund.created` and `refund.updated` as well (keep the two payment ones), and **Save**. The
+   signature key stays the same, so nothing changes in Cloudflare.
+3. To test: refund a small order of your own in the Square dashboard (Transactions > the payment > **Issue refund**).
+   The email should arrive within a minute.
+
+Good to know: one email per refund, even though Square rings twice (when the refund starts and when the bank
+finishes). A refund Square turns down sends nothing. Booth sales (no shipment on them) never get this email.
 
 ### Pre-order dates that move (built 2026-11-09)
 If you change a pin's pre-order date (the gear on `/admin`) after people have already paid for it, those orders now

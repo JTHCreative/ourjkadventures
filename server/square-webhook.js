@@ -5,6 +5,7 @@
 // happen. Then:
 //   1. the buyer gets "thank you for your order" (once per order, however many times Square rings)
 //   2. on a gift order, the owner gets "a gift card to write" (server/owner-alerts.js)
+// and when the owner refunds an order in Square, the buyer gets "your refund is on its way" (server/refunds.js)
 // Square's own receipt still goes out too, with the prices; ours is the friendly note from justin and kitty.
 //
 // Anyone could send a message to this address, so each one is checked first: Square signs it with a key only
@@ -27,9 +28,11 @@ import { emailConfigured, emailsLeftToday, sendBatch, escapeHtml as e } from './
 import { emailPage, para, section, itemTable, TEXT_SIGNOFF } from './email-look.js';
 import { square, shipmentOf, isPaid, namer, view, hello, whereLines, itemLines, orderFooter } from './shipped.js';
 import { alertGift } from './owner-alerts.js';
+import { refundStarted } from './refunds.js';
 import { shopToday, whenWords } from './preorder-words.js';
 
 const EVENTS = ['payment.created', 'payment.updated'];
+const REFUND_EVENTS = ['refund.created', 'refund.updated'];
 
 function reply(body, status) {
   return new Response(JSON.stringify(body), { status: status || 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
@@ -151,6 +154,19 @@ export async function squareWebhook(request, env, fetchFn = fetch) {
   }
   let event;
   try { event = JSON.parse(body); } catch (err) { return reply({ error: 'bad body' }, 400); }
+
+  // a refund (the owner refunded in Square): "your refund is on its way" (server/refunds.js)
+  if (REFUND_EVENTS.includes(event && event.type)) {
+    const refund = event.data && event.data.object && event.data.object.refund;
+    const refundId = (refund && refund.id) || (event.data && event.data.id);
+    if (typeof refundId !== 'string') return reply({ ok: true, ignored: true });
+    try {
+      return reply({ ok: true, ...(await refundStarted(env, new URL(request.url).origin, refundId, fetchFn)) });
+    } catch (err) {
+      console.log('square webhook refund', event.event_id, err.message);
+      return reply({ error: 'try again' }, 500);
+    }
+  }
 
   // later, this is also where the collector's path will count charges (docs/roadmap.md, phase 4)
   const payment = event && event.data && event.data.object && event.data.object.payment;

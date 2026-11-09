@@ -82,7 +82,8 @@ an everyday analogy when a concept is technical.
   USPS tracking number and presses "mark shipped"; the buyer gets a branded email (logo, pin pictures, a "track
   your package" button, the address) through Resend, then the order is marked shipped in Square. The list is read
   from Square each time. "thank you for your order" goes out when Square's webhook (`/api/square-webhook`, `server/square-webhook.js`)
-  says an order is paid, once per order. A paid pre-order whose date moved shows "new date to email" in "orders to ship"; the
+  says an order is paid, once per order, and "your refund is on its way" (`server/refunds.js`) when the owner refunds a website order
+  in Square (refund.created; amount read from Square, once per refund, partial refunds say "of $X"). A paid pre-order whose date moved shows "new date to email" in "orders to ship"; the
   button sends "a new date for your pre-order" and moves the date on the Square order. The owner gets "a review is waiting"
   (at most 10 a day) and "a gift card to write" at `ADMIN_EMAILS`. Account emails (confirm, new password, new email) are ours
   too, with Firebase's link; Firebase sends its own only as a backup. Every email uses `server/email-look.js`, so they all
