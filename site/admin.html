@@ -47,13 +47,12 @@
       <h1 class="display center" style="margin-top:var(--space-2)">shop settings.</h1>
       <p class="caption center" style="margin-top:var(--space-2)" data-admin-who></p>
 
-      <!-- a list of every card below, filled in from their titles by admin.js; tapping one jumps there and opens it -->
-      <nav class="card clean admin-menu" aria-labelledby="admin-menu-title">
-        <h2 class="admin-menu-title" id="admin-menu-title">jump to</h2>
+      <!-- a button per card below, filled in from their titles by admin.js; tapping one shows that card alone -->
+      <nav class="card clean admin-menu" aria-label="shop settings sections">
         <ul class="admin-menu-list" data-admin-menu></ul>
       </nav>
 
-      <div class="admin-grid">
+      <div class="admin-sections">
       <section class="card clean admin-card" aria-labelledby="admin-shop-title">
         <h2 class="admin-title" id="admin-shop-title">the shop</h2>
         <div class="switch-row">
@@ -84,7 +83,7 @@
         <h2 class="admin-title" id="admin-products-title">products and square</h2>
         <p class="caption" data-products-mode></p>
         <p class="body-sm" data-products-note role="status"></p>
-        <p class="caption">the switches by each name say whether it's in the shop. available off: it's off sale and shows "i'm interested". pre-order on: it's being made, and people can buy it now: it says "pre-order. ships in about 4 weeks." and isn't limited by stock, whatever available says. it needs a square link, and must not be ticked sold out in square. the whole order ships together once it's made. turn pre-order off when the pins arrive. each saves as soon as you flip it.</p>
+        <p class="caption">the switches by each name say whether it's in the shop. available off: it's off sale and shows "i'm interested". pre-order on: it's being made, and people can buy it now with a "pre-order" button, whatever available says. it isn't limited by stock, and square's "sold out" tick doesn't matter, but it needs a square link. the gear opens its pre-order settings: the date it's expected in stock and shipping, which buyers see ("expected in stock and shipping around december 15."). with no date it says "about 4 weeks". a bag with a pre-order ships all together then. turn pre-order off when the pins arrive. each saves as soon as you flip it.</p>
         <form data-products-form hidden>
           <div class="link-list" data-link-list></div>
           <div class="admin-actions">
