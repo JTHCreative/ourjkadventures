@@ -1,6 +1,7 @@
 // j+k adventures: the words for when a pre-order ships. Each pin on pre-order can have a date, set on /admin, when
-// it's expected in stock and ready to ship ("2026-12-15"). With no date, or one that has passed, the shop falls back
-// to "about N weeks" (preorder_weeks in products.json). A bag with several pre-orders ships when the last one arrives.
+// it's expected in stock and ready to ship ("2026-12-15"). Pre-order can't be switched on without one. A pin on
+// pre-order whose date is missing or has passed isn't for sale until the owner sets a new one. Buyers only ever see a
+// date ("around december 15"). A bag with several pre-orders ships when the last one arrives.
 // site/assets/app.js has a twin of prettyDate for the browser; keep the two saying the same thing.
 
 const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
@@ -22,12 +23,7 @@ export function prettyDate(date, today = shopToday()) {
   return MONTHS[m - 1] + ' ' + d + (String(y) !== today.slice(0, 4) ? ', ' + y : '');
 }
 
-// for a bag: the latest of its pre-order dates, or null when none has one
-export function latestDate(dates, today = shopToday()) {
-  return dates.map((d) => preorderDateFor(d, today)).filter(Boolean).sort().pop() || null;
-}
-
-// "around december 15" or "in about 4 weeks"
-export function whenWords(date, weeks, today = shopToday()) {
-  return date ? 'around ' + prettyDate(date, today) : 'in about ' + weeks + ' weeks';
+// "around december 15"
+export function whenWords(date, today = shopToday()) {
+  return 'around ' + prettyDate(date, today);
 }

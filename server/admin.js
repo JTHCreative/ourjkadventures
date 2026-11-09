@@ -14,10 +14,9 @@
 //   GET  /api/admin/featured  products that could go in the shop's featured carousel, their stock, and the picks
 //   POST /api/admin/featured  { slugs: ["corgi", "aussie", ...] }  at most eight; a new pick must be in stock
 //   POST /api/admin/availability  { slug, available: true|false }  not available: off sale, shows "i'm interested"
-//   POST /api/admin/preorder  { slug, preorder: true|false }  pre-order: off sale (whatever the available switch says),
+//   POST /api/admin/preorder  { slug, preorder: true|false, date: "2026-12-15" }  (the date is required to switch on)  pre-order: off sale (whatever the available switch says),
 //                             shows "being made now" and "email me when it's here", no "i'm interested"
-//   POST /api/admin/preorder-date  { slug, date: "2026-12-15" | "" }  when a pre-order pin is expected in stock and
-//                             shipping ("" clears it: the shop then says "about 4 weeks")
+//   POST /api/admin/preorder-date  { slug, date: "2026-12-15" }  when a pre-order pin is expected in stock and shipping
 //   GET  /api/admin/notify   who is waiting for an "it's here" email, per product, and today's email count
 //   POST /api/admin/notify   { slug }  send "it's here" to everyone waiting for it (up to today's allowance)
 //   GET  /api/admin/media    the owner's own photos for the photos section under the pup board (server/media.js)
@@ -45,6 +44,17 @@ import { adminMedia, addMedia, removeMedia } from './media.js';
 import { giftList, giftDone } from './ship-to.js';
 import { ordersToShip, markShipped } from './shipped.js';
 import { emailConfigured } from './email.js';
+
+// a pre-order date the owner picked: a real day, from today up to two years out. { date } or { error }
+function checkPreorderDate(raw) {
+  if (raw === undefined || raw === null || raw === '') return { error: 'date required' };
+  const date = cleanDate(raw);
+  if (!date) return { error: 'date' };
+  const today = shopToday();
+  if (date < today) return { error: 'past' };
+  if (date > String(Number(today.slice(0, 4)) + 2) + today.slice(4)) return { error: 'too far' };
+  return { date };
+}
 
 function json(body, status) {
   return new Response(JSON.stringify(body), {
@@ -139,32 +149,33 @@ export async function admin(request, env, fetchFn = fetch) {
     }
 
     if (route === 'preorder') {
+      // pre-order can't be on without a date: switching it on brings the date with it, both saved together
       if (request.method !== 'POST') return json({ error: 'method' }, 405);
       const body = await readJson(request);
       if (typeof body.preorder !== 'boolean') return json({ error: 'preorder must be true or false' }, 400);
       const slugs = new Set((await siteProducts(env, request.url)).items.map((p) => p.slug));
       if (typeof body.slug !== 'string' || !slugs.has(body.slug)) return json({ error: 'unknown product' }, 400);
+      if (body.preorder) {
+        const checked = checkPreorderDate(body.date);
+        if (checked.error) return json(checked, 400);
+        await setPreorderDate(env, body.slug, checked.date, fetchFn);
+      }
       await setPreorder(env, body.slug, body.preorder, fetchFn);
       forgetCatalog();
-      return json({ slug: body.slug, preorder: body.preorder });
+      return json({ slug: body.slug, preorder: body.preorder, ...(body.preorder ? { date: body.date } : {}) });
     }
 
     if (route === 'preorder-date') {
+      // a new date for a pin (on pre-order or not). never empty: a pin on pre-order always has one
       if (request.method !== 'POST') return json({ error: 'method' }, 405);
       const body = await readJson(request);
       const slugs = new Set((await siteProducts(env, request.url)).items.map((p) => p.slug));
       if (typeof body.slug !== 'string' || !slugs.has(body.slug)) return json({ error: 'unknown product' }, 400);
-      let date = null;
-      if (body.date !== '' && body.date !== null) {
-        date = cleanDate(body.date);
-        if (!date) return json({ error: 'date' }, 400);
-        const today = shopToday();
-        if (date < today) return json({ error: 'past' }, 400);
-        if (date > String(Number(today.slice(0, 4)) + 2) + today.slice(4)) return json({ error: 'too far' }, 400);
-      }
-      await setPreorderDate(env, body.slug, date, fetchFn);
+      const checked = checkPreorderDate(body.date);
+      if (checked.error) return json(checked, 400);
+      await setPreorderDate(env, body.slug, checked.date, fetchFn);
       forgetCatalog();
-      return json({ slug: body.slug, date: date || '' });
+      return json({ slug: body.slug, date: checked.date });
     }
 
     if (route === 'notify') {

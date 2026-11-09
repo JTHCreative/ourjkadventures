@@ -773,3 +773,17 @@ section to take the full width and for the menu to open one at a time. The menu 
 Folding each card is gone, since only one shows at a time. The open card is kept in the address (`#admin-...-title`)
 and in that browser, so a reload or a shared link comes back to it. The menu stays at the top while scrolling on
 screens 720px and wider.
+
+## Pre-order needs a date (2026-11-09)
+The owner asked to drop "in about 4 weeks" and always say "expected in stock and shipping around <date>", and then
+that pre-order can't be on without a date at all. (A stand-in date 4 weeks out was tried for an hour, before this
+was merged, and dropped.)
+- **Switching pre-order on asks for the date** in the "pre-order settings" dialog, and both are saved together. The
+  server refuses `preorder: true` without a valid date (today to two years out), so the rule holds even outside
+  `/admin`. The gear changes the date; it can't be emptied. Switching pre-order off needs nothing.
+- **A pin on pre-order whose date is missing or has passed isn't for sale**: it shows "being made now. coming soon."
+  with the email box, like a pre-order before 2026-11-09, until the owner sets a new date. `/admin` says so under
+  the pin. This covers pins switched on before dates existed, and a run that's late: the shop never shows a day
+  that's gone, and never guesses one.
+- `preorder_weeks` is gone from `products.json` and the code. Buyers only ever see a date.
+- Orders already paid keep the date they were given.

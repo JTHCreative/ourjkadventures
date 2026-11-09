@@ -109,11 +109,12 @@ and ships around its pre-order date.
 
 1. On `/admin`, open **products and square**. Link the pin to its Square item as usual (its price comes from Square).
    Without a link it shows "being made now. coming soon." with the email box, and can't be bought.
-2. Switch **pre-order** on.
-3. Press the **gear** beside the switches (**pre-order settings**). Pick the date the pin is expected in stock and
-   ready to ship, and press **save date**. Buyers see "pre-order. expected in stock and shipping around december 15."
-   With no date, or once the date has passed, the shop says "about 4 weeks" instead (`preorder_weeks` in
-   `site/products.json`). **clear date** goes back to that.
+2. Switch **pre-order** on. A window asks for the date the pin is expected in stock and ready to ship. Pick it and
+   press **save and turn on pre-order**. Pre-order only turns on once a date is saved; **cancel** leaves it off.
+   Buyers see "pre-order. expected in stock and shipping around december 15."
+3. To change the date later, press the **gear** beside the switches (**pre-order settings**) and **save date**.
+   If the date passes before the pins arrive, the pin goes back to "being made now. coming soon." (no buying) until
+   you set a new date with the gear. `/admin` says so under the pin.
 4. Square's **"sold out" tick doesn't matter** for a pre-order: the pin is being made, so Square rightly calls it sold
    out. Nothing to change in Square.
 5. Each pre-order order is marked in the Square dashboard: "pre-order. expected to ship around december 15" on the

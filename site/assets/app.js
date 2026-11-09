@@ -45,8 +45,6 @@
       // where we ship (u.s. states and d.c.) and how long a gift note may be. the server checks both again
       catalog.states = Array.isArray(j.states) ? j.states : [];
       catalog.giftMax = Number(j.gift_max) || 100;
-      // how long a pre-order takes to ship (products.json "preorder_weeks")
-      catalog.preorderWeeks = Number(j.preorder_weeks) || 4;
       (j.items || []).forEach(function (p) {
         p.sizes = p.sizes || [];
         catalog.items[p.slug] = p;
@@ -255,14 +253,10 @@
       .filter(function (en) { return buyable(en) && en.size.preorder; });
   }
   function hasPreorder() { return bagPreorders().length > 0; }
-  // the same rule the server uses (site/_worker.js): the latest pre-order date, a pin without one counting as about
-  // N weeks from today. here it's only for showing
+  // the same rule the server uses (site/_worker.js): the latest of the bag's pre-order dates. here it's only for showing
   function preorderTogether() {
-    var weeksOut = isoDay(Date.now() + catalog.preorderWeeks * 7 * 86400000);
-    var dates = bagPreorders().map(function (en) { return en.product.preorder_date || ''; });
-    var last = dates.map(function (d) { return d || weeksOut; }).sort().pop();
-    var when = dates.some(Boolean) ? 'around ' + prettyDate(last) : 'in about ' + catalog.preorderWeeks + ' weeks';
-    return 'your order has a pre-order in it, so it all ships together ' + when + ', once the pins arrive.';
+    var last = bagPreorders().map(function (en) { return preorderDate(en.product); }).sort().pop();
+    return 'your order has a pre-order in it, so it all ships together around ' + prettyDate(last) + ', once the pins arrive.';
   }
 
   /* ---------- step two: where it goes (u.s. states only, for now) and the gift note ---------- */
@@ -634,22 +628,16 @@
     if (sz && sz.preorder) return 'pre-order';
     return sz && sz.stock > 0 ? 'add to bag' : 'sold out';
   }
-  // "pre-order. ships in about 4 weeks."
-  // "pre-order. expected in stock and shipping around december 15." or "... in about 4 weeks." with no date set
-  function preorderText(p) {
-    return 'pre-order. expected in stock and shipping ' +
-      (p && p.preorder_date ? 'around ' + prettyDate(p.preorder_date) : 'in about ' + catalog.preorderWeeks + ' weeks') + '.';
-  }
+  // "pre-order. expected in stock and shipping around december 15."
+  function preorderText(p) { return 'pre-order. expected in stock and shipping around ' + prettyDate(preorderDate(p)) + '.'; }
+  // the pin's date from the catalog: every pin on sale as a pre-order has one
+  function preorderDate(p) { return p && p.preorder_date; }
   // "december 15", or "january 8, 2028" when it's not this year. the twin of prettyDate in server/preorder-words.js
   var FULL_MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
   function prettyDate(date) {
     var bits = date.split('-');
     var year = String(new Date().getFullYear());
     return FULL_MONTHS[Number(bits[1]) - 1] + ' ' + Number(bits[2]) + (bits[0] !== year ? ', ' + bits[0] : '');
-  }
-  function isoDay(ms) {
-    var d = new Date(ms);
-    return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
   }
   // a plain count, the same calm words whether there are 2 or 200. a pre-order says when it ships instead
   function stockText(sz) {
@@ -2301,12 +2289,11 @@
     countEls = Array.prototype.slice.call(document.querySelectorAll('[data-cart-count]'));
     // square sends people back to thank-you.html after paying: empty the bag
     if (/thank-you(\.html)?$/.test(location.pathname)) save('jka_cart', null);
-    // back from square with a pre-order in the order (?preorder=2026-12-15, or ?preorder=4 for weeks): say when it ships
-    var pre = /[?&]preorder=(\d{4}-\d{2}-\d{2}|\d{1,2})(&|$)/.exec(location.search);
+    // back from square with a pre-order in the order (?preorder=2026-12-15): say when it ships
+    var pre = /[?&]preorder=(\d{4}-\d{2}-\d{2})(&|$)/.exec(location.search);
     var preNote = document.querySelector('[data-preorder-thanks]');
     if (pre && preNote) {
-      var when = pre[1].length > 2 ? 'around ' + prettyDate(pre[1]) : 'in about ' + pre[1] + ' weeks';
-      preNote.textContent = 'your order has a pre-order in it, so it all ships together ' + when + ', once the pins arrive.';
+      preNote.textContent = 'your order has a pre-order in it, so it all ships together around ' + prettyDate(pre[1]) + ', once the pins arrive.';
       preNote.hidden = false;
     }
     loadCart();

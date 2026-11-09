@@ -83,12 +83,6 @@ export function stockOf(item) {
 // the bag and checkout treat this as its "stock"
 export const PREORDER_MAX = 20;
 
-// how long pre-orders take to ship, from products.json ("preorder_weeks": 4). 4 if it's missing or odd
-export function preorderWeeks(products) {
-  const w = Number(products && products.preorder_weeks);
-  return Number.isInteger(w) && w > 0 && w < 52 ? w : 4;
-}
-
 async function build(env, origin, fetchFn) {
   const products = await siteProducts(env, origin);
   const open = await isShopOpen(env, fetchFn);
@@ -127,11 +121,12 @@ async function build(env, origin, fetchFn) {
     const sizes = [];
     const available = isAvailable(availability, p.slug);
     const onPreorder = isPreorder(preorder, p.slug);
+    // a pre-order is only for sale with its date (today or later). without one: "being made now. coming soon."
+    const preorderDate = onPreorder ? preorderDateFor(dates[p.slug]) : null;
     // not available: no sizes, no price and nothing in byKey, so checkout can't sell it either.
-    // on pre-order: sold at its Square price without looking at the shelf or Square's "sold out" tick (the pins are
-    // being made, so Square rightly calls them sold out), and ships around its pre-order date (or in about
-    // preorder_weeks when no date is set)
-    for (const k of available || onPreorder ? siteKeys({ items: [p] }) : []) {
+    // on pre-order with a date: sold at its Square price without looking at the shelf or Square's "sold out" tick (the
+    // pins are being made, so Square rightly calls them sold out), and ships around its pre-order date
+    for (const k of available || preorderDate ? siteKeys({ items: [p] }) : []) {
       const v = variations[links[k.key]];
       if (!v || !v.sellable || v.price_cents === null) continue;
       const stock = onPreorder ? PREORDER_MAX : v.marked_sold_out ? 0 : (counts[v.id] || 0);
@@ -143,8 +138,8 @@ async function build(env, origin, fetchFn) {
       // a pup's breed and its few sentences, shown on the board and on its own page (server/pup-pages.js)
       ...(p.breed ? { breed: p.breed } : {}), ...(p.about ? { about: p.about } : {}),
       available, preorder: onPreorder, interest: available || onPreorder ? 0 : interest[p.slug] || 0,
-      // when it's expected in stock and shipping, "2026-12-15". only while on pre-order and not yet passed
-      ...(onPreorder && preorderDateFor(dates[p.slug]) ? { preorder_date: dates[p.slug] } : {})
+      // when it's expected in stock and shipping, "2026-12-15". only while on pre-order with a date
+      ...(preorderDate ? { preorder_date: preorderDate } : {})
     };
   });
 
@@ -163,7 +158,6 @@ async function build(env, origin, fetchFn) {
       open,
       currency: products.currency || 'USD',
       shipping: shippingOptions(products),
-      preorder_weeks: preorderWeeks(products),
       items,
       featured,
       byKey
@@ -219,7 +213,6 @@ export function publicCatalog(c) {
     // and each pin's own page still says "coming soon"
     featured: c.featured || [],
     shipping: c.shipping || [],
-    preorder_weeks: c.preorder_weeks || 4,
     items: c.items.map((p) => ({
       ...p,
       sizes: p.sizes.map((s) => ({ size: s.size, key: s.key, price_cents: s.price_cents, stock: c.open ? s.stock : 0, ...(s.preorder ? { preorder: true } : {}) }))
