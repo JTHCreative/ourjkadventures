@@ -197,3 +197,13 @@ test('Square\'s page never offers a coupon box or loyalty rewards (no discounts,
   assert.equal(sq.links[0].checkout_options.enable_coupon, false);
   assert.equal(sq.links[0].checkout_options.enable_loyalty, false);
 });
+
+test('sales tax is Square\'s own per-item tax (the booth\'s), never a rate typed into Cloudflare', async () => {
+  const { env, sq } = setup(true);
+  assert.equal((await checkout({ ...env, TAX_PERCENT: '9.25' })).status, 200);
+  const order = sq.links[0].order;
+  assert.deepEqual(order.pricing_options, { auto_apply_taxes: true });
+  assert.equal(order.taxes, undefined);
+  // and the shipping line is never taxed
+  assert.equal(order.service_charges[0].taxable, false);
+});

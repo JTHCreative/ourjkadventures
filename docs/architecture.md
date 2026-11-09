@@ -41,7 +41,7 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
     than is there (409, with the real counts). Square's "sold out" tick counts as none
   - creates a Square payment link: `POST /v2/online-checkout/payment-links` with line items that point at
     the Square variation (`catalog_object_id` + quantity, no name or price, so Square charges its own
-    price and lowers its own stock), optional `order.taxes` from `TAX_PERCENT`, a shipping line for the
+    price and lowers its own stock), sales tax from each item's own tax in Square (`pricing_options.auto_apply_taxes`, the booth's tax), a shipping line for the
     shipping choice (an untaxed `order.service_charges` entry, since Square refuses `shipping_fee` while its
     address form is off) the customer picked in the bag (the browser sends only its id, `ground`, `priority` or
     `express`; the price comes from `shipping` in `products.json`; none sent means the first; ground is free, with no shipping line and a
@@ -214,7 +214,6 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
 | `SQUARE_ACCESS_TOKEN` | secret; needs `ITEMS_READ` and `INVENTORY_READ` from phase 2 | 0 |
 | `SQUARE_LOCATION_ID` | plain | 0 |
 | `SQUARE_ENV` | plain, `sandbox` or `production` | 0 |
-| `TAX_PERCENT` | plain, optional | 0 |
 | `SUPPORT_EMAIL` | plain, optional | 0 |
 | `SQUARE_WEBHOOK_SIGNATURE_KEY` | secret | 2 |
 | `SQUARE_WEBHOOK_URL` | plain, the exact URL registered in Square (used in signature check) | 2 |

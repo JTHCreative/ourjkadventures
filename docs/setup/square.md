@@ -15,7 +15,8 @@
 
 ## Before launch, decide
 - **Shipping**: the site sends a flat fee from `products.json` (`shipping_cents`). It's set to $5 as a placeholder.
-- **Sales tax**: `TAX_PERCENT` in Cloudflare. Check your rate with the CDTFA or an accountant. Not tax advice.
+- **Sales tax**: since 2026-11-09, the same tax the booth uses, set on each item in Square (today "Millbrae Sales
+  Tax", 9.375%). Check the rate with the CDTFA or an accountant. Not tax advice.
 
 ## Phase 2: prices and stock come from Square (built 2026-10-31)
 The website now reads each product's price and stock count from your Square item library, and every
@@ -72,7 +73,14 @@ On `/admin`, flip **shop open**. Every visitor sees it within a minute. Flip it 
 - Prices: change them in Square. The website shows Square's price within a minute, and Square charges that price.
 - Names on Square's payment page are Square's item names (for example "Large Aussie Pin (Exclusive)").
   The website itself shows its own lowercase names.
-- Tax: the checkout adds sales tax from `TAX_PERCENT` in Cloudflare, not from the tax set on each item in Square, so tax isn't added twice.
+- Tax: the checkout uses the tax set on each item in Square, the same one the booth charges (today "Millbrae Sales
+  Tax", 9.375%), so web and booth sales show under one tax in Square's reports. Shipping isn't taxed.
+  1. To change the rate, change it once in Square (**Settings** > **Account & Settings** > **Taxes**). The website
+     follows straight away.
+  2. A new pin needs the tax ticked on its item in Square, just as for the booth. Without it, it's sold untaxed
+     online and at the booth alike.
+  3. `TAX_PERCENT` in Cloudflare isn't used any more. You can delete it (**Workers & Pages** > **ourjkadventures**
+     > **Settings** > **Variables and Secrets**); leaving it does nothing.
 - Stock is checked fresh at checkout, so the website won't sell a pin the booth sold a moment ago.
 
 ### U.S.-only shipping and gift notes (built 2026-11-09)

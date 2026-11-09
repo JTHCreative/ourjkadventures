@@ -10,7 +10,6 @@ Cloudflare Pages; that is not what runs.)
 - `SQUARE_ACCESS_TOKEN` (type: Secret)
 - `SQUARE_LOCATION_ID`
 - `SQUARE_ENV` = `sandbox` while testing, `production` when live (production today)
-- `TAX_PERCENT` (optional, e.g. `9.25`)
 - `SUPPORT_EMAIL` = `support@ourjkadventures.com` (shown on Square's checkout page)
 - `FIREBASE_SERVICE_ACCOUNT` (type: Secret) and `FIREBASE_PROJECT_ID`, see `firebase.md`
 
