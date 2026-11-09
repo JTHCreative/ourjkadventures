@@ -4,7 +4,8 @@
 //   SQUARE_ACCESS_TOKEN  (secret)  your Square access token
 //   SQUARE_LOCATION_ID             the Square location that takes the sale
 //   SQUARE_ENV                     "sandbox" while testing, "production" when live
-//   SUPPORT_EMAIL (optional)       shown to buyers on the Square checkout page
+//   SQUARE_APPLICATION_ID          the checkout page's embedded card form (Square's Web Payments SDK), see server/checkout.js
+//   SUPPORT_EMAIL (optional)       shown to buyers on Square's hosted checkout page (the fallback)
 //   FIREBASE_PROJECT_ID, FIREBASE_SERVICE_ACCOUNT  accounts, see server/firebase.js
 //   ADMIN_EMAILS                   who may use /admin, see server/admin.js
 //   INSTAGRAM_ACCESS_TOKEN, META_APP_SECRET, REEL_STORE  the About page's reels, see server/instagram.js
@@ -14,26 +15,21 @@
 //
 // The account code lives in ../server so it is bundled into this worker but never published as a file.
 
-import { account, noteOrder } from '../server/account.js';
+import { account } from '../server/account.js';
 import { reviews } from '../server/reviews.js';
-import { configured as firebaseConfigured, userFromRequest } from '../server/firebase.js';
 import { admin } from '../server/admin.js';
-import { getCatalog, catalogRoute, noteInterest, shippingCharge } from '../server/catalog.js';
+import { catalogRoute, noteInterest } from '../server/catalog.js';
+import { checkoutRoute } from '../server/checkout.js';
 import { interestRoute } from '../server/interest.js';
 import { notifyRoute } from '../server/notify.js';
 import { pinRequestRoute } from '../server/pin-requests.js';
 import { squareWebhook } from '../server/square-webhook.js';
 import { accountEmailRoute } from '../server/account-emails.js';
-import { stockCounts, squareHost, SQUARE_VERSION } from '../server/square.js';
 import { reelsRoute } from '../server/instagram.js';
 import { mediaRoute } from '../server/media.js';
 import { pupPageRoute } from '../server/pup-pages.js';
 import { staticOrNotFound } from '../server/not-found.js';
-import { cleanShipTo, cleanGift, squareAddress, addressLine, noteGift } from '../server/ship-to.js';
-import { shopToday, whenWords } from '../server/preorder-words.js';
 
-const MAX_LINES = 30;
-const MAX_QTY = 20;
 // old pup club addresses that now live under a new name
 const RENAMED_PUPS = { poodle: 'doodle' };
 
@@ -45,7 +41,7 @@ export default {
     if (url.hostname.startsWith('www.') && (request.method === 'GET' || request.method === 'HEAD')) {
       return Response.redirect(url.protocol + '//' + url.hostname.slice(4) + url.pathname + url.search, 301);
     }
-    if (url.pathname === '/api/checkout') return checkout(request, env, url);
+    if (url.pathname === '/api/checkout' || url.pathname === '/api/checkout/quote' || url.pathname === '/api/checkout/pay') return checkoutRoute(request, env, url);
     if (url.pathname === '/api/catalog') return catalogRoute(request, env);
     if (url.pathname === '/api/account' || url.pathname === '/api/account/orders') return account(request, env);
     if (url.pathname.startsWith('/api/account/email/')) return accountEmailRoute(request, env);
@@ -68,194 +64,3 @@ export default {
     return staticOrNotFound(request, env);
   }
 };
-
-function json(body, status) {
-  return new Response(JSON.stringify(body), {
-    status: status || 200,
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
-  });
-}
-
-async function checkout(request, env, url) {
-  if (request.method !== 'POST') return json({ error: 'method' }, 405);
-  if (!env.SQUARE_ACCESS_TOKEN || !env.SQUARE_LOCATION_ID) return json({ error: 'not configured' }, 503);
-
-  let body;
-  try { body = await request.json(); } catch (e) { return json({ error: 'bad request' }, 400); }
-  const wanted = Array.isArray(body && body.items) ? body.items : [];
-  if (!wanted.length || wanted.length > MAX_LINES) return json({ error: 'bad items' }, 400);
-
-  // the browser sends only keys ("aussie", "aussie:large") and how many. which Square item that is,
-  // and its price, come from our own catalog (server/catalog.js), never from the browser
-  let catalog;
-  try { catalog = await getCatalog(env, url); } catch (e) { return json({ error: 'catalog' }, 500); }
-  // the open sign (settings/shop in Firestore, flipped on /admin). closed, or unreadable, means nobody checks out
-  if (!catalog.open) return json({ error: 'shop closed' }, 403);
-
-  // the shipping choice: the browser names one (ground, priority, express), the price is ours (products.json).
-  // no choice at all (a bag opened before the choice existed) means the first one, ground
-  const shipOptions = catalog.shipping || [];
-  if (!shipOptions.length) return json({ error: 'shipping' }, 500);
-  const shipId = body.shipping === undefined ? shipOptions[0].id : body.shipping;
-  const ship = shipOptions.find((o) => o.id === shipId);
-  if (!ship) return json({ error: 'bad shipping' }, 400);
-
-  // where it goes: u.s. states and d.c. only, checked here (server/ship-to.js), never trusted from the browser.
-  // the field tells the bag which box needs another look
-  const shipTo = cleanShipTo(body.ship_to);
-  if (!shipTo.ok) return json({ error: 'address', field: shipTo.field, reason: shipTo.error }, 400);
-  const address = shipTo.value;
-  // a gift: a short note we write by hand on a card. null when it isn't one
-  const gift = cleanGift(body.gift);
-  if (gift && gift.error) return json({ error: 'gift', reason: gift.error }, 400);
-
-  const qtyByKey = {};
-  for (const w of wanted) {
-    const key = w && w.key;
-    const qty = Math.floor(Number(w && w.qty));
-    if (typeof key !== 'string' || !catalog.byKey[key] || !(qty >= 1) || qty > MAX_QTY) return json({ error: 'bad item' }, 400);
-    qtyByKey[key] = (qtyByKey[key] || 0) + qty;
-    if (qtyByKey[key] > MAX_QTY) return json({ error: 'bad item' }, 400);
-  }
-
-  // a fresh look at the shelf, not the one-minute-old list, so we never sell what the booth just sold.
-  // pre-order pins aren't on the shelf yet: they're limited only by how many one order may hold (MAX_QTY)
-  const keys = Object.keys(qtyByKey);
-  const preorderKeys = keys.filter((k) => catalog.byKey[k].preorder);
-  const shelfKeys = keys.filter((k) => !catalog.byKey[k].preorder);
-  let onShelf = {};
-  if (shelfKeys.length) {
-    try { onShelf = await stockCounts(env, shelfKeys.map((k) => catalog.byKey[k].variation_id)); } catch (e) {
-      console.log('stock check failed', e.message);
-      return json({ error: 'square unreachable' }, 502);
-    }
-  }
-  // the "sold out" tick in the Square dashboard counts as none on the shelf
-  const left = (k) => (catalog.byKey[k].preorder ? MAX_QTY : catalog.byKey[k].marked_sold_out ? 0 : onShelf[catalog.byKey[k].variation_id] || 0);
-  const short = keys.filter((k) => qtyByKey[k] > left(k));
-  if (short.length) return json({ error: 'stock', items: short.map((k) => ({ key: k, stock: left(k) })) }, 409);
-
-  // a pre-order in the bag: the whole order waits and ships together once the last pre-order pin arrives, around
-  // the latest of their dates. a pin is only on sale as a pre-order with its date, so every one has one
-  const today = shopToday();
-  const dateOf = (k) => catalog.items.find((p) => p.slug === catalog.byKey[k].slug).preorder_date;
-  const pinWords = (k) => 'pre-order. expected to ship ' + whenWords(dateOf(k), today);
-  const shipDate = preorderKeys.length ? preorderKeys.map(dateOf).sort().pop() : null;
-  const preorderWords = preorderKeys.length ? 'pre-order: the whole order ships together ' + whenWords(shipDate, today) : '';
-
-  // pointing at the Square item (not typing a name and price) is what lets Square lower the stock count
-  const lines = keys.map((k) => ({
-    catalog_object_id: catalog.byKey[k].variation_id, quantity: String(qtyByKey[k]),
-    ...(catalog.byKey[k].preorder ? { note: pinWords(k) } : {})
-  }));
-  const currency = catalog.currency;
-
-  const shipWords = ship.name + ' shipping' + (ship.days ? ' (' + ship.days + ')' : '');
-  const giftWords = gift ? (gift.message ? 'gift. write on the card: "' + gift.message + '"' : 'gift. blank card, no note') : '';
-  // the address rides on the order itself, so it shows in the Square dashboard with the order and its buyer.
-  // Square's own address form is switched off below: the address can't be changed to one we don't ship to
-  const order = {
-    location_id: env.SQUARE_LOCATION_ID,
-    line_items: lines,
-    fulfillments: [{
-      type: 'SHIPMENT',
-      state: 'PROPOSED',
-      shipment_details: {
-        recipient: { display_name: address.name, email_address: address.email, address: squareAddress(address) },
-        carrier: 'USPS',
-        shipping_type: ship.name,
-        ...(shipDate ? { expected_shipped_at: shipDate + 'T17:00:00Z' } : {}),
-        ...(gift || preorderKeys.length ? { shipping_note: [preorderWords, giftWords].filter(Boolean).join(' / ') } : {})
-      }
-    }]
-  };
-
-  // a signed-in buyer: tag the order with their account so the Collector's Path can find it later,
-  // and fill in their email on Square's page. A missing or bad ticket just means a signed-out checkout.
-  let buyer = null;
-  if (firebaseConfigured(env)) {
-    try { buyer = await userFromRequest(request, env); } catch (e) { buyer = null; }
-  }
-  if (buyer) order.metadata = { uid: buyer.sub };
-  // the card note rides on the order itself, where /admin reads it (our own gift record keeps no personal details)
-  if (gift) order.metadata = { ...(order.metadata || {}), gift: 'yes', ...(gift.message ? { gift_note: gift.message } : {}) };
-  if (preorderKeys.length) order.metadata = { ...(order.metadata || {}), preorder: 'yes' };
-  // sales tax: Square applies each item's own tax, the same one the booth uses (today "Millbrae Sales Tax"), so
-  // web and booth sales sit under one tax in Square's reports and the rate lives in one place. the shipping line
-  // is marked not taxable. (TAX_PERCENT in Cloudflare is no longer read: setting it can't add tax twice)
-  order.pricing_options = { auto_apply_taxes: true };
-
-  const options = {
-    // the thank-you page says when a pre-order ships
-    redirect_url: url.origin + '/thank-you.html' + (shipDate ? '?preorder=' + shipDate : ''),
-    ask_for_shipping_address: false,
-    // no discounts, ever (CLAUDE.md): no "add coupon" box and no loyalty rewards to redeem on Square's page,
-    // whatever the Square account's own checkout settings say
-    enable_coupon: false,
-    enable_loyalty: false,
-    // Apple Pay on Square's checkout page (the iPhone/Mac "pay with Face ID" button). Square's page lives on
-    // Square's own web address, so Square has already proven that address to Apple: we need no domain file or
-    // certificate. The button only shows on Apple devices with a card in Wallet; everyone else sees the card form
-    accepted_payment_methods: { apple_pay: true }
-  };
-  // the shipping price is a line on the order itself (a "service charge"), not Square's shipping_fee option:
-  // Square refuses shipping_fee unless its own address form is on, and the form stays off so nobody can change
-  // the address to one we don't ship to. Square shows the line on its page and on the receipt, so it says which
-  // choice they made. Not taxed. free ground (pins over $40): no line, and a note on the payment says how to send it
-  const charge = shippingCharge(ship, keys.map((k) => ({ kind: catalog.byKey[k].kind, price_cents: catalog.byKey[k].price_cents, qty: qtyByKey[k] })));
-  const notes = [];
-  if (preorderKeys.length) notes.push(preorderWords);
-  if (charge.free) {
-    notes.push('free ' + shipWords);
-  } else {
-    order.service_charges = [{
-      uid: 'shipping', name: shipWords, amount_money: { amount: charge.cents, currency: currency },
-      calculation_phase: 'TOTAL_PHASE', taxable: false
-    }];
-  }
-  // the payment note shows on the payment in the Square dashboard: a gift says so, with where it goes
-  if (gift) notes.push(giftWords + ' ship to: ' + addressLine(address));
-  // Square takes at most 500 characters here; the full note and address are on the shipment too
-  const paymentNote = notes.length ? notes.join(' / ').slice(0, 500) : null;
-  if (env.SUPPORT_EMAIL) options.merchant_support_email = env.SUPPORT_EMAIL;
-  // no pre_populated_data: Square refuses a pre-filled email alongside the order's shipment ("Only one of
-  // [fulfillment, buyer_email] fields should be set"). The buyer's email is already on the shipment's recipient
-
-  let res;
-  try {
-    res = await fetch(squareHost(env) + '/v2/online-checkout/payment-links', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + env.SQUARE_ACCESS_TOKEN,
-        'Square-Version': SQUARE_VERSION,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        idempotency_key: crypto.randomUUID(),
-        order: order,
-        checkout_options: options,
-        ...(paymentNote ? { payment_note: paymentNote } : {})
-      })
-    });
-  } catch (e) {
-    return json({ error: 'square unreachable' }, 502);
-  }
-  const data = await res.json().catch(() => ({}));
-  const link = data && data.payment_link;
-  const target = link && (link.url || link.long_url);
-  if (!res.ok || !target) {
-    console.log('square error', res.status, JSON.stringify(data && data.errors));
-    return json({ error: 'square' }, 502);
-  }
-  // remember that this signed-in buyer started this order, for their order history.
-  // never blocks checkout: a missed note only means the order won't be listed.
-  if (buyer && link.order_id) {
-    try { await noteOrder(env, buyer.sub, link.order_id); } catch (e) { console.log('order note failed', e.message); }
-  }
-  // a gift goes on the owner's list of cards to write (/admin), shown once Square says it was paid.
-  // never blocks checkout: the note is on the Square order either way
-  if (gift && link.order_id && firebaseConfigured(env)) {
-    try { await noteGift(env, link.order_id, fetch); } catch (e) { console.log('gift note failed', e.message); }
-  }
-  return json({ url: target });
-}

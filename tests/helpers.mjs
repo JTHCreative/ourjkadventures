@@ -130,6 +130,8 @@ export function fakeSquare() {
   ];
   const stock = { V_AUS: 3, V_AUS_L: 48, V_POM: 5, V_OLD: 9, V_ELSE: 9 };
   const links = [];
+  const orders = [];
+  const payments = [];
   const calls = [];
   const variations = () => items.flatMap((i) => i.item_data.variations);
   const fetchFn = async (url, opts = {}) => {
@@ -160,9 +162,51 @@ export function fakeSquare() {
       links.push(body);
       return Response.json({ payment_link: { url: 'https://square.link/u/abc', order_id: 'ORDER_' + links.length } });
     }
+    // working an order out, and making one: line prices from the catalog, the booth's 9.375% tax on items only
+    // (auto_apply_taxes), the shipping line untaxed, like the real account
+    if (url.endsWith('/v2/orders/calculate') || url.endsWith('/v2/orders')) {
+      const body = JSON.parse(opts.body);
+      const o = body.order;
+      const line_items = o.line_items.map((l) => {
+        const v = variations().find((x) => x.id === l.catalog_object_id);
+        const price = v.item_variation_data.price_money.amount;
+        const gross = price * Number(l.quantity);
+        const tax = o.pricing_options && o.pricing_options.auto_apply_taxes ? Math.round(gross * 0.09375) : 0;
+        return { ...l, base_price_money: { amount: price, currency: 'USD' }, gross_sales_money: { amount: gross, currency: 'USD' }, total_tax_money: { amount: tax, currency: 'USD' }, total_money: { amount: gross + tax, currency: 'USD' } };
+      });
+      const tax = line_items.reduce((n, l) => n + l.total_tax_money.amount, 0);
+      const svc = (o.service_charges || []).reduce((n, c) => n + c.amount_money.amount, 0);
+      const total = line_items.reduce((n, l) => n + l.total_money.amount, 0) + svc;
+      const made = { ...o, line_items, total_tax_money: { amount: tax, currency: 'USD' }, total_service_charge_money: { amount: svc, currency: 'USD' }, total_money: { amount: total, currency: 'USD' } };
+      if (url.endsWith('/v2/orders/calculate')) return Response.json({ order: made });
+      // the same idempotency key gives back the same order, like the real one
+      const had = orders.find((x) => x.key === body.idempotency_key);
+      if (had) return Response.json({ order: had.order });
+      made.id = 'ORDER_' + (orders.length + 1);
+      made.state = 'OPEN';
+      orders.push({ key: body.idempotency_key, order: made });
+      return Response.json({ order: made });
+    }
+    if (url.endsWith('/v2/payments')) {
+      const body = JSON.parse(opts.body);
+      if (body.idempotency_key.length > 45) return Response.json({ errors: [{ code: 'VALUE_TOO_LONG', field: 'idempotency_key' }] }, { status: 400 });
+      const had = payments.find((x) => x.body.idempotency_key === body.idempotency_key);
+      if (had) return Response.json({ payment: had.payment });
+      const order = orders.find((x) => x.order.id === body.order_id);
+      // an order's payment has to be the order's own total (the tip goes on top)
+      if (!order || body.amount_money.amount !== order.order.total_money.amount) {
+        return Response.json({ errors: [{ code: 'INVALID_VALUE', detail: 'amount does not match the order total' }] }, { status: 400 });
+      }
+      const problem = { 'cnon:card-declined': 'GENERIC_DECLINE', 'cnon:card-cvv': 'CVV_FAILURE' }[body.source_id];
+      if (problem) return Response.json({ errors: [{ category: 'PAYMENT_METHOD_ERROR', code: problem }], payment: { status: 'FAILED' } }, { status: 402 });
+      const payment = { id: 'PAY_' + (payments.length + 1), status: body.autocomplete ? 'COMPLETED' : 'APPROVED', order_id: body.order_id, amount_money: body.amount_money, tip_money: body.tip_money };
+      payments.push({ body, payment });
+      order.order.tenders = [{ type: 'CARD' }];
+      return Response.json({ payment });
+    }
     return null;
   };
-  return { items, stock, links, calls, fetchFn };
+  return { items, stock, links, orders, payments, calls, fetchFn };
 }
 
 // Google and Square together, for code that talks to both

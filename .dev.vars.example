@@ -2,6 +2,8 @@
 SQUARE_ACCESS_TOKEN=your-sandbox-token
 SQUARE_LOCATION_ID=your-sandbox-location-id
 SQUARE_ENV=sandbox
+# the checkout page's embedded card form: your Square app's Application ID (sandbox-sq0idb-... while testing)
+SQUARE_APPLICATION_ID=
 SUPPORT_EMAIL=support@ourjkadventures.com
 # phase 2
 SQUARE_WEBHOOK_SIGNATURE_KEY=
