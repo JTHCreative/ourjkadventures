@@ -723,3 +723,9 @@ send them.
   a "track your package" button to USPS, the address, signed by justin and kitty. A gift never greets the buyer by
   the name on the package (that's the person getting it) and says the note is in and the receipt is out.
 - USPS only, like the rest of shipping. Not live tracking on our site: the button goes to USPS.
+
+## No coupon box or rewards on Square's checkout page (2026-11-09)
+The Square account's checkout settings had coupons switched on. The website's checkout never asked for them, but
+"no discounts, ever" shouldn't rest on a default. Every checkout now sends `enable_coupon: false` and
+`enable_loyalty: false` (Square loyalty rewards are redeemed as money off), so Square's page shows neither,
+whatever the account's settings say. Tipping is left at Square's default for payment links, which is off.

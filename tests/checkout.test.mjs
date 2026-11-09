@@ -187,3 +187,10 @@ test('signed out, or with a bad ticket, checkout still works but nothing is tagg
   assert.equal(sq.links[1].pre_populated_data, undefined);
   assert.deepEqual(Object.keys(g.docs).filter((k) => !k.startsWith('settings/')), []);
 });
+
+test('Square\'s page never offers a coupon box or loyalty rewards (no discounts, ever)', async () => {
+  const { env, sq } = setup(true);
+  assert.equal((await checkout(env)).status, 200);
+  assert.equal(sq.links[0].checkout_options.enable_coupon, false);
+  assert.equal(sq.links[0].checkout_options.enable_loyalty, false);
+});

@@ -169,7 +169,11 @@ async function checkout(request, env, url) {
   const options = {
     // the thank-you page says when a pre-order ships
     redirect_url: url.origin + '/thank-you.html' + (preorderKeys.length ? '?preorder=' + weeks : ''),
-    ask_for_shipping_address: false
+    ask_for_shipping_address: false,
+    // no discounts, ever (CLAUDE.md): no "add coupon" box and no loyalty rewards to redeem on Square's page,
+    // whatever the Square account's own checkout settings say
+    enable_coupon: false,
+    enable_loyalty: false
   };
   // Square shows this one line on its page and on the receipt, so it says which choice they made.
   // free ground (pins over $40): no shipping line to charge, and a note on the payment says how to send it
