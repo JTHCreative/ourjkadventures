@@ -571,7 +571,7 @@ not reach the shop just now." Two fixes:
 The owner wanted a way to say "this pin is being made" that sits between "not in the shop yet" (the
 "i'm interested" vote, used to decide what to make) and "in the shop" (in stock or sold out). A second switch,
 **pre-order**, sits beside "available" on `/admin` and is saved in `settings/preorder_<square mode>`.
-- **No paying ahead.** A pin on pre-order shows "being made now. coming soon." and the "email me when it's here"
+- **No paying ahead.** (Changed 2026-11-09: pre-orders can be bought now, see "Pre-orders can be bought now" below.) A pin on pre-order shows "being made now. coming soon." and the "email me when it's here"
   box, nothing to buy. Taking money for pins that don't exist yet would mean skipping the stock check at checkout,
   splitting orders and promising ship dates; the email list gets people the pin without any of that. If paying
   ahead is wanted later, it's a separate decision.
@@ -678,3 +678,23 @@ gift option with a note we write by hand on a card, tied to its order, buyer ema
   were paid; unpaid ones (a checkout left half way) are removed after two days. Pressing "card written" removes it.
   Kept on our side because the owner writes from it; the address and email are already in Square anyway.
 - The buyer's email from the address step is filled in on Square's page (`buyer_email`), signed in or not.
+
+## Pre-orders can be bought now (2026-11-09)
+The owner asked for pre-order to go live: people pay now and are told it ships in about 4 weeks. This replaces the
+"no paying ahead" point in the pre-order entry above (2026-11-08). That entry named three costs; here's how each is
+handled:
+- **The stock check is skipped for pre-order pins.** They're being made, so Square's count says nothing about how
+  many can be sold. A pre-order is limited only by 20 per order, like every pin. There's no cap on the total yet;
+  if the owner wants one (say, the size of the production run), it's a small addition. Square will count the
+  item's stock below zero as pre-orders sell, which is a handy tally of how many were pre-ordered.
+- **Orders are not split.** A bag with a pre-order and an in-stock pin ships all at once when the pre-order pins are
+  made, for one shipping charge. The bag says so before checkout, and so do the Square order (a note on each
+  pre-order line, the shipping note, the payment note, and the shipment's expected ship date) and the thank-you
+  page. Splitting would mean two packages for one shipping price, or charging shipping twice.
+- **The ship date is a plain estimate:** "about 4 weeks", from `preorder_weeks` in `products.json`, never a promised
+  date and never urgency. Change the number there if a run takes longer.
+- Only while the shop is open and the pin is linked to a Square item that isn't ticked "sold out" (Square's own
+  page may refuse that one). Otherwise it's "being made now. coming soon." with the email box, as before.
+- Still no "i'm interested" votes on a pre-order, and the "email me when it's here" list stays as it was for
+  anyone already on it.
+- Google sees these pins as `PreOrder` in the product card on each pup's page.

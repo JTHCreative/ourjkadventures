@@ -71,7 +71,7 @@ function peopleWords(n) { return !n ? 'no one has asked yet.' : n === 1 ? '1 per
 // the line under each product's name: what the switch means for it right now, and its tally
 function availableWords(on, n, pre) {
   // pre-order wins over the available switch
-  if (pre) return 'pre-order: shows "being made now. coming soon." and the email box. not for sale, no "i\'m interested".' + (n ? ' ' + peopleWords(n) : '');
+  if (pre) return 'pre-order: for sale while the shop is open and it\'s linked, shipping in about 4 weeks (the whole order waits for it). no stock limit, no "i\'m interested".' + (n ? ' ' + peopleWords(n) : '');
   if (on) return n ? 'in the shop. ' + (n === 1 ? '1 person' : n + ' people') + ' asked for it before it arrived.' : 'in the shop.';
   return 'not in the shop. shows "i\'m interested". ' + peopleWords(n || 0);
 }

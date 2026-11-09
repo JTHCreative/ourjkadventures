@@ -95,6 +95,22 @@ Good to know:
   always the buyer's (it's where Square sends the receipt).
 - Square's packing slip and receipt show prices. For a gift, leave the receipt out of the box.
 
+### Pre-orders (built 2026-11-09)
+A pin with **pre-order** switched on (on `/admin`, beside available) can be bought now and ships in about 4 weeks.
+
+1. Link the pin to its Square item on `/admin` as usual, and set its price in Square. Without a link it shows
+   "being made now. coming soon." and can't be bought.
+2. In Square, make sure the item is **not ticked "sold out"**. Square's payment page may refuse a sold-out item, so the
+   website doesn't offer one. A stock count of zero is fine: the website doesn't check stock for pre-orders.
+3. Test one in the sandbox: pre-order the pin, pay with the test card, and check that Square's page didn't object.
+4. Each pre-order order is marked in the Square dashboard: "pre-order. ships in about 4 weeks" on the pin's line,
+   the same on the shipping note and the payment note, and an expected ship date on the shipment. If the bag also
+   had in-stock pins, the whole order waits and ships together.
+5. Square counts the item below zero as pre-orders sell (for example -12 means 12 pre-ordered). When the pins
+   arrive, pack the pre-orders first, then set the count in Square to what's left on the shelf, and switch
+   **pre-order off** on `/admin` (and available on). Until the count is fixed, a negative count reads as sold out.
+6. To change "about 4 weeks", ask Claude to change `preorder_weeks` in `site/products.json`.
+
 ### When a pin is renamed (poodle became doodle, 2026-11)
 The website files a pin's settings under its short name, so a renamed pin starts fresh. After the poodle became
 the doodle:

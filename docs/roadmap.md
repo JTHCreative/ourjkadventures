@@ -35,6 +35,8 @@ Work top to bottom. Each phase ships on its own. Tick boxes as you go and add no
 - [x] U.S. states and D.C. only (2026-11-09): the bag asks for the address, the server checks the state and that the zip belongs to it, and the order carries it to Square with Square's own address form off (see decisions)
 - [x] Gift option (2026-11-09): a tick and a note of up to 200 letters, written by hand on a card. On the Square order and payment, and listed on `/admin` once paid
 - [ ] Owner: one sandbox checkout with an address and a gift note, to confirm Square takes the address on the order (`setup/square.md`)
+- [x] Pre-orders can be bought (2026-11-09): no stock check, 20 per order, ships in about `preorder_weeks` (4), the whole order together (see decisions)
+- [ ] Maybe: a cap on how many of a pin can be pre-ordered in total (the size of the production run)
 - [ ] Board shipping prices of its own before the Bay Area board goes on sale: today it would pay pin prices ($7 ground). Owner: weigh and measure one packed board, look up USPS and UPS rates
 - [x] Owner steps in `setup/square.md`
 
