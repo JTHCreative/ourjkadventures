@@ -650,3 +650,9 @@ reviews scroll past and lets go at the bottom of the reviews, and the photos sta
 - **Up to 50 photos per product, not 24 (2026-11-09).** The owner asked for more room. Storage isn't the limit:
   the site keeps each photo under 700 KB (about 110 KB is typical), so 50 for all 17 products is roughly 100 MB to
   600 MB, well inside R2's free 10 GB. The limit only keeps one product's photos from getting unwieldy.
+- **The fade follows the scroll, frame by frame (2026-11-09).** At first the section faded in or out by itself once
+  it crossed a line. The owner wanted it tied to the scroll, so stopping halfway leaves it half faded, and wanted it
+  fully visible once its top is about 12% of the window above the bottom edge (where it sat in their screenshot).
+  So anything in the bottom 12% of the window is part way faded, gone at the edge: the card by its top edge, each
+  photo by its own, a little later the further right it sits. It's worked out once per screen frame, only while
+  the section is showing, from where things would sit before their slide, so the slide never feeds back into it.
