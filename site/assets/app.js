@@ -143,6 +143,11 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && drawer.classList.contains('open')) closeBag();
     });
+    // back from square's page with the back button: the browser may show this page just as it was left, button
+    // still saying "taking you to square." so paint the bag afresh, ready to try again
+    window.addEventListener('pageshow', function (e) {
+      if (e.persisted && drawer.classList.contains('open')) refreshCart(true);
+    });
   }
 
   function openBag() {
@@ -586,7 +591,17 @@
         return j.url;
       });
     }).then(function (url) {
+      // on the way to square's payment page. if it doesn't open (a slow connection, a blocked redirect), a link does
+      if (btn) btn.textContent = 'taking you to square.';
       location.href = url;
+      setTimeout(function () {
+        if (!drawer.classList.contains('open') || footEl.querySelector('.go-square')) return;
+        var p = el('p', 'caption go-square', 'square\'s page didn\'t open? ');
+        var a = el('a', null, 'go to the payment page');
+        a.href = url;
+        p.appendChild(a);
+        footEl.appendChild(p);
+      }, 8000);
     }).catch(function (err) {
       if (err && err.field) { paintAddress({ field: err.field, words: err.words }); return; }
       if (err && err.changed) {

@@ -895,6 +895,7 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .total-amount { font-size: 22px; font-weight: 500; }
 .total-note { grid-column: 1 / -1; font-size: 16px; color: var(--ink-muted); }
 .drawer-foot .jka-btn { flex: none; }
+.go-square a { font-size: 18px; color: var(--cobalt); }
 /* under the items: subtotal, shipping choice and notes */
 .bag-summary { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4) 0 var(--space-2); }
 .bag-summary .subtotal { display: flex; justify-content: space-between; font-size: 20px; font-weight: 500; }
