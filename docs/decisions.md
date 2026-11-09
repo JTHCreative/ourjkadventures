@@ -802,3 +802,9 @@ The owner saw the bag's button stuck on "one moment." after a gift checkout. Squ
 restored as-is by the back button. Now the button says "taking you to square." once the link is made, a "go to the
 payment page" link appears if Square hasn't opened after 8 seconds, and a page restored by the back button repaints
 the bag (address and gift note kept, `sessionStorage`) so it's ready to try again.
+
+## /admin in the middle half of the page (2026-11-09)
+The owner asked for the menu and the sections to sit in the middle 50% of the screen, with 25% margins on both
+sides. From 1100px wide, `.admin` is half the page's width with no side padding of its own, so the cards land at
+exactly 25% to 75%. Below 1100px half would be too narrow to use (550px or less), so it keeps a 720px column, and on
+a phone the usual 16px gutters.

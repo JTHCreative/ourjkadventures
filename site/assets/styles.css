@@ -1040,7 +1040,10 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 @media (max-width: 480px) { .account-links { grid-template-columns: 1fr; } }
 
 /* ---------- the owner's page (/admin) ---------- */
-.admin { max-width: none; margin: 0 auto; }
+/* the menu and the sections sit in the middle of the page: half its width on a wide screen, with a quarter left
+   empty on each side. below 1100px half would be too narrow, so it keeps a comfortable 720px instead */
+.admin { max-width: 720px; margin: 0 auto; }
+@media (min-width: 1100px) { .admin { width: 50%; max-width: none; padding-left: 0; padding-right: 0; } }
 .admin-card { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5); margin-top: var(--space-6); text-align: left; }
 /* the gear by each product, and the "pre-order settings" window it opens */
 .gear-btn { color: var(--ink-soft); }
