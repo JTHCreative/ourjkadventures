@@ -174,9 +174,44 @@ Anything saved for the poodle stays under the old name and isn't shown: its "i'm
 "email me when it's here" list, and any reviews. Old links to `/pup-club/poodle` forward to `/pup-club/doodle`,
 and a poodle already in someone's bag turns into a doodle.
 
-### Still to do in phase 2: the webhook (not built yet)
-1. Developer console > your app > **Webhooks** > **Add subscription**:
-   - URL: `https://yourdomain.com/api/square-webhook`
-   - Events: `order.updated`, `payment.updated`
-   - Copy the **Signature key** → Cloudflare secret `SQUARE_WEBHOOK_SIGNATURE_KEY`
-   - Put the exact URL in Cloudflare `SQUARE_WEBHOOK_URL`
+### The payment webhook and "thank you for your order" (built 2026-11-09)
+A webhook is a doorbell: when someone pays, Square rings the website to say "order 123 is paid". That's how the
+website knows to send its own "thank you for your order" email (Square's receipt still goes out too, with the
+prices), and to email you "a gift card to write" for a gift order. Until these steps are done, nothing rings and
+neither email goes out. Everything else keeps working.
+
+1. Go to developer.squareup.com and sign in. Open **Apps** > your app (the one whose access token the website uses).
+2. At the top, switch to **Production** (do the same steps again under **Sandbox** later if you want to test there).
+3. Left menu > **Webhooks** > **Subscriptions** > **Add subscription**:
+   - **Name**: `website payments`
+   - **Notification URL**: `https://ourjkadventures.com/api/square-webhook` (exactly this, with `https://` and no
+     slash at the end)
+   - **API version**: leave the newest one it offers
+   - **Events**: tick `payment.created` and `payment.updated`. Nothing else is needed.
+   - Press **Save**.
+4. Open the new subscription and find **Signature key**. Press **Show** and copy it. Treat it like a house key.
+5. Cloudflare > **Workers & Pages** > **ourjkadventures** > **Settings** > **Variables and Secrets** > **Add**:
+   - type **Secret**, name `SQUARE_WEBHOOK_SIGNATURE_KEY`, value the signature key.
+   - type **Text**, name `SQUARE_WEBHOOK_URL`, value `https://ourjkadventures.com/api/square-webhook` (the same
+     address you typed in step 3, letter for letter: the seal check uses it).
+   - Press **Deploy**.
+6. Back on the subscription in Square, press **Send test event** and pick `payment.updated`. It should show a
+   **200** response. (The test names a made-up order, so no email goes out.) A **403** means the signature key or
+   the URL in Cloudflare doesn't match Square's exactly. A **503** means a setting is missing or Deploy wasn't pressed.
+7. The real test: buy something small yourself (the sandbox is fine if you added a sandbox subscription and are
+   testing with `SQUARE_ENV` set to `sandbox`). Within a minute you should get "thank you for your order" from
+   support@, as well as Square's receipt. A gift order also sends you "a gift card to write".
+
+Good to know:
+- Each order gets one thank-you, however many times Square rings (it often rings twice per payment).
+- If the email can't go out just then, the website answers "try again" and Square rings again later, for up to three
+  days. If the day's 100 emails are already used up, that order's thank-you is skipped rather than sent late.
+- Booth sales (Square Reader) have no shipment on them, so they never get our thank-you. Square's receipt is enough.
+- Later, the collector's path (charges) will listen on this same doorbell.
+
+### Pre-order dates that move (built 2026-11-09)
+If you change a pin's pre-order date (the gear on `/admin`) after people have already paid for it, those orders now
+say the wrong date. **Orders to ship** flags each one with "new date to email". Open it, look at the email under
+"see the email", and press **email the new date**. The buyer gets "a new date for your pre-order", and the new date
+goes onto the Square order (its expected ship date and shipping note), so the flag goes away. If a pin's date moves
+sooner, the email says that's good news. When the pin arrives and you switch pre-order off, nothing is flagged any more.

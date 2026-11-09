@@ -25,6 +25,8 @@
 //   GET  /api/admin/orders   paid website orders not shipped yet, oldest first, each with the email it would get
 //   POST /api/admin/orders   { id, tracking }  email the buyer "on its way" with tracking, then mark it shipped in Square
 //                            (a gift's card then counts as written)
+//   POST /api/admin/orders   { id, moved: true }  a pre-order whose date moved since it was paid: email the buyer the
+//                            new date and put it on the Square order (each order in the list carries moved: { from, to })
 //   GET  /api/admin/gifts    paid gift orders: the note to write on the card, the buyer's email, the address it ships to
 //   POST /api/admin/gifts    { id }  the card is written: off the list
 //   GET  /api/admin/instagram  does the key in cloudflare open @ourjkadventures, and how many reels (never the key)
@@ -43,7 +45,7 @@ import { shopToday } from './preorder-words.js';
 import { notifySummary, sendItsHere } from './notify.js';
 import { adminMedia, addMedia, removeMedia } from './media.js';
 import { giftList, giftDone } from './ship-to.js';
-import { ordersToShip, markShipped } from './shipped.js';
+import { ordersToShip, markShipped, sendMoved } from './shipped.js';
 import { emailConfigured } from './email.js';
 
 // a pre-order date the owner picked: a real day, from today up to two years out. { date } or { error }
@@ -217,6 +219,12 @@ export async function admin(request, env, fetchFn = fetch) {
       if (request.method === 'GET') return list({});
       if (request.method !== 'POST') return json({ error: 'method' }, 405);
       const body = await readJson(request);
+      // a pre-order whose date moved: email the buyer the new date, and move it on the Square order
+      if (body.moved === true) {
+        const moved = await sendMoved(env, origin, body.id, fetchFn);
+        if (moved.error) return json(moved, moved.status || 400);
+        return list({ moved: body.id, emailed: moved.emailed, date: moved.date });
+      }
       const result = await markShipped(env, origin, body.id, body.tracking, fetchFn);
       if (result.error) return json(result, result.status || 400);
       // a gift's card went in the box with it: off the "cards to write" list (never blocks: the order is shipped)

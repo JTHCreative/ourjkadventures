@@ -25,6 +25,7 @@ import { squareMode } from './square.js';
 import { readShopStates, isAvailable, isPreorder, scramble } from './interest.js';
 import { readShopSwitch } from './shop.js';
 import { emailConfigured, emailsLeftToday, sentToday, dailyLimit, sendBatch, escapeHtml } from './email.js';
+import { emailPage, emailImages, para } from './email-look.js';
 
 export const SIGNUPS_PER_DAY = 5;
 const BATCH = 100;
@@ -86,69 +87,36 @@ export function productPath(p) {
 }
 
 /* ---------- the words, and how the email looks ---------- */
-// The pictures are PNG copies kept for email in site/assets/img/email/ (logo.png and one per product slug),
-// because many mail apps (Gmail among them) don't show the site's SVG logo or WebP pictures. They're linked by
-// web address, not attached: lighter, less spam-like, and Resend doesn't allow attachments in a batch send.
-export function emailImages(origin) {
-  return { logo: origin + '/assets/img/email/logo.png', product: (slug) => origin + '/assets/img/email/' + slug + '.png' };
-}
+// the pictures and the letterhead are shared by every email the site sends (server/email-look.js)
+export { emailImages };
 // is there an email picture for this product? (a new pin may not have one yet: then the email simply goes without)
 async function hasPicture(env, origin, slug) {
   try { return (await env.ASSETS.fetch(new Request(origin + '/assets/img/email/' + encodeURIComponent(slug) + '.png'))).ok; } catch (e) { return false; }
 }
 
-// Colors are the site's tokens written out, because mail apps can't read css variables:
-// --accent #bf5249 (balloon-500), --on-accent #ffffff, --ink #3a3532, --ink-muted #6a645e,
-// --surface #f9f9f7 (cream-50), --surface-paper #efe6dd (parchment), --cobalt #10407b.
 // The exclamation marks are the owner's call for this one email (docs/brand-voice.md): it's good news.
 export function itsHereEmail(p, link, stop, pictures) {
   const noun = productNoun(p);
   const name = p.slug === 'golden' ? 'goldie' : p.name;
   const subject = 'the ' + noun + ' is here!';
-  const text = "it's here!\n\n" +
-    'the ' + noun + " you've been waiting for just landed in the shop. we're so happy to finally share it with you.\n\n" +
+  const lead = 'the ' + noun + " you've been waiting for just landed in the shop. we're so happy to finally share it with you.";
+  const why = "you're getting this one email because you asked to hear when the " + noun + ' arrived. ';
+  const text = "it's here!\n\n" + lead + '\n\n' +
     'go see it: ' + link + '\n\n' +
     'thank you for cheering this one on. it means a lot to us.\n\n' +
     'see you in the shop,\nj+k adventures\nourjkadventures.com\n\n' +
-    "you're getting this one email because you asked to hear when the " + noun + ' arrived. ' +
-    "didn't ask, or want no more of these? stop them here: " + stop;
+    why + "didn't ask, or want no more of these? stop them here: " + stop;
   const e = escapeHtml;
-  const font = "Georgia,'EB Garamond','Times New Roman',serif";
-  const logo = pictures && pictures.logo
-    ? '<a href="' + e(link.split('/').slice(0, 3).join('/')) + '/" style="text-decoration:none"><img src="' + e(pictures.logo) +
-      '" width="180" height="99" alt="j+k adventures" style="display:block;margin:0 auto;border:0;width:180px;height:auto"></a>'
-    : '<p style="margin:0;font-family:' + font + ';font-size:24px;color:#3a3532;text-align:center">j+k adventures</p>';
-  const pin = pictures && pictures.product
-    ? '<tr><td align="center" style="padding:8px 24px 8px"><a href="' + e(link) + '"><img src="' + e(pictures.product) +
-      '" width="240" alt="the ' + e(noun) + '" style="display:block;margin:0 auto;border:0;width:240px;max-width:100%;height:auto"></a></td></tr>'
-    : '';
-  const html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<meta name="color-scheme" content="light"><title>' + e(subject) + '</title></head>' +
-    '<body style="margin:0;padding:0;background:#efe6dd">' +
-    // the hidden line some mail apps show next to the subject in the inbox
-    '<div style="display:none;max-height:0;overflow:hidden;opacity:0">the ' + e(noun) + " you've been waiting for just landed in the shop.</div>" +
-    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#efe6dd"><tr><td align="center" style="padding:24px 12px">' +
-    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;background:#f9f9f7;border-radius:16px">' +
-    '<tr><td style="padding:28px 24px 8px">' + logo + '</td></tr>' +
-    '<tr><td style="padding:16px 24px 0;font-family:' + font + ';color:#3a3532;text-align:center">' +
-      '<p style="margin:0;font-size:34px;line-height:40px">it\'s here!</p>' +
-      '<p style="margin:12px 0 0;font-size:18px;line-height:27px">the ' + e(noun) + " you've been waiting for just landed in the shop. we're so happy to finally share it with you.</p>" +
-    '</td></tr>' +
-    pin +
-    '<tr><td align="center" style="padding:16px 24px 8px">' +
-      '<a href="' + e(link) + '" style="display:inline-block;padding:14px 28px;background:#bf5249;color:#ffffff;font-family:' + font +
-      ';font-size:18px;line-height:22px;text-decoration:none;border-radius:999px">go see the ' + e(name) + '</a>' +
-    '</td></tr>' +
-    '<tr><td style="padding:16px 24px 28px;font-family:' + font + ';font-size:17px;line-height:26px;color:#3a3532;text-align:center">' +
-      '<p style="margin:0">thank you for cheering this one on. it means a lot to us.</p>' +
-      '<p style="margin:16px 0 0">see you in the shop,<br>j+k adventures</p>' +
-    '</td></tr>' +
-    '</table>' +
-    '<p style="max-width:520px;margin:16px auto 0;font-family:' + font + ';font-size:13px;line-height:19px;color:#6a645e;text-align:center">' +
-      "you're getting this one email because you asked to hear when the " + e(noun) + ' arrived. ' +
-      "didn't ask, or want no more of these? " + '<a href="' + e(stop) + '" style="color:#10407b">stop them here</a>.' +
-    '</p>' +
-    '</td></tr></table></body></html>';
+  const html = emailPage({
+    origin: link.split('/').slice(0, 3).join('/'),
+    title: "it's here!",
+    preheader: 'the ' + noun + " you've been waiting for just landed in the shop.",
+    picture: pictures && pictures.product ? { src: pictures.product, alt: 'the ' + noun, href: link } : null,
+    body: [para(e(lead))],
+    button: { href: link, label: 'go see the ' + name },
+    signoff: para('thank you for cheering this one on. it means a lot to us.') + para('see you in the shop,<br>j+k adventures', 'margin-top:16px'),
+    footer: e(why) + "didn't ask, or want no more of these? " + '<a href="' + e(stop) + '" style="color:#10407b">stop them here</a>.'
+  });
   return { subject, text, html };
 }
 

@@ -19,9 +19,7 @@ the accounts work is merged to `main`.
    links to test a branch, add that `workers.dev` address too.
 3. **Authentication > Settings > Password policy** (optional): set the minimum length to 8 to match
    the site's own check.
-4. **Authentication > Templates**: set the sender name to "j+k adventures" for each email. To make the
-   emails match the site's voice, ask Claude Code to draft lowercase versions of the verify-email and
-   password-reset text.
+4. **Authentication > Templates**: see "account emails" at the end of this page.
 5. **Build > Firestore Database > Create database**. Choose **Production mode** and a US location
    (for example `us-west1`). The location can't be changed later.
 6. **Firestore Database > Rules**: replace everything with the contents of `firestore.rules` from this
@@ -71,3 +69,67 @@ The shop starts **closed**. It stays closed until you flip the switch on `/admin
 as closed whenever the website can't reach Firestore, so a hiccup never opens it by accident.
 The switch lives in Firestore at `settings/shop` (`open: true` or `false`). Please change it on
 `/admin` rather than in the console, so the change is recorded with your email and time.
+
+## Account emails (2026-11-09)
+"confirm your email", "choose a new password" and "confirm your new email" are sent by **our website**, through
+Resend, in the same letterhead as the order emails (logo, cream card, red button, signed justin and kitty). Firebase
+still makes each link and checks it when it's pressed, but hands it to us instead of sending its own plain email.
+Nothing to set up for that beyond Resend (`setup/email.md`).
+
+Firebase's own templates still matter in two cases, so make them match as far as the console allows:
+- **Backup**: if Resend isn't set up, the day's 100 emails are used up, or our server has a hiccup, the browser asks
+  Firebase to send its own email instead, so nobody is left without a link.
+- **"your email was changed"**: once someone confirms a new email, Firebase itself emails the *old* address with a
+  link to undo it. We can't send that one ourselves.
+
+Steps, in the Firebase console > **Authentication** > **Templates**. Do each of the three email templates
+(**Email address verification**, **Password reset**, **Email address change**):
+1. Press the pencil.
+2. **Sender name**: `j+k adventures`.
+3. **From**: `noreply` @ the address shown is fine. (Optional: once you add `ourjkadventures.com` under
+   **Customize domain**, it can come from `support@ourjkadventures.com` like the others. Firebase walks you through
+   two DNS records in Cloudflare.)
+4. **Reply to**: `support@ourjkadventures.com`.
+5. **Subject** and **Message** as below. Firebase fills in the words in `%...%`. Some templates don't let you change
+   the message (Firebase locks it on some, to stop spam). If the box is greyed out, just set the subject.
+6. Press **Save**.
+
+**Email address verification**
+- Subject: `confirm your email`
+- Message:
+  ```
+  <p>hi there,</p>
+  <p>thanks for making an account with us! press the link to confirm this is your email, so we know it's really you.</p>
+  <p><a href="%LINK%">confirm my email</a></p>
+  <p>didn't make an account at ourjkadventures.com? you can ignore this email.</p>
+  <p>justin and kitty<br>j+k adventures</p>
+  ```
+
+**Password reset**
+- Subject: `choose a new password`
+- Message:
+  ```
+  <p>hi there,</p>
+  <p>someone (we hope it was you) asked to reset the password for your j+k adventures account. press the link to choose a new one.</p>
+  <p><a href="%LINK%">choose a new password</a></p>
+  <p>the link works for an hour. didn't ask? you can ignore this email, and your password stays the same.</p>
+  <p>justin and kitty<br>j+k adventures</p>
+  ```
+
+**Email address change** (goes to the *old* address after a change)
+- Subject: `the email on your account changed`
+- Message:
+  ```
+  <p>hi there,</p>
+  <p>the email on your j+k adventures account was just changed to %NEW_EMAIL%.</p>
+  <p>if that was you, there's nothing to do. if it wasn't, <a href="%LINK%">press here to change it back</a>, then choose a new password. and write to us at support@ourjkadventures.com so we can help.</p>
+  <p>justin and kitty<br>j+k adventures</p>
+  ```
+
+Firebase's emails can't show the logo or the red button, so they'll look plainer than ours. The words match, and in
+day-to-day use people only see ours.
+
+**Check it works** (after Resend is set up): on the site, use "forgot your password?" with your own email. The
+email should come from support@ with the logo and a red "choose a new password" button, not from Firebase's
+noreply address.
+

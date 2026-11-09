@@ -1,4 +1,4 @@
-# Email setup (owner steps): "email me when it's here" and "your order is on its way"
+# Email setup (owner steps): every email the website sends
 
 The website sends email through **Resend** (resend.com). Think of Resend as the website's post office:
 Cloudflare Email Routing only *receives* mail for support@ and forwards it to Gmail, so anything the site
@@ -6,6 +6,24 @@ Cloudflare Email Routing only *receives* mail for support@ and forwards it to Gm
 counts its own emails and stops at 100 a day by itself.
 
 Until step 6 is done, the line under a tapped "i'm interested!" just says "thank you!", with no email box.
+
+## Every email the website sends
+All of them go through Resend, from support@ (replies come back to support@), in one letterhead: the logo on a
+cream card, a lowercase heading, a red button, signed justin and kitty (`server/email-look.js`). They share the
+100-a-day allowance.
+
+| Email | Goes to | When | Needs |
+|---|---|---|---|
+| "the ... pin is here!" | people on a pin's list | you press send on `/admin` (interest and emails) | this page |
+| "thank you for your order" | the buyer | Square says it's paid | this page, and the payment webhook (`setup/square.md`) |
+| "your order is on its way" | the buyer | you press "mark shipped" on `/admin` | this page |
+| "a new date for your pre-order" | buyers of a pin whose date moved | you press "email the new date" on `/admin` | this page |
+| "confirm your email", "choose a new password", "confirm your new email" | the account holder | they make an account, forget a password, or change their email | this page (Firebase sends its own if not, `setup/firebase.md`) |
+| "a review is waiting" | you (`ADMIN_EMAILS`) | someone leaves a review. at most 10 a day | this page |
+| "a gift card to write" | you (`ADMIN_EMAILS`) | a gift order is paid | this page, and the payment webhook |
+
+Square sends its own receipt when someone pays, and Firebase sends "the email on your account changed" to an old
+address after a change. Those two are set up in Square and Firebase.
 
 ## A. Make the account and add the domain (about 15 minutes)
 1. Go to resend.com and sign up with ourjkadventures@gmail.com. Choose the **Free** plan.

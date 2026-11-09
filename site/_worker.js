@@ -8,7 +8,8 @@
 //   FIREBASE_PROJECT_ID, FIREBASE_SERVICE_ACCOUNT  accounts, see server/firebase.js
 //   ADMIN_EMAILS                   who may use /admin, see server/admin.js
 //   INSTAGRAM_ACCESS_TOKEN, META_APP_SECRET, REEL_STORE  the About page's reels, see server/instagram.js
-//   RESEND_API_KEY, EMAIL_FROM, EMAIL_DAILY_LIMIT  "email me when it's here", see server/email.js
+//   RESEND_API_KEY, EMAIL_FROM, EMAIL_DAILY_LIMIT  every email the site sends, see server/email.js
+//   SQUARE_WEBHOOK_SIGNATURE_KEY, SQUARE_WEBHOOK_URL  Square's "it's paid" doorbell, see server/square-webhook.js
 //   REVIEW_PHOTOS                  the R2 bucket for review photos and the owner's product photos, see server/photos.js and server/media.js
 //
 // The account code lives in ../server so it is bundled into this worker but never published as a file.
@@ -20,6 +21,8 @@ import { admin } from '../server/admin.js';
 import { getCatalog, catalogRoute, noteInterest, shippingCharge } from '../server/catalog.js';
 import { interestRoute } from '../server/interest.js';
 import { notifyRoute } from '../server/notify.js';
+import { squareWebhook } from '../server/square-webhook.js';
+import { accountEmailRoute } from '../server/account-emails.js';
 import { stockCounts, squareHost, SQUARE_VERSION } from '../server/square.js';
 import { reelsRoute } from '../server/instagram.js';
 import { mediaRoute } from '../server/media.js';
@@ -39,6 +42,8 @@ export default {
     if (url.pathname === '/api/checkout') return checkout(request, env, url);
     if (url.pathname === '/api/catalog') return catalogRoute(request, env);
     if (url.pathname === '/api/account' || url.pathname === '/api/account/orders') return account(request, env);
+    if (url.pathname.startsWith('/api/account/email/')) return accountEmailRoute(request, env);
+    if (url.pathname === '/api/square-webhook') return squareWebhook(request, env);
     if (url.pathname === '/api/reviews' || url.pathname === '/api/reviews/photo') return reviews(request, env);
     if (url.pathname === '/api/reels') return reelsRoute(request, env);
     if (url.pathname === '/api/media' || url.pathname === '/api/media/photo') return mediaRoute(request, env);
