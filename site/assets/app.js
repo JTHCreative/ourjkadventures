@@ -230,21 +230,49 @@
       bodyEl.appendChild(row);
     });
     if (trimmed) { saveCart(); paintCount(); }
-    var total = el('div', 'total');
-    total.appendChild(el('span', null, 'subtotal'));
-    total.appendChild(el('span', null, money(sum / 100, catalog.currency)));
-    footEl.appendChild(total);
+    // under the items, scrolling with them: the subtotal, the shipping choice and the notes. the strip at the
+    // bottom keeps only the total and the button, so the list gets the room and both are always in sight
+    var summary = el('div', 'bag-summary');
+    var sub = el('div', 'subtotal');
+    sub.appendChild(el('span', null, 'subtotal'));
+    sub.appendChild(el('span', null, money(sum / 100, catalog.currency)));
+    summary.appendChild(sub);
+    bodyEl.appendChild(summary);
     if (!catalog.open || !ready || !catalog.shipping.length) {
-      footEl.appendChild(el('p', 'caption', 'shipping and tax are added at checkout.'));
-      if (!catalog.open) footEl.appendChild(el('p', 'caption', 'the shop opens soon. your bag will keep these for you.'));
+      summary.appendChild(el('p', 'caption', 'shipping and tax are added at checkout.'));
+      if (!catalog.open) summary.appendChild(el('p', 'caption', 'the shop opens soon. your bag will keep these for you.'));
+      paintFoot(sum, catalog.open ? 'check out' : 'coming soon', null);
       return;
     }
-    paintShipping(sum);
-    if (hasPreorder()) footEl.appendChild(el('p', 'caption', preorderTogether()));
-    var go = el('button', 'jka-btn', 'check out');
+    paintShipping(sum, summary);
+    if (hasPreorder()) summary.appendChild(el('p', 'caption', preorderTogether()));
+    paintFoot(sum + shipCents(shipChoice()), 'check out', function () { step = 'address'; paintAddress(); });
+  }
+
+  // what's in the bag that can be bought, in cents, at the prices from /api/catalog (for showing only)
+  function bagSum() {
+    return Object.keys(cart).reduce(function (n, k) {
+      var en = catalog.byKey[k];
+      return buyable(en) ? n + en.size.price_cents * cart[k] : n;
+    }, 0);
+  }
+
+  // the strip at the bottom of the bag: the total (with shipping once it's chosen) and one button, always in sight.
+  // onGo null: the button shows but can't be pressed (the shop is closed, or nothing in the bag can be bought)
+  function paintFoot(cents, label, onGo) {
+    footEl.textContent = '';
+    var row = el('div', 'foot-row');
+    var total = el('div', 'total');
+    total.appendChild(el('span', 'total-label', 'total'));
+    total.appendChild(el('span', 'total-amount', money(cents / 100, catalog.currency)));
+    total.appendChild(el('span', 'total-note', 'plus tax'));
+    var go = el('button', 'jka-btn', label);
     go.type = 'button';
-    go.addEventListener('click', function () { step = 'address'; paintAddress(); });
-    footEl.appendChild(go);
+    if (onGo) go.addEventListener('click', onGo); else go.disabled = true;
+    row.appendChild(total);
+    row.appendChild(go);
+    footEl.appendChild(row);
+    return go;
   }
 
   // a pre-order in the bag holds the whole order: it all ships together once the last pre-order pin arrives
@@ -417,8 +445,6 @@
       return bad;
     }
 
-    var go = el('button', 'jka-btn', 'continue to payment');
-    go.type = 'button';
     var back = el('button', 'linklike', 'back to your bag');
     back.type = 'button';
     back.addEventListener('click', function () { saveShipTo(values()); step = 'bag'; paintDrawer(); });
@@ -435,11 +461,12 @@
       checkout(o);
     }
     form.addEventListener('submit', function (e) { e.preventDefault(); submit(); });
-    go.addEventListener('click', submit);
-    footEl.appendChild(go);
-    footEl.appendChild(back);
-    if (hasPreorder()) footEl.appendChild(el('p', 'caption', preorderTogether()));
-    footEl.appendChild(el('p', 'caption', 'next is square\'s payment page. tax is added there.'));
+    var after = el('div', 'bag-summary');
+    if (hasPreorder()) after.appendChild(el('p', 'caption', preorderTogether()));
+    after.appendChild(el('p', 'caption', 'next is square\'s payment page. tax is added there.'));
+    after.appendChild(back);
+    bodyEl.appendChild(after);
+    paintFoot(bagSum() + shipCents(shipChoice()), 'continue to payment', submit);
 
     if (problem && boxes[problem.field]) {
       flag(problem.field, problem.words || ADDRESS_SAYS[problem.field]);
@@ -468,11 +495,14 @@
     });
     return onlyPins && pins >= o.free_over_cents ? 0 : o.cents;
   }
-  function paintShipping(sum) {
+  // the shipping choice, into `into` (the summary under the items). changing it updates the total at the bottom
+  function paintShipping(sum, into) {
     var box = el('fieldset', 'ship');
     box.appendChild(el('legend', null, 'shipping'));
-    var grand = el('span');
-    function paintGrand() { grand.textContent = money((sum + shipCents(shipChoice())) / 100, catalog.currency); }
+    function paintGrand() {
+      var amount = footEl.querySelector('.total-amount');
+      if (amount) amount.textContent = money((sum + shipCents(shipChoice())) / 100, catalog.currency);
+    }
     catalog.shipping.forEach(function (o) {
       var row = el('label', 'ship-opt');
       var radio = el('input');
@@ -499,13 +529,7 @@
         : notPin ? freeOne.name + ' shipping is free on orders of just pins that come to ' + line + ' or more.'
         : freeOne.name + ' shipping is free when your pins come to ' + line + ' or more.'));
     }
-    footEl.appendChild(box);
-    var total = el('div', 'total');
-    total.appendChild(el('span', null, 'total'));
-    total.appendChild(grand);
-    paintGrand();
-    footEl.appendChild(total);
-    footEl.appendChild(el('p', 'caption', 'tax is added at checkout.'));
+    into.appendChild(box);
   }
 
   function refreshCart(fresh) {

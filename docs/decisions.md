@@ -787,3 +787,11 @@ was merged, and dropped.)
   that's gone, and never guesses one.
 - `preorder_weeks` is gone from `products.json` and the code. Buyers only ever see a date.
 - Orders already paid keep the date they were given.
+
+## The bag: more room for the list, a slim strip for the total (2026-11-09)
+The owner asked for more of the bag to show the items and less to the checkout part, with the total and the button
+always in sight. The subtotal, the shipping choice, the free-shipping line and the pre-order note now sit under the
+items and scroll with them. The strip at the bottom keeps only the total ("plus tax"; it includes the chosen
+shipping and follows a change at once) and one button: "check out", "continue to payment" on the address step, or a
+"coming soon" button that can't be pressed while the shop is closed. On a 360 × 740 phone the strip is 82px and
+the list gets about 570px, room for five pins.
