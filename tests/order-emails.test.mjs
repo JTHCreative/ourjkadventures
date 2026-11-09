@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import { admin } from '../server/admin.js';
 import { _resetCaches } from '../server/firebase.js';
 import { squareWebhook, sealFor, thanksEmail } from '../server/square-webhook.js';
+import { refundEmail } from '../server/refunds.js';
 import { accountEmailRoute, verifyEmail, resetEmail, changeEmail, PER_ADDRESS } from '../server/account-emails.js';
 import { reviewAlertEmail, giftAlertEmail, REVIEW_ALERTS_PER_DAY } from '../server/owner-alerts.js';
 import { reviews, _resetReviewCache } from '../server/reviews.js';
@@ -44,7 +45,7 @@ function setup({ resend = true, orders = {}, hook = true, oob = {} } = {}) {
   _resetReviewCache();
   const w = fakeWorld();
   w.g.docs['settings/square_sandbox'] = { aussie: str('V_AUS'), 'aussie:large': str('V_AUS_L') };
-  const sq = { orders: { ...orders }, puts: [] };
+  const sq = { orders: { ...orders }, puts: [], refunds: {} };
   const sent = [];
   const keys = [];
   const links = [];
@@ -64,6 +65,8 @@ function setup({ resend = true, orders = {}, hook = true, oob = {} } = {}) {
       return Response.json({ email: b.email, oobLink: 'https://jk.firebaseapp.com/__/auth/action?mode=' + b.requestType + '&oobCode=abc' });
     }
     if (url.endsWith('/v2/orders/search')) return Response.json({ orders: Object.values(sq.orders) });
+    const rf = /\/v2\/refunds\/([A-Za-z0-9_-]+)$/.exec(url);
+    if (rf) return sq.refunds[rf[1]] ? Response.json({ refund: sq.refunds[rf[1]] }) : Response.json({ errors: [{ code: 'NOT_FOUND' }] }, { status: 404 });
     const m = /\/v2\/orders\/([A-Za-z0-9_-]+)$/.exec(url);
     if (m) {
       const o = sq.orders[m[1]];
@@ -146,6 +149,7 @@ test('webhook: booth sales, unpaid orders, other events and other locations are 
   pending.data.object.payment.status = 'APPROVED';
   assert.equal((await (await s.ring(pending)).json()).ignored, true);
   assert.equal((await (await s.ring({ type: 'refund.created', data: {} })).json()).ignored, true);
+  assert.equal((await (await s.ring({ type: 'invoice.created', data: { id: 'x' } })).json()).ignored, true);
   // Square's "send test event" names an order that doesn't exist: a 200, so it isn't sent again and again
   const t = await s.ring(s.paid('MADEUP'));
   assert.equal(t.status, 200);
@@ -185,6 +189,51 @@ test('webhook: a hiccup sending the email answers 500, so Square tries again', a
   const r = await squareWebhook(new Request(HOOK, { method: 'POST', headers: { 'x-square-hmacsha256-signature': await sealFor(KEY, HOOK, body) }, body }), s.env, broken);
   assert.equal(r.status, 500);
   assert.equal((await (await s.ring(s.paid('ORD1'))).json()).thanked, true);
+});
+
+/* ---------- refunds ---------- */
+const refunded = (refundId, type = 'refund.created') => ({ type, event_id: 'ev-' + refundId, data: { type: 'refund', id: refundId, object: { refund: { id: refundId, status: 'PENDING' } } } });
+
+test('a refund in Square: one "your refund is on its way", with the amount read from Square', async () => {
+  const s = setup({ orders: { ORD1: order('ORD1') } });
+  s.sq.refunds.R1 = { id: 'R1', status: 'PENDING', location_id: 'loc', order_id: 'ORD1', amount_money: { amount: 3100, currency: 'USD' } };
+  const r = await s.ring(refunded('R1'));
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).emailed, true);
+  const m = s.sent[0];
+  assert.deepEqual(m.to, ['buyer@example.com']);
+  assert.equal(m.subject, 'your refund is on its way');
+  assert.match(m.text, /hi pup,/);
+  assert.match(m.text, /started a refund of \$31\.00 for your order\./);
+  assert.match(m.text, /5 to 10 business days/);
+  assert.match(m.html, /assets\/img\/email\/aussie\.png/);
+  assert.equal(s.keys[0], 'refund-R1');
+  // refund.updated (the bank finished): no second email
+  s.sq.refunds.R1.status = 'COMPLETED';
+  assert.equal((await (await s.ring(refunded('R1', 'refund.updated'))).json()).skipped, 'already');
+  assert.equal(s.sent.length, 1);
+});
+
+test('a partial refund says its own amount, out of the total', async () => {
+  const s = setup({ orders: { ORD1: order('ORD1') } });
+  s.sq.refunds.R2 = { id: 'R2', status: 'PENDING', location_id: 'loc', order_id: 'ORD1', amount_money: { amount: 1500, currency: 'USD' } };
+  await s.ring(refunded('R2'));
+  assert.match(s.sent[0].text, /refund of \$15\.00 for part of your order/);
+  assert.match(s.sent[0].text, /refunded \$15\.00 of \$31\.00/);
+});
+
+test('refunds that send nothing: turned down, a booth sale, another location, a made-up one', async () => {
+  const s = setup({ orders: { ORD1: order('ORD1'), BOOTH: order('BOOTH', { fulfillments: [] }) } });
+  s.sq.refunds.NO = { id: 'NO', status: 'REJECTED', location_id: 'loc', order_id: 'ORD1', amount_money: { amount: 100, currency: 'USD' } };
+  s.sq.refunds.BOOTH = { id: 'BOOTH', status: 'COMPLETED', location_id: 'loc', order_id: 'BOOTH', amount_money: { amount: 100, currency: 'USD' } };
+  s.sq.refunds.ELSE = { id: 'ELSE', status: 'PENDING', location_id: 'other', order_id: 'ORD1', amount_money: { amount: 100, currency: 'USD' } };
+  assert.equal((await (await s.ring(refunded('NO'))).json()).skipped, 'not refunding');
+  assert.equal((await (await s.ring(refunded('BOOTH'))).json()).skipped, 'not a website order');
+  assert.equal((await (await s.ring(refunded('ELSE'))).json()).skipped, 'not ours');
+  const made = await s.ring(refunded('MADEUP'));
+  assert.equal(made.status, 200);
+  assert.equal((await made.json()).skipped, 'no such refund');
+  assert.equal(s.sent.length, 0);
 });
 
 /* ---------- a pre-order's date moved ---------- */
@@ -340,6 +389,7 @@ test('every email: the same letterhead, lowercase words, a plain-text twin, noth
     itsHere: itsHereEmail(corgi, origin + '/pup-club/corgi', origin + '/email.html?stop=x', { logo: origin + '/assets/img/email/logo.png', product: null }),
     thanks: thanksEmail(o, origin),
     shipped: shippedEmail(o, '9400100000000000000000', origin),
+    refund: refundEmail(o, 1200, origin),
     moved: movedEmail(o, { from: inDays(10), to: inDays(30), pins: ['corgi pin'] }, origin),
     verify: verifyEmail('https://link.test/v', 'juniper', origin),
     reset: resetEmail('https://link.test/r', origin),

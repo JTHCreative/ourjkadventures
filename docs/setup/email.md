@@ -17,6 +17,7 @@ cream card, a lowercase heading, a red button, signed justin and kitty (`server/
 | "the ... pin is here!" | people on a pin's list | you press send on `/admin` (interest and emails) | this page |
 | "thank you for your order" | the buyer | Square says it's paid | this page, and the payment webhook (`setup/square.md`) |
 | "your order is on its way" | the buyer | you press "mark shipped" on `/admin` | this page |
+| "your refund is on its way" | the buyer | you refund a website order in Square (all or part) | this page, and the refund events on the payment webhook (`setup/square.md`) |
 | "a new date for your pre-order" | buyers of a pin whose date moved | you press "email the new date" on `/admin` | this page |
 | "confirm your email", "choose a new password", "confirm your new email" | the account holder | they make an account, forget a password, or change their email | this page (Firebase sends its own if not, `setup/firebase.md`) |
 | "a review is waiting" | you (`ADMIN_EMAILS`) | someone leaves a review. at most 10 a day | this page |
