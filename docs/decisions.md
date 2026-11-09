@@ -905,3 +905,12 @@ file and no Apple certificate. The CSR (certificate signing request) Square offe
 inside a native iPhone app, which we don't have; it isn't used. Building our own card form on our pages (Square's Web
 Payments SDK) would need a domain file and a lot more code and testing, for the same Apple Pay button, so we didn't.
 Google Pay, Cash App Pay and Afterpay are separate switches beside it and stay off until the owner asks.
+
+## Order history on /admin, read from Square (2026-11-09)
+The owner asked for an order history under "orders to ship", with the parts folding shut. Square already keeps every
+order, so the history asks Square (`POST /v2/orders/search`: shipments marked completed, newest first, 20 a page with
+Square's own cursor for "show older orders") instead of copying orders into Firestore. Like looking things up in the
+post office's own logbook rather than keeping a second notebook that could drift. Firestore cost: one read of the
+square links document per page opened (to name the pins our way), nothing written. It's read only when the fold is
+opened, so the page costs nothing extra while it's shut. "to ship", "cards still to write" and "order history" are
+`<details>` folds; which are open is kept in that browser (`jka_admin_order_groups`).

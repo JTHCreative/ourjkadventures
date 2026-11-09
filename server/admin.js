@@ -25,6 +25,7 @@
 //   POST /api/admin/media    { slug, jpeg: "<base64>", alt }  add one (shrunk to a 1600px JPEG in the browser first)
 //   DELETE /api/admin/media?id=…  take one down
 //   GET  /api/admin/orders   paid website orders not shipped yet, oldest first, each with the email it would get
+//   GET  /api/admin/orders/history[?cursor=]   paid website orders already shipped, newest first, 20 a page
 //   POST /api/admin/orders   { id, tracking }  email the buyer "on its way" with tracking, then mark it shipped in Square
 //                            (a gift's card then counts as written)
 //   POST /api/admin/orders   { id, moved: true }  a pre-order whose date moved since it was paid: email the buyer the
@@ -47,7 +48,7 @@ import { shopToday } from './preorder-words.js';
 import { notifySummary, sendItsHere, removeWaiting, restoreWaiting } from './notify.js';
 import { adminMedia, addMedia, removeMedia } from './media.js';
 import { giftList, giftDone } from './ship-to.js';
-import { ordersToShip, markShipped, sendMoved } from './shipped.js';
+import { ordersToShip, markShipped, sendMoved, orderHistory } from './shipped.js';
 import { emailConfigured } from './email.js';
 
 // a pre-order date the owner picked: a real day, from today up to two years out. { date } or { error }
@@ -224,6 +225,15 @@ export async function admin(request, env, fetchFn = fetch) {
       const result = await addMedia(env, body, new Set(products.map((p) => p.slug)), user.email, fetchFn);
       if (result.error) return json(result, result.status || 400);
       return withProducts(result);
+    }
+
+    if (route === 'orders/history') {
+      if (request.method !== 'GET') return json({ error: 'method' }, 405);
+      if (!squareConfigured(env)) return json({ orders: [], cursor: null, square: false });
+      // Square's bookmark for the next page: passed back as it came, so only its length and letters are checked
+      const cursor = url.searchParams.get('cursor') || '';
+      if (cursor && !/^[A-Za-z0-9_\-=+/.]{1,2000}$/.test(cursor)) return json({ error: 'bad cursor' }, 400);
+      return json({ ...(await orderHistory(env, url.origin, cursor, fetchFn)), square: true });
     }
 
     if (route === 'orders') {

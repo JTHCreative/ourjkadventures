@@ -597,6 +597,7 @@ function paintOrders(data, done) {
   if (moved) lines.push(moved + (moved === 1 ? ' pre-order needs its new date emailed.' : ' pre-orders need their new date emailed.'));
   if (!data.email) lines.push('email isn\'t set up, so "mark shipped" only marks it in square. see docs/setup/email.md.');
   state.textContent = lines.join(' ');
+  $('[data-ship-count]').textContent = n ? String(n) : 'none';
   data.orders.forEach((o) => box.appendChild(orderRow(o, data)));
 }
 
@@ -810,8 +811,10 @@ function paintGifts(data) {
   box.textContent = '';
   const waiting = new Set(((shipData && shipData.orders) || []).map((o) => o.id));
   const left = giftCards.filter((g) => !waiting.has(g.id));
-  if (!shipData || !left.length) return;
-  box.appendChild(el('h3', 'admin-subtitle', 'cards still to write'));
+  const group = $('[data-gift-group]');
+  group.hidden = !shipData || !left.length;
+  if (group.hidden) return;
+  $('[data-cards-count]').textContent = String(left.length);
   box.appendChild(el('p', 'caption', 'gift orders already marked shipped (in square, say) whose card wasn\'t ticked off here.'));
   left.forEach((g) => {
     const fold = el('details', 'order-fold');
@@ -830,6 +833,100 @@ function paintGifts(data) {
 
 async function loadGifts() {
   try { paintGifts(await api('GET', '/api/admin/gifts')); } catch (e) { /* the orders still show; their cards say "one moment." */ }
+}
+
+/* ---------- the folds in "orders to ship", and the order history ---------- */
+// which folds are open is kept in this browser (to ship starts open, the others shut). storage can come back empty
+const GROUPS_KEY = 'jka_admin_order_groups';
+function wireOrderGroups() {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(GROUPS_KEY) || '{}') || {}; } catch (e) { saved = {}; }
+  document.querySelectorAll('[data-order-group]').forEach((d) => {
+    const name = d.dataset.orderGroup;
+    if (typeof saved[name] === 'boolean') d.open = saved[name];
+    d.addEventListener('toggle', () => {
+      saved[name] = d.open;
+      try { localStorage.setItem(GROUPS_KEY, JSON.stringify(saved)); } catch (e) {}
+      // the history is only read from square when it's opened, a page at a time
+      if (name === 'history' && d.open && !historyLoaded) loadHistory();
+    });
+  });
+  const more = $('[data-history-more]');
+  more.addEventListener('click', () => loadHistory(historyCursor));
+  if ($('[data-history-group]').open) loadHistory();
+}
+
+let historyLoaded = false;
+let historyCursor = null;
+let historyCount = 0;
+let historyBusy = false;
+async function loadHistory(cursor) {
+  if (historyBusy) return;
+  historyBusy = true;
+  const state = $('[data-history-state]');
+  const more = $('[data-history-more]');
+  more.disabled = true;
+  state.textContent = 'one moment.';
+  try {
+    const data = await api('GET', '/api/admin/orders/history' + (cursor ? '?cursor=' + encodeURIComponent(cursor) : ''));
+    historyLoaded = true;
+    const box = $('[data-history-list]');
+    if (!cursor) { box.textContent = ''; historyCount = 0; }
+    if (!data.square) { state.textContent = 'square isn\'t set up yet, so there are no orders to show.'; more.hidden = true; return; }
+    data.orders.forEach((o) => box.appendChild(historyRow(o)));
+    historyCount += data.orders.length;
+    historyCursor = data.cursor;
+    more.hidden = !data.cursor;
+    state.textContent = historyCount ? 'showing ' + historyCount + (historyCount === 1 ? ' shipped order.' : ' shipped orders.') + (data.cursor ? '' : ' that\'s all of them.')
+      : 'nothing shipped yet.';
+  } catch (e) {
+    state.textContent = 'the history didn\'t load. close it and open it again in a moment.';
+    historyLoaded = false;
+  } finally {
+    more.disabled = false;
+    historyBusy = false;
+  }
+}
+
+// one shipped order, folded: number, day it shipped and its tags; opened, what went, to whom and the tracking number
+function historyRow(o) {
+  const fold = el('details', 'order-fold');
+  const sum = el('summary', 'order-summary');
+  sum.appendChild(el('span', 'order-summary-name', 'order ' + o.number));
+  const count = o.items.reduce((n, it) => n + it.qty, 0);
+  const bits = [o.shippedAt ? 'shipped ' + orderDay(o.shippedAt) : orderDay(o.date), count + (count === 1 ? ' item' : ' items')];
+  if (o.gift) bits.push('gift');
+  if (o.preorder) bits.push('pre-order');
+  if (o.refunded) bits.push('refunded');
+  sum.appendChild(el('span', 'caption', bits.filter(Boolean).join(' · ')));
+  fold.appendChild(sum);
+  const body = el('div', 'order-body');
+  body.appendChild(orderPart('order',
+    el('p', 'body-sm', 'order ' + o.number + ', placed ' + orderDay(o.date) + (o.shippedAt ? ', shipped ' + orderDay(o.shippedAt) : '') + '.'),
+    o.total !== null ? el('p', 'body-sm', 'total paid: ' + money(o.total) + (o.refunded ? ' (part or all of it refunded: see square).' : '.')) : null,
+    el('p', 'caption', 'square order id: ' + o.id)));
+  const what = el('ul', 'order-items');
+  o.items.forEach((it) => what.appendChild(el('li', null, (it.qty > 1 ? it.qty + ' × ' : '') + it.name)));
+  body.appendChild(orderPart('what was in it', what, o.shipping ? el('p', 'caption', 'usps ' + o.shipping + ' shipping.') : null));
+  body.appendChild(orderPart('buyer',
+    el('p', 'body-sm', (o.gift ? 'went to: ' : 'name: ') + (o.name || '')),
+    el('p', 'body-sm notify-email', 'email: ' + o.email)));
+  body.appendChild(orderPart('shipped to', addressLines(o.name, o.address)));
+  if (o.gift) body.appendChild(orderPart('gift card', el('p', 'gift-note', o.giftNote ? '\u201c' + o.giftNote + '\u201d' : 'no note: a blank card.')));
+  if (o.tracking) {
+    const a = el('a', null, o.tracking);
+    a.href = 'https://tools.usps.com/go/TrackConfirmAction?tLabels=' + encodeURIComponent(o.tracking);
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.setAttribute('aria-label', 'track order ' + o.number + ' on usps.com (opens a new tab)');
+    const p = el('p', 'order-track', 'usps tracking: ');
+    p.appendChild(a);
+    body.appendChild(orderPart('tracking', p));
+  } else {
+    body.appendChild(orderPart('tracking', el('p', 'caption', 'no tracking number on this one (marked shipped in square, say).')));
+  }
+  fold.appendChild(body);
+  return fold;
 }
 
 /* ---------- featured: what turns in the carousel at the top of the shop ---------- */
@@ -1337,6 +1434,7 @@ async function open() {
   $('#admin-view').hidden = false;
   wireSections();
   try { wireShop(await api('GET', '/api/admin/shop')); } catch (e) { $('[data-shop-state]').textContent = RESTING; }
+  wireOrderGroups();
   loadOrders().then(loadGifts);
   wireProducts();
   loadProducts();

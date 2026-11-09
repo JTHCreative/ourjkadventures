@@ -79,8 +79,21 @@
         <h2 class="admin-title" id="admin-orders-title">orders to ship</h2>
         <p class="caption">paid website orders that haven't gone out yet, oldest first. a gift shows its card to write: write it by hand, tuck it in, and press "card written". then type the usps tracking number and press "mark shipped": the buyer gets the "on its way" email with a tracking button, the order is marked shipped in square, and a gift's card counts as written.</p>
         <p class="body-sm" data-orders-state role="status">one moment.</p>
-        <div data-order-list></div>
-        <div data-gift-list></div>
+        <details class="order-group" data-order-group="ship" open>
+          <summary class="order-summary order-group-title"><span class="order-summary-name">to ship</span><span class="caption" data-ship-count></span></summary>
+          <div data-order-list></div>
+        </details>
+        <details class="order-group" data-order-group="cards" data-gift-group hidden>
+          <summary class="order-summary order-group-title"><span class="order-summary-name">cards still to write</span><span class="caption" data-cards-count></span></summary>
+          <div data-gift-list></div>
+        </details>
+        <details class="order-group" data-order-group="history" data-history-group>
+          <summary class="order-summary order-group-title"><span class="order-summary-name">order history</span></summary>
+          <p class="caption">website orders already marked shipped, newest first, read from square when you open this. each one has its tracking number.</p>
+          <p class="body-sm" data-history-state role="status"></p>
+          <div data-history-list></div>
+          <div class="admin-actions"><button class="jka-btn jka-btn--quiet jka-btn--sm" type="button" data-history-more hidden>show older orders</button></div>
+        </details>
       </section>
 
       <section class="card clean admin-card" aria-labelledby="admin-products-title">
