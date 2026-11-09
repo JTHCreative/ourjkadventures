@@ -752,17 +752,26 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .pup-media[hidden] { display: none; }
 .pup-media-head { display: flex; flex-direction: column; gap: var(--space-1); }
 .pup-media-title { font-size: 26px; line-height: 32px; }
-.pup-media-words { font-size: 17px; line-height: 25px; color: var(--ink-muted); }
 .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: var(--space-3); }
 .media-tile { position: relative; display: block; width: 100%; aspect-ratio: 1 / 1; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-sunken); overflow: hidden; cursor: zoom-in; line-height: 0; }
 .media-tile .media-photo { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.3s ease; }
 .media-tile:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 @media (hover: hover) { .media-tile:hover .media-photo { transform: scale(1.04); } }
 .pup-media .link-btn { align-self: center; }
+/* fade and rise in as it scrolls into view, fade back out as it scrolls away (app.js adds can-reveal and is-in,
+   and leaves both off with "reduce motion" on). the photos follow one after another, --i beats apart */
+.pup-media.can-reveal { opacity: 0; transform: translateY(32px); transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.pup-media.can-reveal.is-in { opacity: 1; transform: none; }
+.pup-media.can-reveal .media-tile { opacity: 0; transform: translateY(16px) scale(0.97); transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1); transition-delay: 0s; }
+.pup-media.can-reveal.is-in .media-tile { opacity: 1; transform: none; transition-delay: calc(0.15s + var(--i, 0) * 0.06s); }
 @media (max-width: 760px) {
   .media-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: var(--space-2); }
 }
-@media (prefers-reduced-motion: reduce) { .media-tile .media-photo { transition: none; } .media-tile:hover .media-photo { transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .media-tile .media-photo { transition: none; }
+  .media-tile:hover .media-photo { transform: none; }
+  .pup-media.can-reveal, .pup-media.can-reveal .media-tile { opacity: 1; transform: none; transition: none; }
+}
 
 @media (max-width: 760px) {
   .pup-stage { flex-direction: column; align-items: stretch; }
@@ -1012,6 +1021,15 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .admin { max-width: 720px; margin: 0 auto; }
 .admin-card { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5); margin-top: var(--space-6); text-align: left; }
 .admin-title { font-size: 26px; line-height: 32px; font-weight: 500; }
+/* each card's title is a button that folds the card up or opens it (site/assets/admin.js) */
+.admin-fold { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 44px; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; border-radius: var(--radius-sm); }
+.admin-fold:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 4px; }
+/* a small chevron: points down while open, right while folded */
+.admin-fold-mark { flex: none; width: 12px; height: 12px; margin-right: 6px; border-right: 2px solid var(--ink-soft); border-bottom: 2px solid var(--ink-soft); transform: translateY(-3px) rotate(45deg); transition: transform 0.2s ease; }
+.admin-card.is-folded .admin-fold-mark { transform: rotate(-45deg); }
+.admin-card-body { display: flex; flex-direction: column; gap: var(--space-3); }
+.admin-card-body[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .admin-fold-mark { transition: none; } }
 .admin-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
 /* the on/off switch: a pill with a knob, honey when the shop is open */
 .switch-row { display: flex; align-items: center; gap: var(--space-3); }

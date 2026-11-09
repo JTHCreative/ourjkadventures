@@ -1091,6 +1091,20 @@
   // only the newest answer is painted, so tapping pups quickly never leaves the wrong pup's photos showing
   var MEDIA_FIRST = 12;
   var mediaAsk = 0;
+  // the card fades and rises into place as it scrolls into view, and fades back out as it scrolls away, like a
+  // light on a sensor that comes on as you walk up. an IntersectionObserver is the browser telling us when the card
+  // comes on or goes off screen, so nothing runs on every scroll. with "reduce motion" on (or an older browser) the
+  // photos simply stay put, no animation
+  var mediaWatch = null;
+  function watchMedia(box) {
+    if (mediaWatch || !window.IntersectionObserver) return;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    box.classList.add('can-reveal');
+    mediaWatch = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { box.classList.toggle('is-in', en.isIntersecting); });
+    }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+    mediaWatch.observe(box);
+  }
   function mediaPupName(slug) {
     var p = catalog && catalog.items[slug];
     return slug === 'golden' ? 'goldie' : (p && p.name) || PUP_BREED[slug] || slug.replace(/-/g, ' ');
@@ -1101,7 +1115,8 @@
     var ask = ++mediaAsk;
     if (!p) { box.hidden = true; return; }
     box.hidden = true;
-    fetch('/api/media?slug=' + encodeURIComponent(p.slug))
+    // always asked fresh (not from the browser's own copy), so a photo just uploaded isn't hidden by an old answer
+    fetch('/api/media?slug=' + encodeURIComponent(p.slug), { cache: 'no-store' })
       .then(function (r) { if (!r.ok) throw new Error('media'); return r.json(); })
       .then(function (data) {
         if (ask !== mediaAsk) return;
@@ -1114,16 +1129,11 @@
   function paintMedia(box, p, photos) {
     var grid = box.querySelector('[data-media-grid]');
     var title = box.querySelector('[data-media-title]');
-    var words = box.querySelector('[data-media-words]');
     var more = box.querySelector('.media-more');
     if (more) more.remove();
     grid.textContent = '';
     if (!photos.length) { box.hidden = true; return; }
     title.textContent = 'photos of the ' + pupName(p);
-    var fromUs = photos.some(function (ph) { return ph.from === 'shop'; });
-    var fromYou = photos.some(function (ph) { return ph.from === 'review'; });
-    words.textContent = fromUs && fromYou ? 'a few from us, and the ones collectors shared with their reviews.'
-      : fromUs ? 'a few we took ourselves.' : 'shared by collectors with their reviews. thank you!';
     var pics = photos.map(function (ph) {
       var pin = mediaPupName(ph.slug);
       var alt = ph.from === 'shop' ? (ph.alt || 'a photo of the ' + pin + ' pin, from us')
@@ -1135,6 +1145,8 @@
       var b = el('button', 'media-tile');
       b.type = 'button';
       b.setAttribute('aria-label', 'open ' + pic.alt);
+      // each photo arrives a beat after the one before it (the later ones after "show all" start their own ripple)
+      b.style.setProperty('--i', String(Math.min(i % MEDIA_FIRST, 11)));
       var img = el('img', 'media-photo');
       img.alt = '';
       img.loading = 'lazy';
@@ -1158,6 +1170,7 @@
       box.appendChild(all);
     }
     box.hidden = false;
+    watchMedia(box);
   }
 
   // Before a photo leaves the phone: shrink it (long side 1600px) and save it as a JPEG. Drawing it fresh like
