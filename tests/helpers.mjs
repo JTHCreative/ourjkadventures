@@ -153,6 +153,10 @@ export function fakeSquare() {
       if (body.order && body.order.fulfillments && body.pre_populated_data && body.pre_populated_data.buyer_email) {
         return Response.json({ errors: [{ category: 'INVALID_REQUEST_ERROR', code: 'CONFLICTING_PARAMETERS', detail: 'Only one of [fulfillment, buyer_email] fields should be set.' }] }, { status: 400 });
       }
+      // and its shipping_fee option needs Square's own address form switched on
+      if (body.checkout_options && body.checkout_options.shipping_fee && body.checkout_options.ask_for_shipping_address === false) {
+        return Response.json({ errors: [{ category: 'INVALID_REQUEST_ERROR', code: 'INVALID_VALUE', detail: "Invalid object `AskForShippingAddress`: AskForShippingAddress cannot be set to 'false' if ShippingFee is present.", field: 'ask_for_shipping_address' }] }, { status: 400 });
+      }
       links.push(body);
       return Response.json({ payment_link: { url: 'https://square.link/u/abc', order_id: 'ORDER_' + links.length } });
     }

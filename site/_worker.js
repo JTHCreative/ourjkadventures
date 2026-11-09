@@ -175,15 +175,20 @@ async function checkout(request, env, url) {
     enable_coupon: false,
     enable_loyalty: false
   };
-  // Square shows this one line on its page and on the receipt, so it says which choice they made.
-  // free ground (pins over $40): no shipping line to charge, and a note on the payment says how to send it
+  // the shipping price is a line on the order itself (a "service charge"), not Square's shipping_fee option:
+  // Square refuses shipping_fee unless its own address form is on, and the form stays off so nobody can change
+  // the address to one we don't ship to. Square shows the line on its page and on the receipt, so it says which
+  // choice they made. Not taxed. free ground (pins over $40): no line, and a note on the payment says how to send it
   const charge = shippingCharge(ship, keys.map((k) => ({ kind: catalog.byKey[k].kind, price_cents: catalog.byKey[k].price_cents, qty: qtyByKey[k] })));
   const notes = [];
   if (preorderKeys.length) notes.push('pre-order: ship the whole order together in about ' + weeks + ' weeks');
   if (charge.free) {
     notes.push('free ' + shipWords);
   } else {
-    options.shipping_fee = { name: shipWords, charge: { amount: charge.cents, currency: currency } };
+    order.service_charges = [{
+      uid: 'shipping', name: shipWords, amount_money: { amount: charge.cents, currency: currency },
+      calculation_phase: 'TOTAL_PHASE', taxable: false
+    }];
   }
   // the payment note shows on the payment in the Square dashboard: a gift says so, with where it goes
   if (gift) notes.push(giftWords + ' ship to: ' + addressLine(address));

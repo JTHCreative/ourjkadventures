@@ -729,3 +729,11 @@ The Square account's checkout settings had coupons switched on. The website's ch
 "no discounts, ever" shouldn't rest on a default. Every checkout now sends `enable_coupon: false` and
 `enable_loyalty: false` (Square loyalty rewards are redeemed as money off), so Square's page shows neither,
 whatever the account's settings say. Tipping is left at Square's default for payment links, which is off.
+
+## Shipping is a line on the order, not Square's shipping fee (2026-11-09)
+The second thing Square refused at checkout, from the live logs: "AskForShippingAddress cannot be set to 'false'
+if ShippingFee is present." Square's `shipping_fee` option only works with its own address form on, and the form
+stays off so the U.S.-only address can't be changed on Square's page. So the shipping price is now an untaxed
+service charge on the order itself (`order.service_charges`, named like "ground shipping (2 to 5 days)"). Square
+shows it as its own line on its page and the receipt. Free ground still sends no line, just the payment note.
+The fake Square in `tests/helpers.mjs` refuses `shipping_fee` with the form off, as the real one does.
