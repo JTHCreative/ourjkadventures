@@ -124,6 +124,55 @@ export async function ordersToShip(env, origin, fetchFn = fetch) {
   return orders.map((o) => view(o, nameLine, origin, states));
 }
 
+/* ---------- order history: website orders already shipped ---------- */
+// one shipped order as the history shows it: what went, to whom, when, and its tracking number. no email preview
+export function pastView(o, nameLine) {
+  const f = shipmentOf(o);
+  const d = f.shipment_details || {};
+  const r = d.recipient || {};
+  const a = r.address || {};
+  const meta = o.metadata || {};
+  return {
+    id: o.id,
+    number: o.id.slice(-6).toUpperCase(),
+    date: o.created_at || '',
+    shippedAt: d.shipped_at || o.closed_at || '',
+    name: r.display_name || '',
+    email: r.email_address || '',
+    address: { line1: a.address_line_1 || '', line2: a.address_line_2 || '', city: a.locality || '', state: a.administrative_district_level_1 || '', zip: a.postal_code || '' },
+    shipping: d.shipping_type || '',
+    tracking: cleanTracking(d.tracking_number) || '',
+    gift: meta.gift === 'yes',
+    giftNote: meta.gift === 'yes' ? giftMessage(o) : '',
+    preorder: meta.preorder === 'yes',
+    refunded: !!(o.refunds && o.refunds.length),
+    total: o.total_money && typeof o.total_money.amount === 'number' ? o.total_money.amount : null,
+    items: (o.line_items || []).map(nameLine)
+  };
+}
+
+// paid website orders whose shipment has gone out, newest first, a page at a time. read from Square each time
+// (nothing is kept in Firestore); `cursor` is Square's own bookmark for the next page
+export const HISTORY_PAGE = 20;
+export async function orderHistory(env, origin, cursor, fetchFn = fetch) {
+  const body = {
+    location_ids: [env.SQUARE_LOCATION_ID],
+    limit: HISTORY_PAGE,
+    query: {
+      filter: {
+        state_filter: { states: ['OPEN', 'COMPLETED'] },
+        fulfillment_filter: { fulfillment_types: ['SHIPMENT'], fulfillment_states: ['COMPLETED'] }
+      },
+      sort: { sort_field: 'CREATED_AT', sort_order: 'DESC' }
+    }
+  };
+  if (cursor) body.cursor = cursor;
+  const data = await square(env, 'POST', '/v2/orders/search', body, fetchFn);
+  const nameLine = await namer(env, origin, fetchFn);
+  const orders = (data.orders || []).filter((o) => isPaid(o) && shipmentOf(o) && shipmentOf(o).state === 'COMPLETED');
+  return { orders: orders.map((o) => pastView(o, nameLine)), cursor: data.cursor || null };
+}
+
 /* ---------- the email ---------- */
 // "pup person" -> "hi pup,". a gift's name is the person it's going to, so a gift says "hi there,"
 export function hello(order) {

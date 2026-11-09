@@ -1128,6 +1128,12 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .order-part + .order-part { border-top: 1px dashed var(--line); padding-top: var(--space-4); }
 .order-part-title { font-size: 16px; line-height: 22px; font-weight: 500; letter-spacing: 0.04em; color: var(--ink-muted); }
 .gift-card-done { color: var(--ink-soft); }
+/* the three folds inside "orders to ship" on /admin: to ship, cards still to write, order history */
+.order-group { margin-top: var(--space-5); }
+.order-group-title { padding-left: 0; padding-right: 0; border-bottom: 1.5px solid var(--line); }
+.order-group[open] > .order-summary::before { transform: rotate(45deg); }
+.order-group > .caption, .order-group > .body-sm { margin-top: var(--space-3); }
+.order-track { font-size: 18px; line-height: 26px; overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) { .order-summary::before { transition: none; } }
 .gift-card { display: flex; flex-direction: column; gap: var(--space-2); margin-bottom: var(--space-2); padding: var(--space-3) var(--space-4); border: 1.5px dashed var(--line-strong); border-radius: var(--radius-md); background: var(--surface); }
 .gift-card-title { font-weight: 500; color: var(--ink); }

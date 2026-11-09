@@ -96,6 +96,49 @@ test('the list: paid website orders with a shipment still to go, in our own name
   assert.deepEqual(q.query.filter.fulfillment_filter.fulfillment_types, ['SHIPMENT']);
 });
 
+test('order history: shipped website orders, newest first, a page at a time, read from Square', async () => {
+  const sent = (id, extra = {}) => order(id, { state: 'COMPLETED', fulfillments: [{ ...order('x').fulfillments[0], state: 'COMPLETED',
+    shipment_details: { ...order('x').fulfillments[0].shipment_details, tracking_number: '9400 1000 0000', shipped_at: '2026-11-10T18:00:00Z' } }], ...extra });
+  const s = setup({ orders: {
+    SENT: sent('SENT', { metadata: { gift: 'yes', gift_note: 'happy birthday' }, refunds: [{ id: 'r1' }], total_money: { amount: 3100, currency: 'USD' } }),
+    WAITING: order('WAITING'),
+    UNPAID: sent('UNPAID', { tenders: undefined })
+  } });
+  const get = async (q = '', token) => admin(new Request('https://x.test/api/admin/orders/history' + q, {
+    headers: { Authorization: 'Bearer ' + (token || await sign({ email: OWNER })) }
+  }), s.env, (url, opts) => {
+    if (String(url).endsWith('/v2/orders/search')) {
+      s.sq.searches.push(JSON.parse(opts.body));
+      return Response.json({ orders: Object.values(s.sq.orders), cursor: 'NEXT_PAGE' });
+    }
+    return s.fetchFn(url, opts);
+  });
+  const res = await (await get()).json();
+  assert.deepEqual(res.orders.map((o) => o.id), ['SENT']);
+  const o = res.orders[0];
+  assert.equal(o.tracking, '940010000000');
+  assert.equal(o.shippedAt, '2026-11-10T18:00:00Z');
+  assert.equal(o.gift, true);
+  assert.equal(o.giftNote, 'happy birthday');
+  assert.equal(o.refunded, true);
+  assert.equal(o.total, 3100);
+  assert.equal(o.items[0].name, 'large aussie pin');
+  assert.equal(o.preview, undefined);
+  assert.equal(res.cursor, 'NEXT_PAGE');
+  const q = s.sq.searches[0];
+  assert.deepEqual(q.location_ids, ['loc']);
+  assert.deepEqual(q.query.filter.fulfillment_filter.fulfillment_states, ['COMPLETED']);
+  assert.equal(q.query.sort.sort_order, 'DESC');
+  assert.equal(q.limit, 20);
+  assert.equal(q.cursor, undefined);
+  // the next page passes Square's bookmark back as it came
+  await get('?cursor=NEXT_PAGE');
+  assert.equal(s.sq.searches[1].cursor, 'NEXT_PAGE');
+  assert.equal((await get('?cursor=' + encodeURIComponent('<script>'))).status, 400);
+  // owner only
+  assert.equal((await get('', await sign({ email: 'someone@example.com' }))).status, 403);
+});
+
 test('mark shipped: one email with tracking, then Square steps the shipment to completed', async () => {
   const s = setup({ orders: { ORD1: order('ORD1') } });
   const r = await s.call('POST', { id: 'ORD1', tracking: '9400 1000 0000 0000 0000 00' });

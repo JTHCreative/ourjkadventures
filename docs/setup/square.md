@@ -230,3 +230,23 @@ say the wrong date. **Orders to ship** flags each one with "new date to email". 
 "see the email", and press **email the new date**. The buyer gets "a new date for your pre-order", and the new date
 goes onto the Square order (its expected ship date and shipping note), so the flag goes away. If a pin's date moves
 sooner, the email says that's good news. When the pin arrives and you switch pre-order off, nothing is flagged any more.
+
+### Apple Pay at checkout (built 2026-11-09)
+The website now asks Square to show the Apple Pay button on its checkout page. On an iPhone, iPad or Mac (Safari) with
+a card in Apple Wallet, buyers see "Pay with Apple Pay" above the card form; everyone else sees the card form as before.
+The money, the order, the receipt and the "orders to ship" list are all the same as a card payment.
+
+You do **not** need the CSR (certificate signing request) file from Square's Apple Pay page. That file is for iPhone
+apps built with Square's In-App Payments SDK. Leave it unused; don't upload it to Apple. No file needs adding to the
+website either, because the checkout page is on Square's own web address, which Square has already registered with Apple.
+
+1. In the Square Dashboard, open **Settings > Payments** (or **Online checkout > Settings**, depending on your
+   dashboard) and make sure **Apple Pay** is turned on for online payments. If there's no switch, it's on by default.
+2. Deploy `main` (Cloudflare picks it up on its own).
+3. Check it on sandbox first if you like: with `SQUARE_ENV=sandbox`, add a pin to the bag on an iPhone and press
+   check out. Square's sandbox page shows the Apple Pay button but won't charge a real card.
+4. On the live site, open the bag on an iPhone with a card in Wallet, press check out, and look for the Apple Pay
+   button on Square's page. You can close the page without paying.
+5. If the button doesn't show: make sure Apple Pay is on in Square (step 1), that you're in Safari (or Chrome on
+   iOS 16+), and that Wallet has a card. A Square account that can't take Apple Pay just shows the card form, and the
+   order still works.
