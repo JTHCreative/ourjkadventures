@@ -167,6 +167,9 @@ export function fakeSquare() {
     if (url.endsWith('/v2/orders/calculate') || url.endsWith('/v2/orders')) {
       const body = JSON.parse(opts.body);
       const o = body.order;
+      // like the real one: a uid may hold only letters, numbers, dots, underscores and hyphens
+      const badUid = [...o.line_items, ...(o.service_charges || [])].find((l) => l.uid !== undefined && !/^[A-Za-z0-9._-]+$/.test(l.uid));
+      if (badUid) return Response.json({ errors: [{ code: 'INVALID_VALUE', detail: 'Invalid uid: `' + badUid.uid + '`.', category: 'INVALID_REQUEST_ERROR' }] }, { status: 400 });
       const line_items = o.line_items.map((l) => {
         const v = variations().find((x) => x.id === l.catalog_object_id);
         const price = v.item_variation_data.price_money.amount;

@@ -155,3 +155,13 @@ test('free ground over $40 sends no shipping line on the paid order either', asy
   assert.equal(sq.orders[0].order.service_charges, undefined);
   assert.match(sq.payments[0].body.note, /free ground shipping/);
 });
+
+test('a large pin can be quoted and paid for (its line uid has no ":", which Square refuses)', async () => {
+  const { env, sq } = setup();
+  const q = await (await quote(env, { items: [{ key: 'aussie', qty: 1 }, { key: 'aussie:large', qty: 1 }] })).json();
+  assert.deepEqual(q.lines, [{ key: 'aussie', qty: 1, cents: 1200 }, { key: 'aussie:large', qty: 1, cents: 1500 }]);
+  const r = await pay(env, { items: [{ key: 'aussie:large', qty: 2 }] });
+  assert.equal(r.status, 200);
+  assert.equal(sq.orders[0].order.line_items[0].uid, 'aussie.large');
+  assert.equal(sq.payments.length, 1);
+});
