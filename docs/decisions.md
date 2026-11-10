@@ -982,3 +982,4 @@ finish."), with "pay by card instead" beside it. The charge happens only when "p
 The wallet showed one total, so changing the bag, shipping or tip after the tap drops the token and asks for the
 wallet again rather than charging a different amount than it showed. A token is used once: after any answer from
 the server it's dropped too (a dropped connection keeps it, and the same pay press can't charge twice).
+The tip section now sits above payment, so picking a tip comes before tapping a wallet and doesn't ask for it again.

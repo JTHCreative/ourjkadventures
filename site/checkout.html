@@ -129,6 +129,20 @@
         </fieldset>
       </section>
 
+      <section class="co-section" aria-labelledby="co-tip-title" data-co-tip-section hidden>
+        <h2 class="co-h" id="co-tip-title">support our adventure!</h2>
+        <p class="caption">support us on our adventure to expand our collection and spread happiness and kindness one pin at a time.</p>
+        <fieldset class="co-tips">
+          <legend class="sr-only">tip</legend>
+          <div class="co-tip-grid" data-co-tip-options></div>
+          <div class="field co-tip-own" data-co-tip-own hidden>
+            <label for="co-tip-amount">your own tip, in dollars</label>
+            <input id="co-tip-amount" type="text" inputmode="decimal" autocomplete="off" maxlength="7" placeholder="3.00" aria-describedby="co-tip-msg">
+            <p class="form-msg" id="co-tip-msg" hidden></p>
+          </div>
+        </fieldset>
+      </section>
+
       <section class="co-section" aria-labelledby="co-pay-title">
         <h2 class="co-h" id="co-pay-title">payment</h2>
         <!-- Square's own card form goes in here (the Web Payments SDK). the card number is typed straight into
@@ -150,20 +164,6 @@
         </div>
         <!-- no card form set up yet: Square's own payment page takes over after this one -->
         <p class="caption" data-co-hosted hidden>after this, square's payment page opens for your card or apple pay. it's where we take payments.</p>
-      </section>
-
-      <section class="co-section" aria-labelledby="co-tip-title" data-co-tip-section hidden>
-        <h2 class="co-h" id="co-tip-title">support our adventure!</h2>
-        <p class="caption">support us on our adventure to expand our collection and spread happiness and kindness one pin at a time.</p>
-        <fieldset class="co-tips">
-          <legend class="sr-only">tip</legend>
-          <div class="co-tip-grid" data-co-tip-options></div>
-          <div class="field co-tip-own" data-co-tip-own hidden>
-            <label for="co-tip-amount">your own tip, in dollars</label>
-            <input id="co-tip-amount" type="text" inputmode="decimal" autocomplete="off" maxlength="7" placeholder="3.00" aria-describedby="co-tip-msg">
-            <p class="form-msg" id="co-tip-msg" hidden></p>
-          </div>
-        </fieldset>
       </section>
 
       <div class="co-pay">
