@@ -246,3 +246,41 @@ test('the email reads well without a name, a picture or a shipping choice', () =
   assert.ok(!m.html.includes('undefined'));
   assert.ok(m.html.includes('<!doctype html>'));
 });
+
+test('remove from history: hidden on /admin only (the order stays in Square), with a list to put it back from', async () => {
+  const sent = (id) => order(id, { state: 'COMPLETED', fulfillments: [{ ...order('x').fulfillments[0], state: 'COMPLETED' }] });
+  const s = setup({ orders: { KEEP: sent('KEEP'), TEST: sent('TEST') } });
+  // Square's search and its look-up by id, like the real ones
+  const fetchFn = (url, opts) => {
+    url = String(url);
+    if (url.endsWith('/v2/orders/search')) return Response.json({ orders: Object.values(s.sq.orders) });
+    if (url.endsWith('/v2/orders/batch-retrieve')) {
+      const ids = JSON.parse(opts.body).order_ids;
+      return Response.json({ orders: ids.map((id) => s.sq.orders[id]).filter(Boolean) });
+    }
+    return s.fetchFn(url, opts);
+  };
+  const call = async (method, q = '', body, email = OWNER) => admin(new Request('https://x.test/api/admin/orders/history' + q, {
+    method, headers: { Authorization: 'Bearer ' + await sign({ email }), ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined
+  }), s.env, fetchFn);
+  const ids = async (q) => (await (await call('GET', q)).json()).orders.map((o) => o.id);
+
+  assert.deepEqual(await ids(''), ['KEEP', 'TEST']);
+  assert.equal((await call('POST', '', { id: 'TEST', removed: true })).status, 200);
+  assert.deepEqual(await ids(''), ['KEEP']);
+  assert.deepEqual(await ids('?removed=1'), ['TEST']);
+  // only the order id and when are kept: nothing about the buyer
+  assert.deepEqual(Object.keys(s.g.docs['hidden_orders_sandbox/TEST']), ['createdAt']);
+  // put back
+  assert.equal((await call('POST', '', { id: 'TEST', removed: false })).status, 200);
+  assert.deepEqual(await ids(''), ['KEEP', 'TEST']);
+  assert.deepEqual(await ids('?removed=1'), []);
+  // nothing in Square changed
+  assert.equal(s.sq.puts.length, 0);
+  // checked, and owner only
+  assert.equal((await call('POST', '', { id: '../users', removed: true })).status, 400);
+  assert.equal((await call('POST', '', { id: 'TEST', removed: 'yes' })).status, 400);
+  assert.equal((await call('POST', '', { id: 'TEST', removed: true }, 'someone@example.com')).status, 403);
+  assert.equal(s.g.docs['hidden_orders_sandbox/TEST'], undefined);
+});

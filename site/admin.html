@@ -89,10 +89,17 @@
         </details>
         <details class="order-group" data-order-group="history" data-history-group>
           <summary class="order-summary order-group-title"><span class="order-summary-name">order history</span></summary>
-          <p class="caption">website orders already marked shipped, newest first, read from square when you open this. each one has its tracking number.</p>
+          <p class="caption">website orders already marked shipped, and ones refunded before they shipped, newest first, read from square when you open this. "remove from history" only hides one here: it stays in square for your records.</p>
           <p class="body-sm" data-history-state role="status"></p>
           <div data-history-list></div>
           <div class="admin-actions"><button class="jka-btn jka-btn--quiet jka-btn--sm" type="button" data-history-more hidden>show older orders</button></div>
+          <div class="history-removed">
+            <button class="linklike" type="button" data-history-removed-toggle aria-expanded="false">show removed orders</button>
+            <div data-history-removed hidden>
+              <p class="body-sm" data-history-removed-state role="status"></p>
+              <div data-history-removed-list></div>
+            </div>
+          </div>
         </details>
       </section>
 

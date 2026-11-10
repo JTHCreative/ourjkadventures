@@ -10,7 +10,8 @@
 //
 // Unlike server/square.js, this file writes to Square: it needs ORDERS_WRITE (a personal access token has it).
 
-import { SQUARE_VERSION, squareHost, squareConfigured } from './square.js';
+import { SQUARE_VERSION, squareHost, squareConfigured, squareMode } from './square.js';
+import { configured as firebaseConfigured, firestoreList, firestoreSet, firestoreDelete } from './firebase.js';
 import { readLinks, siteProducts, siteKeys } from './catalog.js';
 import { emailConfigured, emailsLeftToday, sendBatch, escapeHtml } from './email.js';
 import { productNoun, productPath } from './notify.js';
@@ -186,10 +187,50 @@ export async function orderHistory(env, origin, cursor, fetchFn = fetch) {
     }
   };
   if (cursor) body.cursor = cursor;
-  const data = await square(env, 'POST', '/v2/orders/search', body, fetchFn);
+  const [data, hidden] = await Promise.all([square(env, 'POST', '/v2/orders/search', body, fetchFn), hiddenOrderIds(env, fetchFn)]);
   const nameLine = await namer(env, origin, fetchFn);
-  const orders = (data.orders || []).filter((o) => isPaid(o) && shipmentOf(o) && (shipmentOf(o).state === 'COMPLETED' || refundedAll(o)));
+  const orders = (data.orders || []).filter((o) => isPaid(o) && shipmentOf(o) && (shipmentOf(o).state === 'COMPLETED' || refundedAll(o)) && !hidden.has(o.id));
   return { orders: orders.map((o) => pastView(o, nameLine)), cursor: data.cursor || null };
+}
+
+/* ---------- orders taken out of the history (/admin only) ---------- */
+// Square won't delete a paid order (it's part of the sales and tax records), so "remove from history" only hides it
+// on /admin, like crossing a page out of a receipt book rather than tearing it out. Firestore hidden_orders_<mode>/<id>
+// keeps just the order id and when, nothing about the buyer. the order stays in Square and its reports
+const hiddenCollection = (env) => 'hidden_orders_' + squareMode(env);
+const ORDER_ID = /^[A-Za-z0-9_-]{1,64}$/;
+export const HIDDEN_MAX = 300;
+
+// the ids hidden from the history. unreadable (or no Firestore): nothing is hidden, the history still shows
+export async function hiddenOrderIds(env, fetchFn = fetch) {
+  if (!firebaseConfigured(env)) return new Set();
+  try { return new Set((await firestoreList(env, hiddenCollection(env), HIDDEN_MAX, fetchFn)).map((d) => d.id)); } catch (e) {
+    console.log('hidden orders: ' + e.message);
+    return new Set();
+  }
+}
+
+// hide one (hidden: true) or put it back (false). { ok } or { error, status }
+export async function hideOrder(env, id, hidden, fetchFn = fetch) {
+  if (typeof id !== 'string' || !ORDER_ID.test(id) || typeof hidden !== 'boolean') return { error: 'bad request', status: 400 };
+  if (!firebaseConfigured(env)) return { error: 'not configured', status: 503 };
+  if (hidden) await firestoreSet(env, hiddenCollection(env) + '/' + id, { createdAt: new Date() }, fetchFn);
+  else await firestoreDelete(env, hiddenCollection(env) + '/' + id, fetchFn);
+  return { ok: true };
+}
+
+// the hidden ones, read from Square as the history shows them, newest first
+export async function hiddenHistory(env, origin, fetchFn = fetch) {
+  const ids = [...(await hiddenOrderIds(env, fetchFn))];
+  if (!ids.length) return [];
+  const found = [];
+  for (let i = 0; i < ids.length; i += 100) {
+    const data = await square(env, 'POST', '/v2/orders/batch-retrieve', { location_id: env.SQUARE_LOCATION_ID, order_ids: ids.slice(i, i + 100) }, fetchFn);
+    found.push(...(data.orders || []));
+  }
+  const nameLine = await namer(env, origin, fetchFn);
+  return found.filter((o) => shipmentOf(o)).map((o) => pastView(o, nameLine))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
 }
 
 /* ---------- the email ---------- */

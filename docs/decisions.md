@@ -1002,3 +1002,10 @@ by mistake, and the order history only listed shipped orders. Now an order refun
 didn't turn down add up to its total or more; a refund can include the tip) leaves "to ship" and shows in "order
 history" as "refunded · not shipped", or "refunded" if it had shipped. One partly refunded says "partly refunded" in
 either list and stays in "to ship" until it goes out. Read from Square each time, as before: nothing new is kept.
+
+## "Remove from history" hides an order on /admin; it stays in Square (2026-11-10)
+The owner asked to delete orders from the order history (test orders, refunded ones). Square won't delete a paid
+order: it's part of the sales and tax records. So "remove from history" hides it on `/admin` only, with an undo, and
+"show removed orders" at the bottom of the history lists them with "put back in history". Firestore
+`hidden_orders_<mode>/<square order id>` keeps only `createdAt`. Square's own reports still count the order; only a
+sandbox order stays out of the real account entirely.
