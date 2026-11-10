@@ -971,6 +971,10 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 
 /* payment: Square's card form (its own frame, given our colours by checkout.js), Apple Pay and Google Pay */
 .co-card { min-height: 56px; }
+.co-card[hidden] { display: none; }
+.co-wallet-ready { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-4); padding: var(--space-3) var(--space-4); background: var(--surface-raised); border: 1.5px solid var(--accent); border-radius: var(--radius-sm); }
+.co-wallet-ready[hidden] { display: none; }
+.co-wallet-ready p { margin: 0; }
 .co-wallets { display: flex; flex-direction: column; gap: var(--space-3); }
 .co-wallets[hidden], .co-apple-pay[hidden], .co-google-pay[hidden], .co-or[hidden] { display: none; }
 .co-apple-pay { -webkit-appearance: -apple-pay-button; -apple-pay-button-type: plain; -apple-pay-button-style: black; display: block; width: 100%; height: 48px; border: 0; border-radius: var(--radius-sm); cursor: pointer; }
