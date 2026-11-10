@@ -995,3 +995,10 @@ The tip section now sits above payment, so picking a tip comes before tapping a 
   through, goes to the thank-you page (which empties the bag). The same press can't charge twice either: the server
   checks its note before charging. Chosen over matching recent orders by email and items, which could block an
   honest second order and slows every payment. Covers the same browser only; a retry on another device isn't caught.
+
+## Refunded orders on /admin (2026-11-10)
+An order refunded before it shipped stayed in "orders to ship" (its shipment was still waiting), so it could be packed
+by mistake, and the order history only listed shipped orders. Now an order refunded in full (refunds that Square
+didn't turn down add up to its total or more; a refund can include the tip) leaves "to ship" and shows in "order
+history" as "refunded · not shipped", or "refunded" if it had shipped. One partly refunded says "partly refunded" in
+either list and stays in "to ship" until it goes out. Read from Square each time, as before: nothing new is kept.

@@ -78,10 +78,15 @@ test('the list: paid website orders with a shipment still to go, in our own name
     PAID: order('PAID'),
     UNPAID: order('UNPAID', { tenders: undefined }),
     BOOTH: order('BOOTH', { fulfillments: [] }),
-    SENT: order('SENT', { fulfillments: [{ ...order('x').fulfillments[0], state: 'COMPLETED' }] })
+    SENT: order('SENT', { fulfillments: [{ ...order('x').fulfillments[0], state: 'COMPLETED' }] }),
+    // refunded in full: nothing to send. partly refunded: still to send, and says so
+    BACK: order('BACK', { refunds: [{ id: 'r1', status: 'COMPLETED', amount_money: { amount: 2700, currency: 'USD' } }], total_money: { amount: 2500, currency: 'USD' } }),
+    PART: order('PART', { refunds: [{ id: 'r2', status: 'PENDING', amount_money: { amount: 1200, currency: 'USD' } }], total_money: { amount: 3100, currency: 'USD' } })
   } });
   const res = await (await s.call('GET')).json();
-  assert.deepEqual(res.orders.map((o) => o.id), ['PAID']);
+  assert.deepEqual(res.orders.map((o) => o.id), ['PAID', 'PART']);
+  assert.equal(res.orders[1].refunded, true);
+  assert.equal(res.orders[0].refunded, false);
   const o = res.orders[0];
   assert.equal(o.number, 'PAID');
   assert.deepEqual(o.items, [
@@ -102,7 +107,11 @@ test('order history: shipped website orders, newest first, a page at a time, rea
   const s = setup({ orders: {
     SENT: sent('SENT', { metadata: { gift: 'yes', gift_note: 'happy birthday' }, refunds: [{ id: 'r1' }], total_money: { amount: 3100, currency: 'USD' } }),
     WAITING: order('WAITING'),
-    UNPAID: sent('UNPAID', { tenders: undefined })
+    UNPAID: sent('UNPAID', { tenders: undefined }),
+    // refunded in full before it shipped: in the history, marked so
+    BACK: order('BACK', { refunds: [{ id: 'r2', status: 'COMPLETED', amount_money: { amount: 3100, currency: 'USD' } }], total_money: { amount: 3100, currency: 'USD' } }),
+    // a refund Square turned down doesn't count
+    TRIED: order('TRIED', { refunds: [{ id: 'r3', status: 'REJECTED', amount_money: { amount: 3100, currency: 'USD' } }], total_money: { amount: 3100, currency: 'USD' } })
   } });
   const get = async (q = '', token) => admin(new Request('https://x.test/api/admin/orders/history' + q, {
     headers: { Authorization: 'Bearer ' + (token || await sign({ email: OWNER })) }
@@ -114,8 +123,13 @@ test('order history: shipped website orders, newest first, a page at a time, rea
     return s.fetchFn(url, opts);
   });
   const res = await (await get()).json();
-  assert.deepEqual(res.orders.map((o) => o.id), ['SENT']);
+  assert.deepEqual(res.orders.map((o) => o.id), ['SENT', 'BACK']);
+  const back = res.orders[1];
+  assert.equal(back.shipped, false);
+  assert.equal(back.refundedAll, true);
   const o = res.orders[0];
+  assert.equal(o.shipped, true);
+  assert.equal(o.refundedAll, false);
   assert.equal(o.tracking, '940010000000');
   assert.equal(o.shippedAt, '2026-11-10T18:00:00Z');
   assert.equal(o.gift, true);
@@ -127,7 +141,7 @@ test('order history: shipped website orders, newest first, a page at a time, rea
   assert.equal(res.cursor, 'NEXT_PAGE');
   const q = s.sq.searches[0];
   assert.deepEqual(q.location_ids, ['loc']);
-  assert.deepEqual(q.query.filter.fulfillment_filter.fulfillment_states, ['COMPLETED']);
+  assert.deepEqual(q.query.filter.fulfillment_filter.fulfillment_states, ['PROPOSED', 'RESERVED', 'PREPARED', 'COMPLETED']);
   assert.equal(q.query.sort.sort_order, 'DESC');
   assert.equal(q.limit, 20);
   assert.equal(q.cursor, undefined);
