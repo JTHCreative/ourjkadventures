@@ -275,6 +275,10 @@ and then sends people to Square's hosted payment page exactly as before (no tip 
    `ourjkadventures.com`, and download the **domain verification file** Square gives you. Send it to us to put on
    the site (it has to live at `/.well-known/apple-developer-merchantid-domain-association`), then press **Verify** in
    the console. Until then the Apple Pay button simply doesn't show; cards and Google Pay still work.
+   *Done 2026-11-10:* the file is on the site (`server/apple-pay.js`). Check that
+   `https://ourjkadventures.com/.well-known/apple-developer-merchantid-domain-association` shows a long line of
+   letters and numbers, then press **Verify**. Add `ourjkadventures.com` only, not www (www moves to the plain address).
+   Sandbox has its own Apple Pay page: the same file works there, verify it there too if you test in sandbox.
 7. **Google Pay** needs nothing from you: the button shows in Chrome and on Android for people with a card saved.
 8. **Tips** show on each payment in the Square Dashboard and in **Reports > Sales summary** under tips. They're the
    buyer's own choice, "no tip" is picked to start with, and they're never taken off anything.

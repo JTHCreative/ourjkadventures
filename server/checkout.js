@@ -22,6 +22,7 @@ import { cleanShipTo, cleanGift, squareAddress, addressLine, noteGift } from './
 import { shopToday, whenWords } from './preorder-words.js';
 
 const MAX_LINES = 30;
+export const lineUid = (key) => key.replace(/:/g, '.');
 const MAX_QTY = 20;
 export const TIP_PERCENTS = [5, 10, 15];
 export const TIP_MAX_CENTS = 10000;
@@ -139,9 +140,11 @@ async function prepare(request, env, url, body, addressNeeded) {
   const shipDate = preorderKeys.length ? preorderKeys.map(dateOf).sort().pop() : null;
   const preorderWords = preorderKeys.length ? 'pre-order: the whole order ships together ' + whenWords(shipDate, today) : '';
 
-  // pointing at the Square item (not typing a name and price) is what lets Square lower the stock count
+  // pointing at the Square item (not typing a name and price) is what lets Square lower the stock count.
+  // each line's uid is its key with the ":" swapped for "." ("aussie.large"): Square allows only letters, numbers,
+  // dots, underscores and hyphens there, and slugs never have a dot, so each line stays its own
   const lines = keys.map((k) => ({
-    uid: k, catalog_object_id: catalog.byKey[k].variation_id, quantity: String(qtyByKey[k]),
+    uid: lineUid(k), catalog_object_id: catalog.byKey[k].variation_id, quantity: String(qtyByKey[k]),
     ...(catalog.byKey[k].preorder ? { note: pinWords(k) } : {})
   }));
   const currency = catalog.currency;
@@ -237,7 +240,7 @@ async function quote(request, env, url, body) {
   (o.line_items || []).forEach((l) => { byUid[l.uid] = l; });
   const lines = p.keys.map((k) => ({
     key: k, qty: p.qtyByKey[k],
-    cents: byUid[k] ? amountOf(byUid[k].gross_sales_money) || amountOf(byUid[k].base_price_money) * p.qtyByKey[k] : p.catalog.byKey[k].price_cents * p.qtyByKey[k]
+    cents: byUid[lineUid(k)] ? amountOf(byUid[lineUid(k)].gross_sales_money) || amountOf(byUid[lineUid(k)].base_price_money) * p.qtyByKey[k] : p.catalog.byKey[k].price_cents * p.qtyByKey[k]
   }));
   const total = amountOf(o.total_money);
   return json({

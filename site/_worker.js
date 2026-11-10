@@ -20,6 +20,7 @@ import { reviews } from '../server/reviews.js';
 import { admin } from '../server/admin.js';
 import { catalogRoute, noteInterest } from '../server/catalog.js';
 import { checkoutRoute } from '../server/checkout.js';
+import { APPLE_PAY_PATH, applePayFile } from '../server/apple-pay.js';
 import { interestRoute } from '../server/interest.js';
 import { notifyRoute } from '../server/notify.js';
 import { pinRequestRoute } from '../server/pin-requests.js';
@@ -44,6 +45,8 @@ export default {
     if (url.hostname.startsWith('www.') && (request.method === 'GET' || request.method === 'HEAD') && !url.pathname.startsWith('/api/')) {
       return Response.redirect(url.protocol + '//' + url.hostname.slice(4) + url.pathname + url.search, 301);
     }
+    // Apple Pay's domain check (server/apple-pay.js)
+    if (url.pathname === APPLE_PAY_PATH) return applePayFile();
     if (url.pathname === '/api/checkout' || url.pathname === '/api/checkout/quote' || url.pathname === '/api/checkout/pay') return checkoutRoute(request, env, url);
     if (url.pathname === '/api/catalog') return catalogRoute(request, env);
     if (url.pathname === '/api/account' || url.pathname === '/api/account/orders') return account(request, env);
