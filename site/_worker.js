@@ -47,7 +47,7 @@ export default {
     }
     // Apple Pay's domain check (server/apple-pay.js)
     if (url.pathname === APPLE_PAY_PATH) return applePayFile();
-    if (url.pathname === '/api/checkout' || url.pathname === '/api/checkout/quote' || url.pathname === '/api/checkout/pay') return checkoutRoute(request, env, url);
+    if (url.pathname === '/api/checkout' || url.pathname === '/api/checkout/quote' || url.pathname === '/api/checkout/pay' || url.pathname === '/api/checkout/status') return checkoutRoute(request, env, url);
     if (url.pathname === '/api/catalog') return catalogRoute(request, env);
     if (url.pathname === '/api/account' || url.pathname === '/api/account/orders') return account(request, env);
     if (url.pathname.startsWith('/api/account/email/')) return accountEmailRoute(request, env);

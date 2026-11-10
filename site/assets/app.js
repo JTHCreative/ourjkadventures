@@ -2272,7 +2272,7 @@
     buildFloatShop();
     countEls = Array.prototype.slice.call(document.querySelectorAll('[data-cart-count]'));
     // square sends people back to thank-you.html after paying: empty the bag
-    if (/thank-you(\.html)?$/.test(location.pathname)) save('jka_cart', null);
+    if (/thank-you(\.html)?$/.test(location.pathname)) { save('jka_cart', null); save('jka_pay_attempt', null); }
     // back from square with a pre-order in the order (?preorder=2026-12-15): say when it ships
     var pre = /[?&]preorder=(\d{4}-\d{2}-\d{2})(&|$)/.exec(location.search);
     var preNote = document.querySelector('[data-preorder-thanks]');
