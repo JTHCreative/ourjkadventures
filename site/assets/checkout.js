@@ -51,8 +51,30 @@
   var walletPay = null;
   var quoteAsk = 0;
   var busy = false;
-  // one "pay" press. kept while retrying after a dropped connection, so nothing is charged twice; new after a decline
-  var attempt = newAttempt();
+  // one "pay" press. kept while retrying after a dropped connection, so nothing is charged twice; new after a decline.
+  // remembered in this browser for half an hour (jka_pay_attempt), so a tab closed mid-payment and opened again can
+  // ask whether it went through (/api/checkout/status) instead of paying a second time
+  var ATTEMPT_KEEP_MS = 30 * 60 * 1000;
+  var attempt = savedAttempt() || newAttempt();
+
+  function savedAttempt() {
+    try {
+      var a = JSON.parse(J.read('jka_pay_attempt') || 'null');
+      return a && typeof a.id === 'string' && Date.now() - a.at < ATTEMPT_KEEP_MS ? a.id : null;
+    } catch (e) { return null; }
+  }
+  function rememberAttempt() { J.save('jka_pay_attempt', JSON.stringify({ id: attempt, at: Date.now() })); }
+  // the last pay press went through after all: straight to the thank-you page, which empties the bag
+  function checkLastPress() {
+    var id = savedAttempt();
+    if (!id) return Promise.resolve(false);
+    return fetch('/api/checkout/status?attempt=' + encodeURIComponent(id), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : {}; })
+      .then(function (j) {
+        if (j && j.paid && typeof j.url === 'string') { location.replace(j.url); return true; }
+        return false;
+      }).catch(function () { return false; });
+  }
 
   function newAttempt() {
     try { if (crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
@@ -560,6 +582,13 @@
   // an answer the server gave that isn't "paid": say what to do next. true when it was handled
   function handleRefusal(res, o) {
     var r = res.r, j = res.j;
+    if (r.status === 409 && j.error === 'total') {
+      // a price changed in Square while they were checking out: nothing was charged. show the new total to confirm
+      lastQuote = null;
+      fetchQuote();
+      showError('the total changed to ' + cents(j.total_cents) + ' while you were checking out. nothing was charged. take a look, then press pay to confirm.');
+      return true;
+    }
     if (r.status === 409 || r.status === 403) { shelfChanged(j, r.status === 403); return true; }
     if (r.status === 400 && j.error === 'address' && boxes[j.field]) {
       flag(j.field, j.reason === 'zip not in state' ? 'that zip code isn\'t in ' + stateName(o.state) + '. could you check both?' : null);
@@ -587,6 +616,9 @@
     var body = order(o);
     body.tip = tipAsk();
     body.attempt = attempt;
+    // the total they saw: the server charges nothing if Square's total has changed since
+    body.expected_total_cents = currentQuote().total_cents;
+    rememberAttempt();
     setBusy(true, 'one moment.');
     var tokenWait;
     try { tokenWait = Promise.resolve(tokenize(o)); } catch (e) { tokenWait = Promise.reject(e); }
@@ -680,7 +712,9 @@
   function fold() { $('[data-co-summary]').open = !wide || wide.matches; }
   if (wide && wide.addEventListener) wide.addEventListener('change', fold);
 
-  J.loadCatalog(true).then(function () {
+  // a tab closed while paying, opened again: if that payment went through, go to the thank-you page instead
+  checkLastPress().then(function (paid) { return paid ? null : J.loadCatalog(true); }).then(function (got) {
+    if (!got) return;
     cardMode = !!(catalog.card && catalog.card.app_id && catalog.card.sdk);
     $('[data-co-hosted]').hidden = cardMode;
     fillForm();

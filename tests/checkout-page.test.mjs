@@ -165,3 +165,50 @@ test('a large pin can be quoted and paid for (its line uid has no ":", which Squ
   assert.equal(sq.orders[0].order.line_items[0].uid, 'aussie.large');
   assert.equal(sq.payments.length, 1);
 });
+
+test('if the total the buyer saw is no longer Square\'s total, nothing is charged and the new total comes back', async () => {
+  const { env, sq } = setup();
+  // two aussies on ground: $24 + $7 + $2.25 tax = $33.25
+  let r = await pay(env, { expected_total_cents: 3000 });
+  assert.equal(r.status, 409);
+  assert.deepEqual(await r.json(), { error: 'total', total_cents: 3325 });
+  assert.equal(sq.payments.length, 0);
+  // the tip counts toward the total they saw
+  r = await pay(env, { expected_total_cents: 3325 + 240, tip: { percent: 10 } });
+  assert.equal(r.status, 200);
+  assert.equal(sq.payments.length, 1);
+});
+
+test('the quote\'s total is exactly what paying charges, so a real checkout never trips the total check', async () => {
+  const { env, sq } = setup();
+  const items = [{ key: 'aussie', qty: 1 }, { key: 'aussie:large', qty: 2 }];
+  const q = await (await quote(env, { items, shipping: 'priority', tip: { percent: 15 } })).json();
+  const r = await pay(env, { items, shipping: 'priority', tip: { percent: 15 }, expected_total_cents: q.total_cents });
+  assert.equal(r.status, 200);
+  const p = sq.payments[0].body;
+  assert.equal(p.amount_money.amount + p.tip_money.amount, q.total_cents);
+});
+
+test('a pay press that went through can be looked up afterwards, by its id only', async () => {
+  const { env, g } = setup();
+  const status = async (id) => (await worker.fetch(new Request('https://x.test/api/checkout/status?attempt=' + id), env)).json();
+  assert.deepEqual(await status('attempt-0001'), { paid: false });
+  assert.equal((await pay(env)).status, 200);
+  assert.deepEqual(await status('attempt-0001'), { paid: true, url: 'https://x.test/thank-you.html' });
+  // only the order and the thank-you page are kept: nothing about the buyer
+  assert.deepEqual(Object.keys(g.docs['checkout_attempts_sandbox/attempt-0001']).sort(), ['createdAt', 'order', 'url']);
+  assert.deepEqual(await status('attempt-9999'), { paid: false });
+  const bad = await worker.fetch(new Request('https://x.test/api/checkout/status?attempt=../users'), env);
+  assert.equal(bad.status, 400);
+});
+
+test('a pay press for an order that is already paid can\'t charge again', async () => {
+  const { env, sq } = setup();
+  assert.equal((await pay(env)).status, 200);
+  // the tab was closed and opened again: same pay press, a fresh token from the card form
+  const r = await pay(env, { source_id: 'cnon:card-nonce-second' });
+  // it went through the first time: the thank-you page, and no second charge
+  assert.deepEqual(await r.json(), { ok: true, url: 'https://x.test/thank-you.html', already: true });
+  assert.equal(sq.payments.length, 1);
+  assert.equal(sq.orders.length, 1);
+});

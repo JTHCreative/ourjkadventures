@@ -5,6 +5,8 @@
 //   POST /api/checkout/pay    the checkout page's "pay" button: the card (or Apple Pay / Google Pay) was turned
 //                             into a one-time token by Square's own form in the browser (the Web Payments SDK), so
 //                             no card number ever reaches us. we make the Square order and charge the token for it
+//   GET  /api/checkout/status the checkout page asking "did that pay press go through?" after the tab was closed
+//                             mid-payment: { paid, url }. we keep only pay press -> Square order, nothing personal
 //   POST /api/checkout        Square's hosted payment page (a payment link), kept as the fallback while the
 //                             embedded form isn't set up (SQUARE_APPLICATION_ID missing)
 //
@@ -15,9 +17,9 @@
 // worked out here from Square's prices. Never a discount: nothing here takes anything off.
 
 import { noteOrder } from './account.js';
-import { configured as firebaseConfigured, userFromRequest } from './firebase.js';
+import { configured as firebaseConfigured, userFromRequest, firestoreGet, firestoreSet } from './firebase.js';
 import { getCatalog, shippingCharge } from './catalog.js';
-import { stockCounts, squareHost, SQUARE_VERSION } from './square.js';
+import { stockCounts, squareHost, squareMode, SQUARE_VERSION } from './square.js';
 import { cleanShipTo, cleanGift, squareAddress, addressLine, noteGift } from './ship-to.js';
 import { shopToday, whenWords } from './preorder-words.js';
 
@@ -34,7 +36,13 @@ function json(body, status) {
   });
 }
 
+const ATTEMPT_RE = /^[A-Za-z0-9-]{8,64}$/;
+// where each paid pay press is noted: which Square order it became, and the thank-you page to show. like a coat
+// check ticket stub: the number and the hook, never whose coat it is
+const attemptPath = (env, attempt) => 'checkout_attempts_' + squareMode(env) + '/' + attempt;
+
 export async function checkoutRoute(request, env, url) {
+  if (url.pathname === '/api/checkout/status') return attemptStatus(request, env, url);
   if (request.method !== 'POST') return json({ error: 'method' }, 405);
   if (!env.SQUARE_ACCESS_TOKEN || !env.SQUARE_LOCATION_ID) return json({ error: 'not configured' }, 503);
   let body;
@@ -277,7 +285,10 @@ async function pay(request, env, url, body) {
   // one "pay" press: the page keeps the same id while it retries after a dropped connection, so a second press
   // can't make a second order or charge twice. a fresh one after a declined card
   const attempt = body.attempt;
-  if (typeof attempt !== 'string' || !/^[A-Za-z0-9-]{8,64}$/.test(attempt)) return json({ error: 'bad request' }, 400);
+  if (typeof attempt !== 'string' || !ATTEMPT_RE.test(attempt)) return json({ error: 'bad request' }, 400);
+  // this pay press already went through (the tab was closed mid-payment and opened again): never charge it twice
+  const before = await paidAttempt(env, url, attempt);
+  if (before) return json({ ok: true, url: before, already: true });
 
   const p = await prepare(request, env, url, body, true);
   if (p.res) return p.res;
@@ -298,6 +309,13 @@ async function pay(request, env, url, body) {
   }
   const total = amountOf(order.total_money);
   if (!(total > 0)) return json({ error: 'square' }, 502);
+  // the total the buyer saw (and a wallet showed). the server still decides the price; this only makes sure nobody is
+  // charged a different amount than they agreed to, if a price changed in Square mid-checkout. nothing is charged,
+  // and the page shows the new total to confirm. an older page that doesn't send it is charged as before
+  const expected = body.expected_total_cents;
+  if (expected !== undefined && expected !== total + tip.cents) {
+    return json({ error: 'total', total_cents: total + tip.cents }, 409);
+  }
 
   const paid = await square(env, '/v2/payments', {
     // Square allows at most 45 characters here
@@ -324,7 +342,32 @@ async function pay(request, env, url, body) {
     return json({ error: 'square' }, 502);
   }
   await afterOrder(env, buyer, p.gift, order.id);
-  return json({ ok: true, url: thankYou(url, p.shipDate) });
+  const done = thankYou(url, p.shipDate);
+  // noted so a tab closed mid-payment can find out it went through, instead of paying again. never blocks the sale
+  if (firebaseConfigured(env)) {
+    try {
+      await firestoreSet(env, attemptPath(env, attempt), { order: order.id, url: new URL(done).pathname + new URL(done).search, createdAt: new Date() });
+    } catch (e) { console.log('attempt note failed', e.message); }
+  }
+  return json({ ok: true, url: done });
+}
+
+// the thank-you page for a pay press that was paid, or null (not paid, not noted, or the note can't be read)
+async function paidAttempt(env, url, attempt) {
+  if (!firebaseConfigured(env)) return null;
+  let doc = null;
+  try { doc = await firestoreGet(env, attemptPath(env, attempt)); } catch (e) { return null; }
+  return doc && typeof doc.url === 'string' && doc.url.startsWith('/thank-you') ? url.origin + doc.url : null;
+}
+
+// "did that pay press go through?" the id is a long random one only that browser knows, and the answer holds only the
+// thank-you page to show
+async function attemptStatus(request, env, url) {
+  if (request.method !== 'GET') return json({ error: 'method' }, 405);
+  const attempt = url.searchParams.get('attempt') || '';
+  if (!ATTEMPT_RE.test(attempt)) return json({ error: 'bad request' }, 400);
+  const done = await paidAttempt(env, url, attempt);
+  return json(done ? { paid: true, url: done } : { paid: false });
 }
 
 /* ---------- Square's hosted payment page (the fallback) ---------- */
