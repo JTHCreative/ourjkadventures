@@ -699,6 +699,7 @@ function orderRow(o, data) {
   if (o.gift) bits.push('gift');
   if (o.preorder) bits.push('pre-order');
   if (o.moved) bits.push('new date to email');
+  if (o.refunded) bits.push('partly refunded');
   sum.appendChild(el('span', 'caption', bits.filter(Boolean).join(' · ')));
   fold.appendChild(sum);
   const body = el('div', 'order-body');
@@ -940,7 +941,7 @@ async function loadHistory(cursor) {
     historyCount += data.orders.length;
     historyCursor = data.cursor;
     more.hidden = !data.cursor;
-    state.textContent = historyCount ? 'showing ' + historyCount + (historyCount === 1 ? ' shipped order.' : ' shipped orders.') + (data.cursor ? '' : ' that\'s all of them.')
+    state.textContent = historyCount ? 'showing ' + historyCount + (historyCount === 1 ? ' order.' : ' orders.') + (data.cursor ? '' : ' that\'s all of them.')
       : 'nothing shipped yet.';
   } catch (e) {
     state.textContent = 'the history didn\'t load. close it and open it again in a moment.';
@@ -960,13 +961,14 @@ function historyRow(o) {
   const bits = [o.shippedAt ? 'shipped ' + orderDay(o.shippedAt) : orderDay(o.date), count + (count === 1 ? ' item' : ' items')];
   if (o.gift) bits.push('gift');
   if (o.preorder) bits.push('pre-order');
-  if (o.refunded) bits.push('refunded');
+  if (o.refundedAll) bits.push(o.shipped ? 'refunded' : 'refunded · not shipped');
+  else if (o.refunded) bits.push('partly refunded');
   sum.appendChild(el('span', 'caption', bits.filter(Boolean).join(' · ')));
   fold.appendChild(sum);
   const body = el('div', 'order-body');
   body.appendChild(orderPart('order',
     el('p', 'body-sm', 'order ' + o.number + ', placed ' + orderDay(o.date) + (o.shippedAt ? ', shipped ' + orderDay(o.shippedAt) : '') + '.'),
-    o.total !== null ? el('p', 'body-sm', 'total paid: ' + money(o.total) + (o.refunded ? ' (part or all of it refunded: see square).' : '.')) : null,
+    o.total !== null ? el('p', 'body-sm', 'total paid: ' + money(o.total) + (o.refundedAll ? ', refunded in full' + (o.shipped ? '.' : ' before it shipped.') : o.refunded ? ' (part of it refunded: see square).' : '.')) : null,
     el('p', 'caption', 'square order id: ' + o.id)));
   const what = el('ul', 'order-items');
   o.items.forEach((it) => what.appendChild(el('li', null, (it.qty > 1 ? it.qty + ' × ' : '') + it.name)));
@@ -974,7 +976,7 @@ function historyRow(o) {
   body.appendChild(orderPart('buyer',
     el('p', 'body-sm', (o.gift ? 'went to: ' : 'name: ') + (o.name || '')),
     el('p', 'body-sm notify-email', 'email: ' + o.email)));
-  body.appendChild(orderPart('shipped to', addressLines(o.name, o.address)));
+  body.appendChild(orderPart(o.shipped ? 'shipped to' : 'was going to', addressLines(o.name, o.address)));
   if (o.gift) body.appendChild(orderPart('gift card', el('p', 'gift-note', o.giftNote ? '\u201c' + o.giftNote + '\u201d' : 'no note: a blank card.')));
   if (o.tracking) {
     const a = el('a', null, o.tracking);

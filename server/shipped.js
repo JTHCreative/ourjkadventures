@@ -51,6 +51,18 @@ export function trackingLink(t) { return 'https://tools.usps.com/go/TrackConfirm
 export function shipmentOf(o) { return (o.fulfillments || []).find((f) => f.type === 'SHIPMENT') || null; }
 export function isPaid(o) { return !!(o.tenders && o.tenders.length) && o.state !== 'CANCELED'; }
 
+// how much of an order has been refunded, in cents. refunds Square turned down don't count
+export function refundedCents(o) {
+  return (o.refunds || []).filter((r) => !['REJECTED', 'FAILED'].includes(r && r.status))
+    .reduce((n, r) => n + (r.amount_money && Number.isInteger(r.amount_money.amount) ? r.amount_money.amount : 0), 0);
+}
+// refunded in full: as much as the order's total, or more (a refund can include the tip, which isn't in the total)
+export function refundedAll(o) {
+  const total = o.total_money && o.total_money.amount;
+  return Number.isInteger(total) && total > 0 && refundedCents(o) >= total;
+}
+const anyRefund = (o) => (o.refunds || []).some((r) => !['REJECTED', 'FAILED'].includes(r && r.status));
+
 // our own names and pictures for what's in the order: "large aussie pin" rather than Square's "Large Aussie Pin (Exclusive)"
 export async function namer(env, origin, fetchFn) {
   const [links, products] = await Promise.all([readLinks(env, fetchFn), siteProducts(env, origin)]);
@@ -91,6 +103,8 @@ export function view(o, nameLine, origin, states) {
     preorder: meta.preorder === 'yes',
     expected: d.expected_shipped_at || '',
     total: o.total_money && typeof o.total_money.amount === 'number' ? o.total_money.amount : null,
+    // part of it refunded (one refunded in full isn't in this list): pack only what's still owed
+    refunded: anyRefund(o),
     items
   };
   order.preview = shippedEmail(order, 'TRACKING-NUMBER', origin);
@@ -100,7 +114,8 @@ export function view(o, nameLine, origin, states) {
   return order;
 }
 
-// paid website orders with a shipment that hasn't gone out, oldest first (first in, first out)
+// paid website orders with a shipment that hasn't gone out, oldest first (first in, first out). one refunded in full
+// isn't here: there's nothing to send, and it shows in the order history as refunded
 export async function ordersToShip(env, origin, fetchFn = fetch) {
   const body = {
     location_ids: [env.SQUARE_LOCATION_ID],
@@ -115,7 +130,7 @@ export async function ordersToShip(env, origin, fetchFn = fetch) {
   };
   const data = await square(env, 'POST', '/v2/orders/search', body, fetchFn);
   const nameLine = await namer(env, origin, fetchFn);
-  const orders = (data.orders || []).filter((o) => isPaid(o) && shipmentOf(o) && OPEN_STEPS.includes(shipmentOf(o).state));
+  const orders = (data.orders || []).filter((o) => isPaid(o) && shipmentOf(o) && OPEN_STEPS.includes(shipmentOf(o).state) && !refundedAll(o));
   // the pre-order switches and dates, to spot a pre-order whose date moved. unreadable: no flags, the list still shows
   let states = null;
   if (orders.some((o) => (o.metadata || {}).preorder === 'yes')) {
@@ -124,7 +139,7 @@ export async function ordersToShip(env, origin, fetchFn = fetch) {
   return orders.map((o) => view(o, nameLine, origin, states));
 }
 
-/* ---------- order history: website orders already shipped ---------- */
+/* ---------- order history: website orders already shipped, and ones refunded in full before they shipped ---------- */
 // one shipped order as the history shows it: what went, to whom, when, and its tracking number. no email preview
 export function pastView(o, nameLine) {
   const f = shipmentOf(o);
@@ -145,13 +160,17 @@ export function pastView(o, nameLine) {
     gift: meta.gift === 'yes',
     giftNote: meta.gift === 'yes' ? giftMessage(o) : '',
     preorder: meta.preorder === 'yes',
-    refunded: !!(o.refunds && o.refunds.length),
+    shipped: f.state === 'COMPLETED',
+    // any refund at all, and whether it was the whole order
+    refunded: anyRefund(o),
+    refundedAll: refundedAll(o),
     total: o.total_money && typeof o.total_money.amount === 'number' ? o.total_money.amount : null,
     items: (o.line_items || []).map(nameLine)
   };
 }
 
-// paid website orders whose shipment has gone out, newest first, a page at a time. read from Square each time
+// paid website orders whose shipment has gone out, or that were refunded in full before it did, newest first, a page
+// at a time. read from Square each time
 // (nothing is kept in Firestore); `cursor` is Square's own bookmark for the next page
 export const HISTORY_PAGE = 20;
 export async function orderHistory(env, origin, cursor, fetchFn = fetch) {
@@ -161,7 +180,7 @@ export async function orderHistory(env, origin, cursor, fetchFn = fetch) {
     query: {
       filter: {
         state_filter: { states: ['OPEN', 'COMPLETED'] },
-        fulfillment_filter: { fulfillment_types: ['SHIPMENT'], fulfillment_states: ['COMPLETED'] }
+        fulfillment_filter: { fulfillment_types: ['SHIPMENT'], fulfillment_states: [...OPEN_STEPS, 'COMPLETED'] }
       },
       sort: { sort_field: 'CREATED_AT', sort_order: 'DESC' }
     }
@@ -169,7 +188,7 @@ export async function orderHistory(env, origin, cursor, fetchFn = fetch) {
   if (cursor) body.cursor = cursor;
   const data = await square(env, 'POST', '/v2/orders/search', body, fetchFn);
   const nameLine = await namer(env, origin, fetchFn);
-  const orders = (data.orders || []).filter((o) => isPaid(o) && shipmentOf(o) && shipmentOf(o).state === 'COMPLETED');
+  const orders = (data.orders || []).filter((o) => isPaid(o) && shipmentOf(o) && (shipmentOf(o).state === 'COMPLETED' || refundedAll(o)));
   return { orders: orders.map((o) => pastView(o, nameLine)), cursor: data.cursor || null };
 }
 
