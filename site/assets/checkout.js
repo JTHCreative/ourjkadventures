@@ -47,6 +47,8 @@
   var walletRequest = null;
   var cardMode = false;    // true: pay here with Square's form. false: Square's hosted page
   var lastQuote = null;
+  // Google Pay or Apple Pay filled in, not charged yet: { name, token, key, total, card }. the pay button takes it
+  var walletPay = null;
   var quoteAsk = 0;
   var busy = false;
   // one "pay" press. kept while retrying after a dropped connection, so nothing is charged twice; new after a decline
@@ -307,6 +309,10 @@
     var pre = $('[data-co-preorder]');
     pre.hidden = !J.hasPreorder();
     if (J.hasPreorder()) pre.textContent = J.preorderTogether();
+    // the wallet showed one amount: if the order, shipping or tip changed since, it has to be asked again
+    if (walletPay && walletPay.key !== quoteKey()) {
+      clearWallet('your order changed, so tap ' + walletPay.name + ' again for the new total.');
+    }
     paintPayLabel(q);
     if (walletRequest && q) {
       try { walletRequest.update({ total: { amount: (q.total_cents / 100).toFixed(2), label: 'j+k adventures' } }); } catch (e) {}
@@ -315,8 +321,8 @@
   function paintPayLabel(q) {
     if (busy) return;
     if (!cardMode) { payBtn.textContent = 'continue to payment'; payBtn.disabled = !items().length; return; }
-    payBtn.textContent = q ? 'pay ' + cents(q.total_cents) : 'pay';
-    payBtn.disabled = !q || !card;
+    payBtn.textContent = (q ? 'pay ' + cents(q.total_cents) : 'pay') + (walletPay ? ' with ' + walletPay.name : '');
+    payBtn.disabled = !q || !(card || walletPay);
   }
 
   // what the quote was asked for, so an old answer never paints over a newer choice
@@ -452,17 +458,61 @@
       var b = $('[data-co-apple-pay]');
       b.hidden = false;
       showWallets();
-      b.addEventListener('click', function () { payWith(function () { return ap.tokenize(); }); });
+      b.addEventListener('click', function () { authorizeWallet('apple pay', function () { return ap.tokenize(); }); });
     }).catch(function () { /* not an apple device, or not set up: no button */ });
     payments.googlePay(walletRequest).then(function (gp) {
       var box = $('[data-co-google-pay]');
       box.hidden = false;
       return gp.attach(box, { buttonColor: 'black', buttonSizeMode: 'fill', buttonType: 'long' }).then(function () {
         showWallets();
-        box.addEventListener('click', function () { payWith(function () { return gp.tokenize(); }); });
+        box.addEventListener('click', function () { authorizeWallet('google pay', function () { return gp.tokenize(); }); });
       });
     }).catch(function () { $('[data-co-google-pay]').hidden = true; });
   }
+
+  // Google Pay and Apple Pay only fill the payment in: their sheet hands back Square's one-time token, kept here
+  // until the buyer presses pay. tokenize() is called straight from the click, as Apple Pay needs
+  function authorizeWallet(name, tokenize) {
+    if (busy) return;
+    var o = checkForm();
+    if (!o) return;
+    var q = currentQuote();
+    // the amount the wallet shows has to be the real total
+    if (!q) { showError('one moment, we\'re still working out the total. try again in a second.'); askQuote(); return; }
+    var key = quoteKey();
+    var wait;
+    try { wait = Promise.resolve(tokenize()); } catch (e) { wait = Promise.reject(e); }
+    wait.then(function (result) {
+      if (result && result.status === 'OK') {
+        walletPay = { name: name, token: result.token, key: key, total: q.total_cents, card: result.details && result.details.card };
+        paintWallet();
+        payBtn.focus();
+        return;
+      }
+      // a closed sheet needs nothing said
+      if (!result || (result.status !== 'Cancel' && result.status !== 'Abort')) showError(name + ' didn\'t finish. you could try again, or pay by card.');
+    }).catch(function () {
+      showError(name + ' didn\'t finish. you could try again, or pay by card.');
+    });
+  }
+  function clearWallet(words) {
+    walletPay = null;
+    paintWallet();
+    if (words) showError(words);
+  }
+  function paintWallet() {
+    var ready = $('[data-co-wallet-ready]');
+    ready.hidden = !walletPay;
+    $('[data-co-card]').hidden = !!walletPay;
+    if (!$('[data-co-wallets]').hidden) $('[data-co-or]').hidden = !!walletPay;
+    if (walletPay) {
+      var c = walletPay.card;
+      var which = c && c.last4 ? ' (' + String(c.brand || 'card').toLowerCase().replace(/_/g, ' ') + ' ending ' + c.last4 + ')' : '';
+      $('[data-co-wallet-words]').textContent = walletPay.name + which + ' is ready. press pay below to finish.';
+    }
+    paintPayLabel(currentQuote());
+  }
+  $('[data-co-wallet-clear]').addEventListener('click', function () { clearWallet(null); });
 
   /* ---------- paying ---------- */
   function checkForm() {
@@ -557,6 +607,8 @@
         return;
       }
       setBusy(false);
+      // a wallet's token is used up once the server has tried it: a second try needs the wallet again
+      if (walletPay) { walletPay = null; paintWallet(); }
       if (handleRefusal(res, o)) return;
       showError('we couldn\'t take the payment just now, and nothing was charged. try again, or write to us at ' + J.contactEmail + '.');
     }).catch(function (e) {
@@ -609,7 +661,15 @@
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();
-    if (cardMode) { if (card) payByCard(); } else payOnSquare();
+    if (!cardMode) { payOnSquare(); return; }
+    if (walletPay) {
+      var w = walletPay;
+      var q = currentQuote();
+      if (w.key !== quoteKey() || !q || q.total_cents !== w.total) { clearWallet('your order changed, so tap ' + w.name + ' again for the new total.'); return; }
+      payWith(function () { return { status: 'OK', token: w.token }; });
+      return;
+    }
+    if (card) payByCard();
   });
   $('[data-co-edit-bag]').addEventListener('click', function () { J.openBag(); });
   document.addEventListener('jka:cart', repaint);

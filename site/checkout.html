@@ -140,6 +140,11 @@
             <div class="co-google-pay" data-co-google-pay hidden></div>
             <p class="co-or" data-co-or hidden><span>or pay by card</span></p>
           </div>
+          <!-- after Google Pay or Apple Pay: the payment is ready, and the pay button below takes it -->
+          <div class="co-wallet-ready" data-co-wallet-ready role="status" hidden>
+            <p data-co-wallet-words></p>
+            <button class="linklike" type="button" data-co-wallet-clear>pay by card instead</button>
+          </div>
           <div class="co-card" id="co-card" data-co-card></div>
           <p class="caption" data-co-card-wait>one moment, getting the card form from square.</p>
         </div>

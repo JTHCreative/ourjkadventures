@@ -974,3 +974,11 @@ Asked for by the owners: a pin with two sizes always opened on standard, so when
 the card read like the whole pin was sold out and a buyer could miss the large one. The size picked to start with is
 now the first one that can be bought (`startSize` in `app.js`); when both can, it's still standard. When neither can,
 standard, as before. The buyer can still pick the other size to see it's sold out.
+
+## Google Pay and Apple Pay fill the payment in; the pay button charges it (2026-11-10)
+The owners asked that a wallet tap not pay straight away. Tapping Google Pay or Apple Pay now opens the wallet's
+sheet and keeps Square's one-time token on the page ("google pay (visa ending 1111) is ready. press pay below to
+finish."), with "pay by card instead" beside it. The charge happens only when "pay $X with google pay" is pressed.
+The wallet showed one total, so changing the bag, shipping or tip after the tap drops the token and asks for the
+wallet again rather than charging a different amount than it showed. A token is used once: after any answer from
+the server it's dropped too (a dropped connection keeps it, and the same pay press can't charge twice).
