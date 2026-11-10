@@ -27,6 +27,8 @@
 //   DELETE /api/admin/media?id=…  take one down
 //   GET  /api/admin/orders   paid website orders not shipped yet, oldest first, each with the email it would get
 //   GET  /api/admin/orders/history[?cursor=]   paid website orders already shipped, newest first, 20 a page
+//   GET  /api/admin/orders/history?removed=1   the ones taken out of the history (hidden on /admin, still in Square)
+//   POST /api/admin/orders/history  { id, removed: true|false }  take one out of the history, or put it back
 //   POST /api/admin/orders   { id, tracking }  email the buyer "on its way" with tracking, then mark it shipped in Square
 //                            (a gift's card then counts as written)
 //   POST /api/admin/orders   { id, moved: true }  a pre-order whose date moved since it was paid: email the buyer the
@@ -51,7 +53,7 @@ import { shopToday } from './preorder-words.js';
 import { notifySummary, sendItsHere, removeWaiting, restoreWaiting } from './notify.js';
 import { adminMedia, addMedia, removeMedia } from './media.js';
 import { giftList, giftDone } from './ship-to.js';
-import { ordersToShip, markShipped, sendMoved, orderHistory } from './shipped.js';
+import { ordersToShip, markShipped, sendMoved, orderHistory, hideOrder, hiddenHistory } from './shipped.js';
 import { emailConfigured } from './email.js';
 import { listRequests, removeRequest } from './pin-requests.js';
 
@@ -242,8 +244,15 @@ export async function admin(request, env, fetchFn = fetch) {
     }
 
     if (route === 'orders/history') {
+      if (request.method === 'POST') {
+        const body = await readJson(request);
+        const out = await hideOrder(env, body.id, body.removed, fetchFn);
+        if (out.error) return json(out, out.status || 400);
+        return json({ ok: true, id: body.id, removed: body.removed });
+      }
       if (request.method !== 'GET') return json({ error: 'method' }, 405);
       if (!squareConfigured(env)) return json({ orders: [], cursor: null, square: false });
+      if (url.searchParams.get('removed') === '1') return json({ orders: await hiddenHistory(env, url.origin, fetchFn), cursor: null, square: true });
       // Square's bookmark for the next page: passed back as it came, so only its length and letters are checked
       const cursor = url.searchParams.get('cursor') || '';
       if (cursor && !/^[A-Za-z0-9_\-=+/.]{1,2000}$/.test(cursor)) return json({ error: 'bad cursor' }, 400);

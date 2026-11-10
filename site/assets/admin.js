@@ -917,6 +917,7 @@ function wireOrderGroups() {
   });
   const more = $('[data-history-more]');
   more.addEventListener('click', () => loadHistory(historyCursor));
+  $('[data-history-removed-toggle]').addEventListener('click', toggleRemoved);
   if ($('[data-history-group]').open) loadHistory();
 }
 
@@ -953,7 +954,8 @@ async function loadHistory(cursor) {
 }
 
 // one shipped order, folded: number, day it shipped and its tags; opened, what went, to whom and the tracking number
-function historyRow(o) {
+// removed: true for the "removed orders" list, whose button puts one back
+function historyRow(o, removed) {
   const fold = el('details', 'order-fold');
   const sum = el('summary', 'order-summary');
   sum.appendChild(el('span', 'order-summary-name', 'order ' + o.number));
@@ -990,8 +992,81 @@ function historyRow(o) {
   } else {
     body.appendChild(orderPart('tracking', el('p', 'caption', 'no tracking number on this one (marked shipped in square, say).')));
   }
+  body.appendChild(hideButton(o, fold, removed));
   fold.appendChild(body);
   return fold;
+}
+
+// "remove from history": hides the order on this page only (it stays in square). an undo line takes its place
+function hideButton(o, fold, removed) {
+  const row = el('div', 'admin-actions');
+  const btn = el('button', 'jka-btn jka-btn--quiet jka-btn--sm', removed ? 'put back in history' : 'remove from history');
+  btn.type = 'button';
+  const note = el('p', 'form-msg', '');
+  note.hidden = true;
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    note.hidden = true;
+    try {
+      await api('POST', '/api/admin/orders/history', { id: o.id, removed: !removed });
+    } catch (e) {
+      btn.disabled = false;
+      note.textContent = 'that didn\'t save. try again in a moment.';
+      note.hidden = false;
+      return;
+    }
+    btn.disabled = false;
+    // the order's place in the list, with a way back
+    const line = el('p', 'body-sm history-gone', 'order ' + o.number + (removed ? ' is back in the history. ' : ' removed from the history. it\'s still in square. '));
+    line.setAttribute('role', 'status');
+    if (!removed) {
+      const undo = el('button', 'linklike', 'undo');
+      undo.type = 'button';
+      undo.addEventListener('click', async () => {
+        undo.disabled = true;
+        try { await api('POST', '/api/admin/orders/history', { id: o.id, removed: false }); } catch (e) {
+          undo.disabled = false;
+          line.firstChild.textContent = 'order ' + o.number + ' removed from the history. the undo didn\'t save, try again. ';
+          return;
+        }
+        line.replaceWith(fold);
+        fold.querySelector('summary').focus();
+      });
+      line.appendChild(undo);
+    } else {
+      // back in the main list: read it again when it's next opened
+      historyLoaded = false;
+      if ($('[data-history-group]').open) loadHistory();
+    }
+    fold.replaceWith(line);
+    const focusable = line.querySelector('button');
+    if (focusable) focusable.focus();
+  });
+  row.appendChild(btn);
+  row.appendChild(note);
+  return row;
+}
+
+// the orders taken out of the history, read from square when asked for
+async function toggleRemoved() {
+  const toggle = $('[data-history-removed-toggle]');
+  const box = $('[data-history-removed]');
+  const open = toggle.getAttribute('aria-expanded') !== 'true';
+  toggle.setAttribute('aria-expanded', String(open));
+  toggle.textContent = open ? 'hide removed orders' : 'show removed orders';
+  box.hidden = !open;
+  if (!open) return;
+  const state = $('[data-history-removed-state]');
+  const list = $('[data-history-removed-list]');
+  list.textContent = '';
+  state.textContent = 'one moment.';
+  try {
+    const data = await api('GET', '/api/admin/orders/history?removed=1');
+    data.orders.forEach((o) => list.appendChild(historyRow(o, true)));
+    state.textContent = data.orders.length ? data.orders.length + (data.orders.length === 1 ? ' removed order.' : ' removed orders.') : 'no removed orders.';
+  } catch (e) {
+    state.textContent = 'the removed orders didn\'t load. try again in a moment.';
+  }
 }
 
 /* ---------- featured: what turns in the carousel at the top of the shop ---------- */
