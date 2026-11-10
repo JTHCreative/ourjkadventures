@@ -983,3 +983,15 @@ The wallet showed one total, so changing the bag, shipping or tip after the tap 
 wallet again rather than charging a different amount than it showed. A token is used once: after any answer from
 the server it's dropped too (a dropped connection keeps it, and the same pay press can't charge twice).
 The tip section now sits above payment, so picking a tip comes before tapping a wallet and doesn't ask for it again.
+
+## Two guards on paying: the total they saw, and a pay press that already went through (2026-11-10)
+- **The total they saw:** the checkout page sends the total on screen (`expected_total_cents`). If Square's total
+  for the order has changed since (a price changed mid-checkout), nothing is charged and the page shows the new
+  total to confirm. The server still sets every price; this only stops a charge the buyer didn't see. An older page
+  that doesn't send it is charged as before.
+- **A tab closed mid-payment:** each pay press is remembered in the browser for half an hour (`jka_pay_attempt`),
+  and the server notes each paid one in Firestore `checkout_attempts_<mode>/<press id>`: the Square order and the
+  thank-you page, nothing about the buyer. Opening checkout again asks `/api/checkout/status` and, if it went
+  through, goes to the thank-you page (which empties the bag). The same press can't charge twice either: the server
+  checks its note before charging. Chosen over matching recent orders by email and items, which could block an
+  honest second order and slows every payment. Covers the same browser only; a retry on another device isn't caught.
