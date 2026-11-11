@@ -374,6 +374,8 @@ function wireProducts() {
 let askingProducts = null;
 let askingNotify = null;
 let askingDone = null;
+// the shop's "most asked for" card shows this many (WANTED_MAX in app.js)
+const WANTED_MAX = 6;
 function paintInterest(data) { askingProducts = data; paintAsking(); }
 
 /* ---------- email when it's here ---------- */
@@ -549,7 +551,19 @@ function paintAsking() {
     Object.entries(askingProducts.interest || {}).forEach(([slug, count]) => { if (names[slug] && count > 0) row(slug, names[slug]).interest = count; });
   }
   if (n && n.configured) (n.products || []).forEach((r) => { row(r.slug, r.name).list = r; });
-  const list = [...rows.values()].sort((a, b) => (b.interest - a.interest) || ((b.list ? b.list.waiting : 0) - (a.list ? a.list.waiting : 0)));
+  // the same order as the shop's "most asked for" card (buildWanted in app.js), so the two lists line up: first the
+  // products the shop counts there (not available, not on pre-order, at least one tap), most taps first, ties in
+  // products.json order; then the rest (in the shop now or on pre-order, so the shop leaves them off, or only an email
+  // list), by taps, then people waiting
+  const order = {};
+  if (askingProducts) askingProducts.products.forEach((p, i) => { if (!(p.slug in order)) order[p.slug] = i; });
+  const pos = (r) => (r.slug in order ? order[r.slug] : 1e6);
+  const counted = (r) => !!askingProducts && r.interest > 0 && (askingProducts.available || {})[r.slug] === false && !(askingProducts.preorder || {})[r.slug];
+  const list = [...rows.values()].sort((a, b) => (counted(b) - counted(a)) || (b.interest - a.interest) ||
+    (counted(a) ? 0 : (b.list ? b.list.waiting : 0) - (a.list ? a.list.waiting : 0)) || (pos(a) - pos(b)));
+  // where each counted one sits in the shop's card, which shows the top WANTED_MAX
+  const shopPlace = {};
+  list.filter(counted).slice(0, WANTED_MAX).forEach((r, i) => { shopPlace[r.slug] = i + 1; });
   box.textContent = '';
   if (removedPeople.length) box.appendChild(removedBox());
   // a send that emptied its list: say so, since that product's list is gone now
@@ -570,12 +584,18 @@ function paintAsking() {
     const bits = [];
     if (r.interest) bits.push(r.interest + ' interested');
     if (r.list && r.list.waiting) bits.push(r.list.waiting + ' waiting');
+    if (shopPlace[r.slug]) bits.push('no. ' + shopPlace[r.slug] + ' in the shop');
+    else if (r.interest) bits.push('not on the shop\'s list');
     sum.appendChild(el('span', 'caption', bits.join(' · ')));
     fold.appendChild(sum);
     const body = el('div', 'asking-body');
     const head = el('div', 'link-product-head');
     // the tally only when there is one: a product can have people waiting for an email without any taps counted
-    head.appendChild(el('p', 'caption', (r.interest ? peopleWords(r.interest) + ' ' : '') + shelfWords(r.slug)));
+    // why a tallied product isn't on the shop's "most asked for" card, or that it is but past the top six
+    const why = !r.interest ? '' : shopPlace[r.slug] ? ' no. ' + shopPlace[r.slug] + ' in the shop\'s "most asked for".'
+      : counted(r) ? ' the shop\'s "most asked for" shows only the top ' + WANTED_MAX + '.'
+      : ' the shop\'s "most asked for" leaves it off while it\'s ' + ((askingProducts.preorder || {})[r.slug] ? 'on pre-order.' : 'in the shop.');
+    head.appendChild(el('p', 'caption', (r.interest ? peopleWords(r.interest) + ' ' : '') + shelfWords(r.slug) + why));
     if (r.interest) head.appendChild(clearCount(r));
     body.appendChild(head);
     if (r.list) emailBits(r.list, done).forEach((x) => body.appendChild(x));
