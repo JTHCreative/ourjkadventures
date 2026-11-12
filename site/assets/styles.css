@@ -1709,3 +1709,40 @@ html.reel-door-locked { overflow: hidden; }
   .reel-door__reel.is-running .reel-door__bar { animation: none; }
   .reel-door__dot::before { transition: none; }
 }
+
+/* ---------- the "little sunshines" band on the home page (sunshine.js) ---------- */
+/* a tall photo band with the heading over the sky, and the set cards riding up over its bottom edge.
+   the picture sits in a layer a little taller than the band, so it can drift up and down without showing an edge */
+.sunshine { padding-top: 0; }
+.sun-band { position: relative; height: clamp(440px, 78vh, 760px); overflow: hidden; background: var(--ink); }
+.sun-track { position: absolute; inset: 0; }
+.sun-slide { position: absolute; inset: 0; margin: 0; overflow: hidden; transform: translateX(100%); transition: transform 0.7s cubic-bezier(.4, 0, .2, 1); visibility: hidden; }
+.sun-slide.is-on { transform: translateX(0); visibility: visible; }
+.sun-slide.is-before { transform: translateX(-100%); }
+.sun-slide.is-moving { visibility: visible; }
+.sun-layer { position: absolute; left: 0; right: 0; top: -14%; height: 128%; transform: translate3d(0, var(--sun-shift, 0px), 0); will-change: transform; }
+.sun-layer img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 55%; display: block; }
+/* a soft shade from the top, so the heading reads over a bright sky */
+.sun-band::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, rgba(58, 53, 50, 0.6), rgba(58, 53, 50, 0.2) 24%, rgba(58, 53, 50, 0) 42%, rgba(58, 53, 50, 0) 70%, rgba(58, 53, 50, 0.25)); }
+.sun-head { position: relative; z-index: 1; padding-top: var(--space-8); }
+.sun-head .headline { color: var(--on-media); text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35); }
+.sun-arrow { position: absolute; z-index: 2; top: 50%; transform: translateY(-50%); width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1.5px solid var(--on-media); border-radius: var(--radius-pill); background: rgba(58, 53, 50, 0.28); color: var(--on-media); cursor: pointer; transition: background 0.2s ease; }
+.sun-arrow[hidden] { display: none; }
+.sun-arrow svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.sun-arrow:hover { background: rgba(58, 53, 50, 0.5); }
+.sun-arrow:focus-visible { outline: 2px solid var(--on-media); outline-offset: 3px; }
+.sun-arrow--prev { left: var(--space-5); }
+.sun-arrow--next { right: var(--space-5); }
+.sun-cards { position: relative; z-index: 1; margin-top: calc(-1 * var(--space-8) - var(--space-6)); }
+@media (max-width: 760px) {
+  .sun-band { height: clamp(380px, 70vh, 560px); }
+  .sun-head { padding-top: var(--space-7); }
+  .sun-arrow { width: 44px; height: 44px; }
+  .sun-arrow--prev { left: var(--space-3); }
+  .sun-arrow--next { right: var(--space-3); }
+  .sun-cards { margin-top: calc(-1 * var(--space-7)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sun-slide { transition: none; }
+  .sun-layer { transform: none; will-change: auto; }
+}
