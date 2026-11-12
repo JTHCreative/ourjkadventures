@@ -1733,6 +1733,14 @@ html.reel-door-locked { overflow: hidden; }
 .sun-arrow:focus-visible { outline: 2px solid var(--on-media); outline-offset: 3px; }
 .sun-arrow--prev { left: var(--space-5); }
 .sun-arrow--next { right: var(--space-5); }
+.sun-pause { position: absolute; z-index: 2; top: var(--space-4); right: var(--space-5); width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1.5px solid var(--on-media); border-radius: var(--radius-pill); background: rgba(58, 53, 50, 0.28); color: var(--on-media); cursor: pointer; transition: background 0.2s ease; }
+.sun-pause[hidden] { display: none; }
+.sun-pause:hover { background: rgba(58, 53, 50, 0.5); }
+.sun-pause:focus-visible { outline: 2px solid var(--on-media); outline-offset: 3px; }
+.sun-pause svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.sun-pause .icon-play { fill: currentColor; }
+.sun-pause .icon-play, .sun--paused .sun-pause .icon-pause { display: none; }
+.sun--paused .sun-pause .icon-play { display: block; }
 .sun-cards { position: relative; z-index: 1; margin-top: calc(-1 * var(--space-8) - var(--space-6)); }
 @media (max-width: 760px) {
   .sun-band { height: clamp(380px, 70vh, 560px); }
@@ -1740,6 +1748,7 @@ html.reel-door-locked { overflow: hidden; }
   .sun-arrow { width: 44px; height: 44px; }
   .sun-arrow--prev { left: var(--space-3); }
   .sun-arrow--next { right: var(--space-3); }
+  .sun-pause { top: var(--space-3); right: var(--space-3); }
   .sun-cards { margin-top: calc(-1 * var(--space-7)); }
 }
 @media (prefers-reduced-motion: reduce) {
