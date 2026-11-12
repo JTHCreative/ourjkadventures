@@ -1723,7 +1723,7 @@ html.reel-door-locked { overflow: hidden; }
 .sun-layer { position: absolute; left: 0; right: 0; top: -14%; height: 128%; transform: translate3d(0, var(--sun-shift, 0px), 0); will-change: transform; }
 .sun-layer img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 55%; display: block; }
 /* a soft shade from the top, so the heading reads over a bright sky */
-.sun-band::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, rgba(58, 53, 50, 0.45), rgba(58, 53, 50, 0) 38%, rgba(58, 53, 50, 0) 70%, rgba(58, 53, 50, 0.25)); }
+.sun-band::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to bottom, rgba(58, 53, 50, 0.6), rgba(58, 53, 50, 0.2) 24%, rgba(58, 53, 50, 0) 42%, rgba(58, 53, 50, 0) 70%, rgba(58, 53, 50, 0.25)); }
 .sun-head { position: relative; z-index: 1; padding-top: var(--space-8); }
 .sun-head .headline { color: var(--on-media); text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35); }
 .sun-arrow { position: absolute; z-index: 2; top: 50%; transform: translateY(-50%); width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1.5px solid var(--on-media); border-radius: var(--radius-pill); background: rgba(58, 53, 50, 0.28); color: var(--on-media); cursor: pointer; transition: background 0.2s ease; }

@@ -39,6 +39,13 @@
 
   /* ---------- sliding between photos ---------- */
   if (slides.length < 2) return;
+  // the hidden photos would only start loading once they slide in (a blank moment), so fetch them as soon as the
+  // band comes near the screen, ready and waiting backstage
+  function readyAll() { slides.forEach(function (s) { var img = s.querySelector('img'); if (img) img.loading = 'eager'; }); }
+  if (window.IntersectionObserver) {
+    var ready = new IntersectionObserver(function (es) { if (es[0].isIntersecting) { readyAll(); ready.disconnect(); } }, { rootMargin: '400px 0px' });
+    ready.observe(band);
+  } else readyAll();
   prev.hidden = false;
   next.hidden = false;
   var at = 0, busy = false;
