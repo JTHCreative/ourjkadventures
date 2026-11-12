@@ -1327,8 +1327,30 @@ async function loadRequests() {
 }
 
 /* ---------- product photos: the owner's own, shown under the pup board (server/media.js) ---------- */
-// photos go up one at a time, each shrunk in the browser first by app.js (the same as review photos)
+// photos go up one at a time, each shrunk in the browser first by app.js (the same as review photos).
+// each photo has a pencil (change its words, right there under it) and a trash can (take it down). the order is the
+// order on the pup page: drag a photo by its grip (or the photo itself, with a mouse) to a new spot, or focus the grip
+// and use the arrow keys, like shuffling prints on a corkboard. each move is saved straight away, for that product
 let mediaProducts = [];
+const ICON = {
+  pencil: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
+  trash: '<path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/>',
+  grip: '<circle cx="9" cy="6" r="1.3"/><circle cx="15" cy="6" r="1.3"/><circle cx="9" cy="12" r="1.3"/><circle cx="15" cy="12" r="1.3"/><circle cx="9" cy="18" r="1.3"/><circle cx="15" cy="18" r="1.3"/>'
+};
+function iconBtn(cls, icon, label) {
+  const b = el('button', 'icon-btn ' + cls);
+  b.type = 'button';
+  b.title = label;
+  b.setAttribute('aria-label', label);
+  b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICON[icon] + '</svg>';
+  return b;
+}
+// after the list is painted again, put the keyboard back where it was
+function focusMedia(id, which) {
+  const item = id && document.querySelector('.admin-media-photo[data-photo-id="' + id + '"]');
+  const b = item && item.querySelector(which);
+  if (b) b.focus();
+}
 function paintMedia(data) {
   const note = $('[data-media-note]');
   const form = $('[data-media-form]');
@@ -1345,36 +1367,169 @@ function paintMedia(data) {
   const bySlug = {};
   data.photos.forEach((ph) => { (bySlug[ph.slug] = bySlug[ph.slug] || []).push(ph); });
   mediaProducts.filter((p) => bySlug[p.slug]).forEach((p) => {
+    const photos = bySlug[p.slug];
     const group = el('section', 'admin-media-group');
-    group.appendChild(el('h3', null, shownName(p) + ' (' + bySlug[p.slug].length + ')'));
+    group.appendChild(el('h3', null, shownName(p) + ' (' + photos.length + ')'));
+    if (photos.length > 1) group.appendChild(el('p', 'caption', 'in the order they show on the pup page. drag one to move it, or focus its grip and use the arrow keys.'));
+    const said = el('p', 'caption admin-media-said');
+    said.setAttribute('role', 'status');
     const row = el('div', 'admin-media-photos');
-    bySlug[p.slug].forEach((ph) => {
-      const item = el('figure', 'admin-media-photo');
-      const img = el('img');
-      img.src = ph.src;
-      img.alt = ph.alt || 'a photo of the ' + shownName(p);
-      img.width = 120;
-      img.height = 120;
-      img.loading = 'lazy';
-      item.appendChild(img);
-      item.appendChild(el('figcaption', 'caption', ph.alt || '(no words yet.)'));
-      const rm = el('button', 'link-btn', 'remove');
-      rm.type = 'button';
-      rm.setAttribute('aria-label', 'remove this photo of the ' + shownName(p));
-      rm.addEventListener('click', async () => {
-        if (!confirm('take this photo down? it can\'t be undone.')) return;
-        rm.disabled = true;
-        try { paintMedia(await api('DELETE', '/api/admin/media?id=' + encodeURIComponent(ph.id))); } catch (e) {
-          rm.disabled = false;
-          note.textContent = "that didn't come down. try again in a moment.";
-        }
-      });
-      item.appendChild(rm);
-      row.appendChild(item);
-    });
+    photos.forEach((ph) => row.appendChild(mediaItem(p, ph, photos.length > 1)));
     group.appendChild(row);
+    group.appendChild(said);
+    if (photos.length > 1) wirePhotoOrder(p, row, said);
     list.appendChild(group);
   });
+}
+
+function mediaItem(p, ph, movable) {
+  const note = $('[data-media-note]');
+  const item = el('figure', 'admin-media-photo');
+  item.dataset.photoId = ph.id;
+  const frame = el('div', 'admin-media-frame');
+  const img = el('img');
+  img.src = ph.src;
+  img.alt = ph.alt || 'a photo of the ' + shownName(p);
+  img.width = 120;
+  img.height = 120;
+  img.loading = 'lazy';
+  img.draggable = false;
+  frame.appendChild(img);
+  if (movable) frame.appendChild(iconBtn('admin-media-grip', 'grip', 'move this photo of the ' + shownName(p)));
+  item.appendChild(frame);
+  const words = el('figcaption', 'caption', ph.alt || '(no words yet.)');
+  item.appendChild(words);
+  const tools = el('div', 'admin-media-tools');
+  const edit = iconBtn('admin-media-edit', 'pencil', 'change the words on this photo of the ' + shownName(p));
+  const rm = iconBtn('admin-media-remove', 'trash', 'take down this photo of the ' + shownName(p));
+  tools.append(edit, rm);
+  item.appendChild(tools);
+
+  // the pencil: the words turn into a box with save and cancel. enter saves, escape puts it back as it was
+  edit.addEventListener('click', () => {
+    const box = el('form', 'admin-media-edit-form');
+    const lab = el('label', 'sr-only', 'the words on this photo');
+    const input = el('input');
+    input.type = 'text';
+    input.maxLength = 150;
+    input.value = ph.alt || '';
+    input.placeholder = 'the ' + shownName(p) + ' pin on a denim jacket';
+    input.id = 'media-alt-' + ph.id;
+    lab.htmlFor = input.id;
+    const save = el('button', 'jka-btn jka-btn--sm', 'save');
+    save.type = 'submit';
+    const cancel = el('button', 'link-btn', 'cancel');
+    cancel.type = 'button';
+    const btns = el('div', 'admin-media-edit-btns');
+    btns.append(save, cancel);
+    box.append(lab, input, btns);
+    words.hidden = true;
+    tools.hidden = true;
+    item.insertBefore(box, tools);
+    input.focus();
+    const close = () => { box.remove(); words.hidden = false; tools.hidden = false; edit.focus(); };
+    cancel.addEventListener('click', close);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); close(); } });
+    box.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      save.disabled = true;
+      try {
+        paintMedia(await api('PATCH', '/api/admin/media', { id: ph.id, alt: input.value }));
+        focusMedia(ph.id, '.admin-media-edit');
+        note.textContent = 'words saved.';
+      } catch (err) {
+        save.disabled = false;
+        note.textContent = err.status === 404 ? 'that photo is gone. reload the page.' : "those words didn't save. try again in a moment.";
+      }
+    });
+  });
+
+  rm.addEventListener('click', async () => {
+    if (!confirm('take this photo down? it can\'t be undone.')) return;
+    rm.disabled = true;
+    try { paintMedia(await api('DELETE', '/api/admin/media?id=' + encodeURIComponent(ph.id))); } catch (e) {
+      rm.disabled = false;
+      note.textContent = "that didn't come down. try again in a moment.";
+    }
+  });
+  return item;
+}
+
+// moving photos within one product. the list on screen moves at once; the new order goes to the server a moment
+// later (so a few arrow presses in a row are one save). if the photos changed in another tab, the list is read again
+function wirePhotoOrder(p, row, said) {
+  const items = () => [...row.children];
+  const where = (item) => 'photo ' + (items().indexOf(item) + 1) + ' of ' + items().length + '.';
+  let timer = null;
+  const save = () => {
+    clearTimeout(timer);
+    said.textContent = 'saving the order.';
+    timer = setTimeout(async () => {
+      try {
+        await api('POST', '/api/admin/media/order', { slug: p.slug, ids: items().map((it) => it.dataset.photoId) });
+        said.textContent = 'order saved. it shows on the pup page within a minute or so.';
+      } catch (e) {
+        if (e.status === 409) {
+          said.textContent = '';
+          $('[data-media-note]').textContent = 'the photos changed somewhere else, so here they are again. try that move once more.';
+          try { paintMedia(await api('GET', '/api/admin/media')); } catch (err) {}
+        } else said.textContent = "the order didn't save. try again in a moment.";
+      }
+    }, 500);
+  };
+
+  row.addEventListener('keydown', (e) => {
+    const grip = e.target.closest('.admin-media-grip');
+    if (!grip) return;
+    const item = grip.closest('.admin-media-photo');
+    const back = e.key === 'ArrowLeft' || e.key === 'ArrowUp';
+    const ahead = e.key === 'ArrowRight' || e.key === 'ArrowDown';
+    if (!back && !ahead) return;
+    e.preventDefault();
+    if (back && item.previousElementSibling) row.insertBefore(item, item.previousElementSibling);
+    else if (ahead && item.nextElementSibling) row.insertBefore(item.nextElementSibling, item);
+    else return;
+    grip.focus();
+    said.textContent = where(item);
+    save();
+  });
+
+  // dragging: by the grip (mouse, pen or finger), or by the photo itself with a mouse. on a phone, the photo itself
+  // still scrolls the page; only the grip picks it up. as it passes over another photo it slides in before or after it
+  let drag = null;
+  row.addEventListener('pointerdown', (e) => {
+    const grip = e.target.closest('.admin-media-grip');
+    const onPhoto = e.target.closest('.admin-media-frame') && e.pointerType === 'mouse';
+    if (!grip && !onPhoto) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    const item = e.target.closest('.admin-media-photo');
+    drag = { item, id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, start: items().indexOf(item) };
+    item.querySelector('.admin-media-frame').setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  row.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 4) return;
+    drag.moved = true;
+    drag.item.classList.add('is-dragging');
+    const over = items().find((it) => {
+      if (it === drag.item) return false;
+      const r = it.getBoundingClientRect();
+      return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    });
+    if (!over) return;
+    const r = over.getBoundingClientRect();
+    row.insertBefore(drag.item, e.clientX < r.left + r.width / 2 ? over : over.nextElementSibling);
+  });
+  const drop = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = drag;
+    drag = null;
+    d.item.classList.remove('is-dragging');
+    if (d.moved && items().indexOf(d.item) !== d.start) { said.textContent = where(d.item); save(); }
+  };
+  row.addEventListener('pointerup', drop);
+  row.addEventListener('pointercancel', drop);
 }
 function wireMedia() {
   const form = $('[data-media-form]');

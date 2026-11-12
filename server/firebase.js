@@ -244,6 +244,8 @@ export async function firestoreCommit(env, writes, fetchFn = fetch) {
   const body = writes.map((w) => {
     if (w.create) return { update: { name: name(w.create), fields: toFields(w.data || {}) }, currentDocument: { exists: false } };
     if (w.remove) return w.any ? { delete: name(w.remove) } : { delete: name(w.remove), currentDocument: { exists: true } };
+    // { change: path, data }: only those fields, of a document that must already be there
+    if (w.change) return { update: { name: name(w.change), fields: toFields(w.data || {}) }, updateMask: { fieldPaths: Object.keys(w.data || {}) }, currentDocument: { exists: true } };
     const data = w.data || {};
     return {
       update: { name: name(w.add), fields: toFields(data) },

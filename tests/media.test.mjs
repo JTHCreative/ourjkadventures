@@ -146,3 +146,45 @@ test('bad requests', async () => {
   assert.equal(cleanAlt('  two\nlines  '), 'two lines');
   assert.equal(cleanAlt(5), '');
 });
+
+test('the owner changes the words on a photo', async () => {
+  const w = world();
+  const { id } = await (await adminCall(w, 'POST', 'media', { slug: 'corgi', jpeg: b64(jpeg()), alt: 'old words' })).json();
+  const res = await adminCall(w, 'PATCH', 'media', { id, alt: '  the corgi pin <b>on a hat</b>  ' });
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).photos[0].alt, 'the corgi pin b on a hat /b', 'cleaned like an upload\'s words');
+  const shown = await (await media(w, '?slug=corgi')).json();
+  assert.equal(shown.photos[0].alt, 'the corgi pin b on a hat /b');
+  assert.equal((await adminCall(w, 'PATCH', 'media', { id, alt: '' })).status, 200, 'empty words are fine');
+  assert.equal((await adminCall(w, 'PATCH', 'media', { id: 'nope', alt: 'x' })).status, 404);
+  assert.equal((await adminCall(w, 'PATCH', 'media', { id, alt: 'x' }, await sign({ email: 'someone@example.com' }))).status, 403);
+});
+
+test('the owner puts a product\'s photos in order; new uploads go in front until moved', async () => {
+  const w = world();
+  const up = async (alt) => (await (await adminCall(w, 'POST', 'media', { slug: 'corgi', jpeg: b64(jpeg()), alt })).json()).id;
+  const a = await up('a');
+  await new Promise((r) => setTimeout(r, 5));
+  const b = await up('b');
+  await new Promise((r) => setTimeout(r, 5));
+  const c = await up('c');
+  const pug = (await (await adminCall(w, 'POST', 'media', { slug: 'pug', jpeg: b64(jpeg()) })).json()).id;
+  const corgiAlts = async () => (await (await media(w, '?slug=corgi')).json()).photos.map((p) => p.alt);
+  assert.deepEqual(await corgiAlts(), ['c', 'b', 'a'], 'newest first to begin with');
+
+  const res = await adminCall(w, 'POST', 'media/order', { slug: 'corgi', ids: [a, c, b] });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await corgiAlts(), ['a', 'c', 'b']);
+
+  await new Promise((r) => setTimeout(r, 5));
+  await up('d');
+  assert.deepEqual(await corgiAlts(), ['d', 'a', 'c', 'b'], 'a new one goes in front');
+
+  // it has to be the whole set, exactly
+  assert.equal((await adminCall(w, 'POST', 'media/order', { slug: 'corgi', ids: [a, c, b] })).status, 409, 'one missing');
+  assert.equal((await adminCall(w, 'POST', 'media/order', { slug: 'corgi', ids: [a, a, b, c] })).status, 409, 'doubled');
+  assert.equal((await adminCall(w, 'POST', 'media/order', { slug: 'corgi', ids: [a, b, c, pug] })).status, 409, 'another product\'s');
+  assert.equal((await adminCall(w, 'POST', 'media/order', { slug: 'corgi' })).status, 400);
+  assert.equal((await adminCall(w, 'GET', 'media/order')).status, 405);
+  assert.equal((await adminCall(w, 'POST', 'media/order', { slug: 'corgi', ids: [] }, await sign({ email: 'someone@example.com' }))).status, 403);
+});
