@@ -97,10 +97,32 @@
   </div>
 </section>
 
-<section class="section">
-  <div class="wrap">
-    <h2 class="headline center">little sunshines to share your story.</h2>
-    <div class="grid grid-3" style="margin-top:var(--space-6)">
+<!-- the sets, under a band of our photos. the photo drifts a little slower than the page as it scrolls (parallax, like
+     the far hills out of a car window), and the arrows slide to the next photo. sunshine.js runs it; with "reduce motion"
+     on, the photo stays put. to add a photo: copy a sun-slide (one per photo) with its own picture and words. the arrows
+     only show once there are two or more -->
+<section class="section sunshine" aria-labelledby="sunshine-title" data-sunshine>
+  <div class="sun-band">
+    <div class="sun-track" aria-roledescription="carousel" aria-label="our photos">
+      <figure class="sun-slide is-on" aria-roledescription="slide">
+        <div class="sun-layer">
+          <img src="assets/img/sunshine/pom-aussie-sunset-1200.webp" srcset="assets/img/sunshine/pom-aussie-sunset-800.webp 800w, assets/img/sunshine/pom-aussie-sunset-1200.webp 1200w, assets/img/sunshine/pom-aussie-sunset-2000.webp 2000w" sizes="100vw" width="2000" height="1333" loading="lazy" decoding="async" alt="the pomeranian and aussie pins on their cards, held up against a pink sunset over the water">
+        </div>
+      </figure>
+    </div>
+    <div class="wrap sun-head">
+      <h2 class="headline center" id="sunshine-title">little sunshines to share your story.</h2>
+    </div>
+    <button class="sun-arrow sun-arrow--prev" type="button" aria-label="previous photo" data-sun-prev hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+    </button>
+    <button class="sun-arrow sun-arrow--next" type="button" aria-label="next photo" data-sun-next hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
+    <p class="sr-only" aria-live="polite" data-sun-said></p>
+  </div>
+  <div class="wrap sun-cards">
+    <div class="grid grid-3">
       <article class="card clean collection-card">
         <div class="pins">
           <img src="assets/img/pins/aussie.webp" width="900" height="900" loading="lazy" alt="the aussie pin">
@@ -161,5 +183,6 @@
   </div>
 </footer>
 <script src="assets/app.js"></script>
+<script src="assets/sunshine.js" defer></script>
 </body>
 </html>
