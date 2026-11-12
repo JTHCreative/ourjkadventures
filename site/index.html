@@ -99,7 +99,7 @@
 
 <!-- the sets, under a band of our photos. the photo drifts a little slower than the page as it scrolls (parallax, like
      the far hills out of a car window), and the arrows slide to the next photo. sunshine.js runs it; with "reduce motion"
-     on, the photo stays put. to add a photo: copy a sun-slide (one per photo) with its own picture and words. the arrows
+     on, the photo stays put. the photos turn by themselves every 30 seconds (with a pause button). to add a photo: copy a sun-slide (one per photo) with its own picture and words. the arrows
      only show once there are two or more -->
 <section class="section sunshine" aria-labelledby="sunshine-title" data-sunshine>
   <div class="sun-band">
@@ -123,6 +123,10 @@
     </button>
     <button class="sun-arrow sun-arrow--next" type="button" aria-label="next photo" data-sun-next hidden>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
+    <button class="sun-pause" type="button" aria-label="pause the photos" title="pause the photos" data-sun-pause hidden>
+      <svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
+      <svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5l12 7-12 7z"/></svg>
     </button>
     <p class="sr-only" aria-live="polite" data-sun-said></p>
   </div>

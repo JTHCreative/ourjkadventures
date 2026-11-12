@@ -4,6 +4,15 @@ The site runs as a **Cloudflare Worker with static assets** named `ourjkadventur
 `wrangler.jsonc` and built from this repo's `main` branch on every push. (Earlier notes described
 Cloudflare Pages; that is not what runs.)
 
+## If a merge doesn't start a build
+Now and then GitHub's "new code is here" message doesn't reach Cloudflare, so a merge to `main` shows no build at all
+(it happened with pull request #102 on 2026-11-12). The site stays on the last version until the next build.
+1. In the Cloudflare dashboard, open **Workers & Pages** > **ourjkadventures** > **Deployments**.
+2. Retry the latest build, or start a new one for the `main` branch, if the page offers it.
+3. If there's no such button: check **Settings** > **Build** still shows the repository `JTHCreative/ourjkadventures`
+   with builds on for `main`, and on GitHub that the Cloudflare app still has access to the repository.
+4. Or simply merge the next change: every push to `main` asks Cloudflare again.
+
 ## Variables and secrets
 **Workers & Pages** > **ourjkadventures** > **Settings** > **Variables and Secrets**. `wrangler.jsonc` has
 `"keep_vars": true`, so deploys don't wipe these.

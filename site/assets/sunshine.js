@@ -3,7 +3,10 @@
    - parallax: as the page scrolls, the photo drifts a little slower than everything else, like far-off hills out of a
      car window. Worked out once per screen frame, only while the band is on screen. Off under "reduce motion".
    - the arrows: slide to the previous or next photo (wrapping round), also by swiping on a phone. They only show
-     once the band has two or more photos. */
+     once the band has two or more photos.
+   - turning on its own: every 30 seconds the next photo slides in, like a slow picture frame on a shelf. It waits
+     while the band is off screen, the tab is hidden, or the pointer or keyboard is on the band, starts the count over
+     after an arrow press, and has a pause button (a page that moves by itself needs one). Off under "reduce motion". */
 (function () {
   var band = document.querySelector('[data-sunshine] .sun-band');
   if (!band) return;
@@ -70,10 +73,39 @@
     to.removeAttribute('aria-hidden');
     said.textContent = 'photo ' + (at + 1) + ' of ' + slides.length + '.';
     queue();
+    count();
     if (calm) { from.classList.remove('is-moving'); return; }
     busy = true;
-    setTimeout(function () { busy = false; from.classList.remove('is-moving'); to.classList.remove('is-moving'); }, 720);
+    setTimeout(function () { busy = false; from.classList.remove('is-moving'); to.classList.remove('is-moving'); }, 800);
   }
+  /* ---------- turning on its own ---------- */
+  var TURN_MS = 30 * 1000;
+  var pause = band.querySelector('[data-sun-pause]');
+  var paused = false, resting = false, turnTimer = null;
+  function count() {
+    clearTimeout(turnTimer);
+    if (calm || paused) return;
+    turnTimer = setTimeout(function () {
+      // not now (off screen, tab hidden, someone's looking closely): try again in another 30 seconds
+      if (!showing || resting || document.hidden) { count(); return; }
+      go(1);
+    }, TURN_MS);
+  }
+  if (!calm && pause) {
+    pause.hidden = false;
+    pause.addEventListener('click', function () {
+      paused = !paused;
+      band.classList.toggle('sun--paused', paused);
+      pause.setAttribute('aria-label', paused ? 'turn the photos again' : 'pause the photos');
+      pause.title = paused ? 'turn the photos again' : 'pause the photos';
+      count();
+    });
+    band.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') resting = true; });
+    band.addEventListener('pointerleave', function () { resting = false; });
+    band.addEventListener('focusin', function () { resting = true; });
+    band.addEventListener('focusout', function (e) { if (!band.contains(e.relatedTarget)) resting = false; });
+  }
+
   prev.addEventListener('click', function () { go(-1); });
   next.addEventListener('click', function () { go(1); });
   band.addEventListener('keydown', function (e) {
@@ -89,4 +121,5 @@
     sx = null;
     if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx < 0 ? 1 : -1);
   }, { passive: true });
+  count();
 })();
