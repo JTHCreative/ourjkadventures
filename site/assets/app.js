@@ -1149,8 +1149,13 @@
     var starLine = el('p', 'pup-star-line');
     starLine.hidden = true;
     var about = el('p', 'about', p.about || '');
-    // name, price, stars, about, then size, stock and the button
+    // a few of its photos, filled in with the photos section below (paintThumbs); hidden while it has none
+    var thumbs = el('div', 'pup-thumbs');
+    thumbs.setAttribute('data-pup-thumbs', '');
+    thumbs.hidden = true;
+    // name, price, photos, stars, about, then size, stock and the button
     sheet.appendChild(buy.querySelector('.price'));
+    sheet.appendChild(thumbs);
     sheet.appendChild(starLine);
     sheet.appendChild(about);
     sheet.appendChild(buy);
@@ -1421,6 +1426,47 @@
     watchMedia(box);
     // the photos fade in after their pup's card (styles.css fades what's inside, so the scroll fade still works)
     if (was) arrive(box);
+    paintThumbs(box, pics);
+  }
+
+  // the first few of the open pup's photos, small, on its card under the price. tapping one opens it big, in the
+  // same viewer as the photos section (so previous and next step through all of them). with more than four, a plus
+  // button after them glides the page down to the photos section, like a "see more" sign pointing down the hall
+  var THUMBS_FIRST = 4;
+  function paintThumbs(box, pics) {
+    var row = document.querySelector('#pup-panel [data-pup-thumbs]');
+    if (!row) return;
+    row.textContent = '';
+    pics.slice(0, THUMBS_FIRST).forEach(function (pic, i) {
+      var b = el('button', 'pup-thumb');
+      b.type = 'button';
+      b.setAttribute('aria-label', 'open ' + pic.alt);
+      var img = el('img');
+      img.alt = '';
+      img.decoding = 'async';
+      img.width = 56;
+      img.height = 56;
+      img.src = pic.src;
+      b.appendChild(img);
+      b.addEventListener('click', function () { openPhotos(pics, i, '', b); });
+      row.appendChild(b);
+    });
+    if (pics.length > THUMBS_FIRST) {
+      var more = el('button', 'pup-thumb pup-thumb-more');
+      more.type = 'button';
+      more.setAttribute('aria-label', 'see all ' + pics.length + ' photos of the ' + mediaPupName(pics[0].slug) + ' below');
+      more.title = 'see all ' + pics.length + ' photos';
+      more.appendChild(svg(['M12 5v14', 'M5 12h14']));
+      more.addEventListener('click', function () {
+        var y = Math.max(0, box.getBoundingClientRect().top + window.pageYOffset - 16);
+        window.scrollTo({ top: y, behavior: calmMotion() ? 'auto' : 'smooth' });
+        // keyboard and screen reader users land on the first photo there, without a second jump
+        var first = box.querySelector('[data-media-grid] .media-tile');
+        if (first) first.focus({ preventScroll: true });
+      });
+      row.appendChild(more);
+    }
+    row.hidden = false;
   }
 
   // Before a photo leaves the phone: shrink it (long side 1600px) and save it as a JPEG. Drawing it fresh like
