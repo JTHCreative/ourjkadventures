@@ -25,6 +25,8 @@
 //   GET  /api/admin/media    the owner's own photos for the photos section under the pup board (server/media.js)
 //   POST /api/admin/media    { slug, jpeg: "<base64>", alt }  add one (shrunk to a 1600px JPEG in the browser first)
 //   DELETE /api/admin/media?id=…  take one down
+//   PATCH /api/admin/media   { id, alt }  new words for one
+//   POST /api/admin/media/order  { slug, ids }  one product's photos in a new order (all of them, first to last)
 //   GET  /api/admin/orders   paid website orders not shipped yet, oldest first, each with the email it would get
 //   GET  /api/admin/orders/history[?cursor=]   paid website orders already shipped, newest first, 20 a page
 //   GET  /api/admin/orders/history?removed=1   the ones taken out of the history (hidden on /admin, still in Square)
@@ -51,7 +53,7 @@ import { instagramStatus } from './instagram.js';
 import { readAvailability, setAvailable, readPreorder, setPreorder, readInterest, readAsked, closeRound, readPreorderDates, setPreorderDate, cleanDate } from './interest.js';
 import { shopToday } from './preorder-words.js';
 import { notifySummary, sendItsHere, removeWaiting, restoreWaiting } from './notify.js';
-import { adminMedia, addMedia, removeMedia } from './media.js';
+import { adminMedia, addMedia, removeMedia, editMedia, orderMedia } from './media.js';
 import { giftList, giftDone } from './ship-to.js';
 import { ordersToShip, markShipped, sendMoved, orderHistory, hideOrder, hiddenHistory } from './shipped.js';
 import { emailConfigured } from './email.js';
@@ -222,14 +224,25 @@ export async function admin(request, env, fetchFn = fetch) {
       return json({ ...result, ...(await notifySummary(env, origin, fetchFn)) });
     }
 
-    if (route === 'media') {
+    if (route === 'media' || route === 'media/order') {
       // the website's products ride along, for the upload form's product list
       const products = (await siteProducts(env, request.url)).items || [];
       const withProducts = async (extra) => json({
         ...extra, ...(await adminMedia(env, fetchFn)),
         products: products.map((p) => ({ slug: p.slug, name: p.name, kind: p.kind, series: p.series || '' }))
       });
+      if (route === 'media/order') {
+        if (request.method !== 'POST') return json({ error: 'method' }, 405);
+        const result = await orderMedia(env, await readJson(request), fetchFn);
+        if (result.error) return json(result, result.status || 400);
+        return withProducts(result);
+      }
       if (request.method === 'GET') return withProducts({});
+      if (request.method === 'PATCH') {
+        const result = await editMedia(env, await readJson(request), fetchFn);
+        if (result.error) return json(result, result.status || 400);
+        return withProducts(result);
+      }
       if (request.method === 'DELETE') {
         const result = await removeMedia(env, url.searchParams.get('id'), fetchFn);
         if (result.error) return json(result, result.status || 400);

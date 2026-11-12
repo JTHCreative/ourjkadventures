@@ -1,15 +1,20 @@
 // j+k adventures: the photos section under the pup board. Two kinds of photos, shown together:
 //   - the owner's own, uploaded per product on /admin (kept in the REVIEW_PHOTOS bucket under media/, listed in
-//     Firestore as media/{photo id}: { slug, photo: "id.WxH", alt, createdAt, by })
+//     Firestore as media/{photo id}: { slug, photo: "id.WxH", alt, createdAt, by, order })
 //   - every photo on an approved review (server/reviews.js). Those stay where they are; this only lists them.
 // Like a shop's photo wall: a few pictures we hung ourselves, then the snapshots customers sent in.
 //
 //   GET /api/media?slug=corgi   one product's photos: ours first (newest first), then the reviews' (newest review first)
 //   GET /api/media              every product's photos, the same order, for the whole pack
 //   GET /api/media/photo?id=…   one of the owner's photos (anyone: they're public as soon as they're uploaded)
-// The owner's side (upload, remove, list) is called from server/admin.js, which has already checked who is asking.
+// The owner's side (upload, remove, list, change the words, put in order) is called from server/admin.js, which has
+// already checked who is asking.
+//
+// The order: once the owner has arranged a product's photos on /admin, each has a place number (order: 0, 1, 2 ...).
+// A photo uploaded after that has none yet, so it goes at the front, newest first, like a new print pinned to the
+// top of the wall until the owner moves it. A product never arranged is simply newest first, as it always was.
 
-import { configured, firestoreQuery, firestoreSet, firestoreGet, firestoreDelete } from './firebase.js';
+import { configured, firestoreQuery, firestoreSet, firestoreGet, firestoreDelete, firestoreUpdate, firestoreCommit } from './firebase.js';
 import { photosOn, parsePhotos, photoString, readPhoto, newPhotoId, storePhotos, deletePhotos, photoResponse, isPhotoId } from './photos.js';
 import { approvedReviewPhotos } from './reviews.js';
 
@@ -45,10 +50,17 @@ export async function ownerMedia(env, fetchFn = fetch) {
   const list = rows.map((r) => {
     const p = parsePhotos(r.photo)[0];
     if (!p || p.id !== r.id || typeof r.slug !== 'string') return null;
-    return { ...p, slug: r.slug, alt: r.alt || '', date: String(r.createdAt || '').slice(0, 10), at: String(r.createdAt || '') };
-  }).filter(Boolean).sort((a, b) => b.at.localeCompare(a.at)).map(({ at, ...rest }) => rest);
+    const order = typeof r.order === 'number' && isFinite(r.order) ? r.order : null;
+    return { ...p, slug: r.slug, alt: r.alt || '', date: String(r.createdAt || '').slice(0, 10), at: String(r.createdAt || ''), order };
+  }).filter(Boolean).sort(byPlace).map(({ at, order, ...rest }) => rest);
   mediaCache = { list, until: Date.now() + CACHE_MS };
   return list;
+}
+// not yet placed (newest first), then placed (by place number)
+function byPlace(a, b) {
+  if ((a.order === null) !== (b.order === null)) return a.order === null ? -1 : 1;
+  if (a.order !== null && a.order !== b.order) return a.order - b.order;
+  return b.at.localeCompare(a.at);
 }
 function forgetMedia() { mediaCache = { list: null, until: 0 }; }
 
@@ -132,6 +144,35 @@ export async function removeMedia(env, id, fetchFn = fetch) {
   await deletePhotos(env, [id], FOLDER);
   forgetMedia();
   return { deleted: true };
+}
+
+// new words for one photo: { id, alt }. empty is fine (the page then says "a photo of the corgi pin, from us")
+export async function editMedia(env, body, fetchFn = fetch) {
+  const id = body && body.id;
+  if (!isPhotoId(id) || typeof body.alt !== 'string') return { error: 'no such photo', status: 404 };
+  const path = FOLDER + '/' + id;
+  if (!(await firestoreGet(env, path, fetchFn))) return { error: 'no such photo', status: 404 };
+  await firestoreUpdate(env, path, { alt: cleanAlt(body.alt) }, fetchFn);
+  forgetMedia();
+  return { saved: true };
+}
+
+// one product's photos in a new order: { slug, ids: [every one of its photo ids, first to last] }. it has to be the
+// whole set, exactly, so a photo added or removed in another tab meanwhile can't be lost or doubled: the owner is
+// asked to reload instead. all the place numbers are written in one go, so it's never left half arranged
+export async function orderMedia(env, body, fetchFn = fetch) {
+  if (!body || typeof body.slug !== 'string' || !Array.isArray(body.ids)) return { error: 'order' };
+  forgetMedia();
+  const have = (await ownerMedia(env, fetchFn)).filter((p) => p.slug === body.slug).map((p) => p.id);
+  const ids = body.ids;
+  const same = ids.length === have.length && new Set(ids).size === ids.length && ids.every((id) => have.includes(id));
+  if (!same) return { error: 'changed', status: 409 };
+  if (ids.length) {
+    const ok = await firestoreCommit(env, ids.map((id, i) => ({ change: FOLDER + '/' + id, data: { order: i } })), fetchFn);
+    if (!ok) return { error: 'changed', status: 409 };
+  }
+  forgetMedia();
+  return { saved: true };
 }
 
 // for tests
