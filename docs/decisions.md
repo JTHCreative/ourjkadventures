@@ -402,6 +402,22 @@ order, raised gold lines, a taller gold rim, and the post and rubber clutch copi
   The four earlier pins build byte for byte the same; the doodle shifts by a hairline at its rim's inner edge, so its
   model wasn't rebuilt. The new goldie model is 747 KB; both `?v=` numbers went to 7.
 
+## 2026-11 Every pin model built the same way
+The older models (made before `scripts/svg-to-pin.py`) didn't have the same raised heights as the new ones, so the
+owner is sending each pin's SVG to rebuild them all with the script. First batch: aussie, beagle, corgi, husky,
+the doodle again, and the dachshund's first model (its "See in 3D" is on now). Model `?v=` went to 8.
+
+- **Each pin keeps its metal.** Aussie, beagle, husky, pit bull and pug were silver-plated, the rest gold. The script
+  takes `silver` as a fourth word (`... out.glb silver`) for the same silver finish the old silver models had. The
+  dachshund is gold, the owner's choice.
+- **The rim can be any colour in the file.** These SVGs name the rim `border_with_plating` (and some have a twin,
+  `border`), drawn red, gold, grey or brown. A shape with either name is the rim, whatever its colour, and hidden
+  layers (`display: none`) are skipped. The dachshund's file has no red besides the rim, so it has no inner metal
+  lines, only the rim.
+- **The borrowed parts live in their own file.** The post, rubber clutch and metal finishes came from `corgi.glb`,
+  which is now rebuilt too, so they're kept in `scripts/pin-back.glb` (taken from the original corgi model).
+  Earlier pins build with the same shapes; the files just stop carrying data nothing used.
+
 
 ## 2026-11 Reels on backing cards
 The owner updated the reel door spec (`docs/reel-door-spec.md`): each reel now hangs on a card like the pin
