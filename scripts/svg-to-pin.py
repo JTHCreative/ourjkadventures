@@ -227,7 +227,7 @@ def main(svg_path, slug, out_path):
                 fill = hex_rgb(st['fill']) if 'fill' in st else (0, 0, 0)
                 if fill == RED:
                     gold.append(shape)
-                    fills.append(shape)
+                    fills.append((len(enamel), shape))   # how many enamel shapes were drawn before it
                 else:
                     enamel.append((fill, shape))
         if st.get('stroke', '').lower() not in ('', 'none') and hex_rgb(st['stroke']) == RED:
@@ -242,8 +242,17 @@ def main(svg_path, slug, out_path):
     # the outer rim is the gold that touches the pin's edge
     # the outer rim is the red fill that runs along the pin's edge; every other bit of gold is a line between colours
     edge = outline.exterior.buffer(2)
-    border = max(fills, key=lambda f: f.intersection(edge).area)
-    lines = unary_union([g for g in gold if g is not border]).difference(border).simplify(0.25)
+    rim_at, rim_drawn = max(fills, key=lambda f: f[1].intersection(edge).area)
+    rim = rim_drawn
+    # the rim can be drawn as a solid gold silhouette with the colours laid over it, like a cut-out stuck on gold
+    # card. Whatever is drawn on top of it covers it, and any rim left inside (not reaching the edge) is just a line
+    on_top = [sh for _, sh in enamel[rim_at:]]
+    if on_top:
+        rim = rim.difference(unary_union(on_top))
+    rim_parts = polys(rim)
+    border = unary_union([q for q in rim_parts if q.intersects(edge)])
+    inside = [q for q in rim_parts if not q.intersects(edge)]
+    lines = unary_union([g for g in gold if g is not rim_drawn] + inside).difference(border).simplify(0.25)
 
     minx, miny, maxx, maxy = outline.bounds
     scale = PIN_HEIGHT_M / (maxy - miny)
