@@ -908,9 +908,9 @@
 
   /* ---------- see in 3D ---------- */
   var MODEL_3D = {};
-  ['aussie', 'beagle', 'corgi', 'doodle', 'german-shepherd', 'golden', 'husky', 'pit-bull', 'pomeranian', 'pug', 'rottweiler', 'shiba'].forEach(function (s) {
+  ['aussie', 'beagle', 'corgi', 'dachshund', 'doodle', 'german-shepherd', 'golden', 'husky', 'pit-bull', 'pomeranian', 'pug', 'rottweiler', 'shiba'].forEach(function (s) {
     // ?v= changes whenever the model files are redone: /assets/3d/ is cached as never-changing (see _headers)
-    MODEL_3D[s] = 'assets/3d/' + s + '.glb?v=7';
+    MODEL_3D[s] = 'assets/3d/' + s + '.glb?v=8';
   });
   var MV_SRC = 'https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js';
   var mvPromise = null;
