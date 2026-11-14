@@ -4,9 +4,11 @@
 How the SVG is read:
   - anything filled red (#ff0000), or outlined in red, becomes raised gold metal; a red line on an open
     curve (fill: none) stays an open curve
-  - paths, circles and ellipses are all read, in drawing order; a background filling the whole drawing is skipped
+  - paths, circles and ellipses are all read, in drawing order; a background filling the whole drawing is skipped,
+    and so is anything hidden (display: none)
+  - a shape with id "border_with_plating" or "border" is the gold rim, whatever colour it's drawn in
   - every other fill colour becomes a glossy enamel layer of that colour, stacked in drawing order
-  - the outline of everything is the pin's gold back plate, with the post and rubber clutch from an
+  - the outline of everything is the pin's back plate (gold, or silver when asked), with the post and rubber clutch from an
     existing model behind it
 
 It builds the same layers, sizes and gold as the models already on the site, so a new pin sits the same way
@@ -14,6 +16,7 @@ in the viewer. Only run on our side, never on the site.
 
   pip install shapely mapbox-earcut svgelements      # once
   python3 scripts/svg-to-pin.py art.svg german-shepherd site/assets/3d/german-shepherd.glb
+  python3 scripts/svg-to-pin.py art.svg husky out.glb silver      # silver plating instead of gold
   npx @gltf-transform/cli@4.1.1 quantize --pattern "NORMAL" out.glb tmp.glb   # then slim it, as in docs/decisions.md
   npx @gltf-transform/cli@4.1.1 weld tmp.glb out.glb
 """
@@ -32,7 +35,7 @@ from shapely.ops import unary_union
 from svgelements import Path, Move, Close, Matrix
 
 PIN_HEIGHT_M = 0.03833        # every pin on the site is this tall, edge of the gold rim to edge
-DONOR = 'site/assets/3d/corgi.glb'   # where the post and rubber clutch come from
+DONOR = 'scripts/pin-back.glb'   # the post, rubber clutch and gold finishes (kept from the original corgi model)
 
 # heights in metres, matching the existing models
 PLATE = (0.0, 0.0006)
@@ -44,6 +47,17 @@ LINES_TOP = 0.00145
 BORDER_TOP = 0.00175
 
 RED = (255, 0, 0)
+# the silver finish of the silver-plated pins (aussie, beagle, husky, pit bull, pug), in place of the donor's gold
+SILVER = {
+    'gold_backing': {'name': 'silver_backing', 'pbrMetallicRoughness': {
+        'baseColorFactor': [0.5840784178830671, 0.6038273388475408, 0.6444796819634361, 1], 'roughnessFactor': 0.38}},
+    'gold_plating': {'name': 'silver_plating', 'pbrMetallicRoughness': {
+        'baseColorFactor': [0.7912979403281551, 0.8148465722120952, 0.85499260812105, 1], 'roughnessFactor': 0.14}},
+    'gold_lines': {'name': 'silver_lines', 'doubleSided': True, 'pbrMetallicRoughness': {
+        'baseColorFactor': [0.8879231178794776, 0.9046611743890203, 0.9301108583738498, 1], 'roughnessFactor': 0.32}},
+}
+# shapes named like this are the gold rim even when drawn in another colour (some files draw it gold, grey or brown)
+RIM_IDS = ('border_with_plating', 'border')
 
 
 def hex_rgb(h):
@@ -205,7 +219,7 @@ def read_glb(path):
     return j, b[bin_start:]
 
 
-def main(svg_path, slug, out_path):
+def main(svg_path, slug, out_path, metal='gold'):
     root = ET.parse(svg_path).getroot()
     styles = read_classes(root)
     vb = [float(v) for v in (root.get('viewBox') or '0 0 0 0').replace(',', ' ').split()]
@@ -216,7 +230,13 @@ def main(svg_path, slug, out_path):
         d = element_d(el)
         if d is None:
             continue
-        st = styles.get((el.get('class') or '').strip(), {})
+        st = dict(styles.get((el.get('class') or '').strip(), {}))
+        if el.get('style'):   # inline style="..." wins over the class
+            st.update((k.strip(), v.strip()) for k, v in (p.split(':', 1) for p in el.get('style').split(';') if ':' in p))
+        if st.get('display', el.get('display', '')).strip() == 'none':   # a hidden layer isn't part of the pin
+            continue
+        if el.get('id') in RIM_IDS:   # the rim, whatever colour it was drawn in
+            st['fill'] = 'red'
         has_fill = st.get('fill', '').lower() != 'none'   # "none" = an outline only, no enamel inside
         if has_fill:
             shape = path_polygon(d)
@@ -263,6 +283,8 @@ def main(svg_path, slug, out_path):
     donor, donor_bin = read_glb(DONOR)
     mats = [m for m in donor['materials'] if m['name'] in ('gold_backing', 'gold_plating', 'gold_lines', 'rubber_clutch')]
     mat_index = {m['name']: i for i, m in enumerate(mats)}
+    if metal == 'silver':   # same parts, silver (nickel) finish, as on the silver pins already on the site
+        mats = [SILVER.get(m['name'], m) for m in mats]
     enamel_mat = {}
     for fill, _ in enamel:
         if fill in enamel_mat:
@@ -368,6 +390,6 @@ def main(svg_path, slug, out_path):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 4:
+    if len(sys.argv) not in (4, 5) or (len(sys.argv) == 5 and sys.argv[4] not in ('gold', 'silver')):
         sys.exit(__doc__)
     main(*sys.argv[1:])
