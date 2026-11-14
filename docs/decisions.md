@@ -396,6 +396,11 @@ order, raised gold lines, a taller gold rim, and the post and rubber clutch copi
   edges of the drawing.
 - **Goldie again, same month:** new goldie art (dark eyes, floppy ears with gold lines along them), so a new model,
   501 KB, and picture. Both `?v=` numbers went to 6, since browsers have the earlier goldie files saved.
+- **Goldie, the fluffy one:** this SVG draws the rim as a solid gold silhouette at the back with the colours laid
+  over it, which first came out as one gold slab (the rim is the tallest metal). The script now trims the rim by
+  whatever enamel is drawn on top of it, and gold left inside that doesn't reach the edge becomes ordinary lines.
+  The four earlier pins build byte for byte the same; the doodle shifts by a hairline at its rim's inner edge, so its
+  model wasn't rebuilt. The new goldie model is 747 KB; both `?v=` numbers went to 7.
 
 
 ## 2026-11 Reels on backing cards
