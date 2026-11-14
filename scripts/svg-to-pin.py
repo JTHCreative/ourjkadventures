@@ -57,7 +57,7 @@ SILVER = {
         'baseColorFactor': [0.8879231178794776, 0.9046611743890203, 0.9301108583738498, 1], 'roughnessFactor': 0.32}},
 }
 # shapes named like this are the gold rim even when drawn in another colour (some files draw it gold, grey or brown)
-RIM_IDS = ('border_with_plating', 'border')
+RIM_IDS = ('border_with_plating', 'border_with_platng', 'border')   # 'platng': a typo in the pit bull's file
 
 
 def hex_rgb(h):

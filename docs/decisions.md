@@ -404,14 +404,15 @@ order, raised gold lines, a taller gold rim, and the post and rubber clutch copi
 
 ## 2026-11 Every pin model built the same way
 The older models (made before `scripts/svg-to-pin.py`) didn't have the same raised heights as the new ones, so the
-owner is sending each pin's SVG to rebuild them all with the script. First batch: aussie, beagle, corgi, husky,
-the doodle again, and the dachshund's first model (its "See in 3D" is on now). Model `?v=` went to 8.
+owner sent each pin's SVG to rebuild them all with the script: aussie, beagle, corgi, husky, pit bull, pomeranian,
+pug, shiba, the doodle again, and the dachshund's first model (its "See in 3D" is on now). The german shepherd,
+goldie and rottweiler were already built this way. Model `?v=` went to 8.
 
 - **Each pin keeps its metal.** Aussie, beagle, husky, pit bull and pug were silver-plated, the rest gold. The script
   takes `silver` as a fourth word (`... out.glb silver`) for the same silver finish the old silver models had. The
   dachshund is gold, the owner's choice.
 - **The rim can be any colour in the file.** These SVGs name the rim `border_with_plating` (and some have a twin,
-  `border`), drawn red, gold, grey or brown. A shape with either name is the rim, whatever its colour, and hidden
+  `border`; the pit bull's says `border_with_platng`), drawn red, gold, grey or brown. A shape with either name is the rim, whatever its colour, and hidden
   layers (`display: none`) are skipped. The dachshund's file has no red besides the rim, so it has no inner metal
   lines, only the rim.
 - **The borrowed parts live in their own file.** The post, rubber clutch and metal finishes came from `corgi.glb`,
