@@ -30,7 +30,8 @@
     line1: 'we need a street address.',
     city: 'which city?',
     state: 'pick the state it\'s going to.',
-    zip: 'that zip code doesn\'t look right. five numbers, like 94607.'
+    zip: 'that zip code doesn\'t look right. five numbers, like 94607.',
+    heard: 'pick how you heard about us.'
   };
   var CARD_SAYS = {
     cvv: 'the security code on the card didn\'t match. could you check it?',
@@ -91,10 +92,10 @@
 
   /* ---------- the form: remembered in this tab, so a reload or a trip to the bag keeps it ---------- */
   var boxes = {};
-  ['email', 'name', 'line1', 'line2', 'city', 'state', 'zip'].forEach(function (k) {
+  ['email', 'heard', 'name', 'line1', 'line2', 'city', 'state', 'zip'].forEach(function (k) {
     var input = $('#co-' + k);
     boxes[k] = { input: input, msg: $('#co-' + k + '-msg') };
-    input.addEventListener('input', function () { clearFlag(k); remember(); });
+    input.addEventListener(input.tagName === 'SELECT' ? 'change' : 'input', function () { clearFlag(k); remember(); });
   });
   var giftTick = $('[data-co-gift]');
   var giftNoteWrap = $('[data-co-gift-note]');
@@ -129,6 +130,7 @@
   function problems(o) {
     var bad = [];
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(o.email)) bad.push('email');
+    if (!o.heard) bad.push('heard');
     if (!o.name) bad.push('name');
     if (!o.line1) bad.push('line1');
     if (!o.city) bad.push('city');
@@ -148,6 +150,12 @@
       var o = el('option', null, st.name);
       o.value = st.code;
       sel.appendChild(o);
+    });
+    // "how did you hear about us?": the choices come from the server (server/heard-from.js)
+    catalog.heardFrom.forEach(function (h) {
+      var o = el('option', null, h.label);
+      o.value = h.id;
+      boxes.heard.input.appendChild(o);
     });
     Object.keys(boxes).forEach(function (k) { boxes[k].input.value = v[k] || ''; });
     // "did you mean ...@gmail.com?", once, under the email box
@@ -561,7 +569,8 @@
     return {
       items: items(), shipping: J.shipChoice().id,
       ship_to: { name: o.name, email: o.email, line1: o.line1, line2: o.line2, city: o.city, state: o.state, zip: o.zip },
-      gift: o.gift ? { gift: true, message: o.message.trim() } : null
+      gift: o.gift ? { gift: true, message: o.message.trim() } : null,
+      heard_from: o.heard
     };
   }
   function setBusy(on, words) {
@@ -593,6 +602,11 @@
     if (r.status === 400 && j.error === 'address' && boxes[j.field]) {
       flag(j.field, j.reason === 'zip not in state' ? 'that zip code isn\'t in ' + stateName(o.state) + '. could you check both?' : null);
       boxes[j.field].input.focus();
+      return true;
+    }
+    if (r.status === 400 && j.error === 'heard_from') {
+      flag('heard');
+      boxes.heard.input.focus();
       return true;
     }
     if (r.status === 402) {
