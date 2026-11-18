@@ -45,6 +45,8 @@
       // where we ship (u.s. states and d.c.) and how long a gift note may be. the server checks both again
       catalog.states = Array.isArray(j.states) ? j.states : [];
       catalog.giftMax = Number(j.gift_max) || 100;
+      // the checkout page's "how did you hear about us?" choices
+      catalog.heardFrom = Array.isArray(j.heard_from) ? j.heard_from : [];
       // the checkout page's embedded card form (Square's Web Payments SDK), or null for Square's hosted page
       catalog.card = j.card || null;
       (j.items || []).forEach(function (p) {

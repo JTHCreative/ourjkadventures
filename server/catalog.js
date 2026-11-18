@@ -20,6 +20,7 @@ import { readShopStates, isAvailable, isPreorder, readTallies } from './interest
 import { preorderDateFor } from './preorder-words.js';
 import { emailConfigured } from './email.js';
 import { stateList, GIFT_MAX } from './ship-to.js';
+import { HEARD_FROM } from './heard-from.js';
 
 const CACHE_MS = 60 * 1000;
 const RETRY_MS = 10 * 1000;
@@ -233,7 +234,7 @@ export async function catalogRoute(request, env, fetchFn = fetch) {
     // states: where we ship (u.s. states and d.c.), for the checkout page's address (server/ship-to.js)
     // card: what the checkout page needs for Square's embedded card form (all public, nothing secret), or null
     // while SQUARE_APPLICATION_ID isn't set, and the page sends people to Square's hosted page instead
-    return new Response(JSON.stringify({ ...publicCatalog(c), email: emailConfigured(env), states: stateList(), gift_max: GIFT_MAX, card: cardForm(env) }), {
+    return new Response(JSON.stringify({ ...publicCatalog(c), email: emailConfigured(env), states: stateList(), gift_max: GIFT_MAX, heard_from: HEARD_FROM, card: cardForm(env) }), {
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }
     });
   } catch (e) {

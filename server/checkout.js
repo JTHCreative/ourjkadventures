@@ -22,6 +22,7 @@ import { getCatalog, shippingCharge } from './catalog.js';
 import { stockCounts, squareHost, squareMode, SQUARE_VERSION } from './square.js';
 import { cleanShipTo, cleanGift, squareAddress, addressLine, noteGift } from './ship-to.js';
 import { shopToday, whenWords } from './preorder-words.js';
+import { cleanHeardFrom } from './heard-from.js';
 
 const MAX_LINES = 30;
 export const lineUid = (key) => key.replace(/:/g, '.');
@@ -113,6 +114,9 @@ async function prepare(request, env, url, body, addressNeeded) {
   // a gift: a short note we write by hand on a card. null when it isn't one
   const gift = addressNeeded ? cleanGift(body.gift) : null;
   if (gift && gift.error) return { res: json({ error: 'gift', reason: gift.error }, 400) };
+  // "how did you hear about us?": required on every order, one of our choices (server/heard-from.js)
+  const heard = addressNeeded ? cleanHeardFrom(body.heard_from) : null;
+  if (addressNeeded && !heard) return { res: json({ error: 'heard_from' }, 400) };
 
   const qtyByKey = {};
   for (const w of wanted) {
@@ -178,6 +182,8 @@ async function prepare(request, env, url, body, addressNeeded) {
   // the card note rides on the order itself, where /admin reads it (our own gift record keeps no personal details)
   if (gift) order.metadata = { gift: 'yes', ...(gift.message ? { gift_note: gift.message } : {}) };
   if (preorderKeys.length) order.metadata = { ...(order.metadata || {}), preorder: 'yes' };
+  // where they heard about us, tagged on the order so we can count it later
+  if (heard) order.metadata = { ...(order.metadata || {}), heard_from: heard.id };
   // sales tax: Square applies each item's own tax, the same one the booth uses (today "Millbrae Sales Tax"), so
   // web and booth sales sit under one tax in Square's reports and the rate lives in one place. the shipping line
   // is marked not taxable. (TAX_PERCENT in Cloudflare is no longer read: setting it can't add tax twice)
@@ -187,6 +193,8 @@ async function prepare(request, env, url, body, addressNeeded) {
   // docs/decisions.md. Not taxed. free ground (pins over $40): no line, and a note on the payment says how to send it
   const charge = shippingCharge(ship, keys.map((k) => ({ kind: catalog.byKey[k].kind, price_cents: catalog.byKey[k].price_cents, qty: qtyByKey[k] })));
   const notes = [];
+  // first, so the 500-letter cut never drops it: shows on the payment in the Square dashboard
+  if (heard) notes.push('found us: ' + heard.label);
   if (preorderKeys.length) notes.push(preorderWords);
   if (charge.free) {
     notes.push('free ' + shipWords);

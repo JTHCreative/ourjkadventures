@@ -1031,3 +1031,13 @@ order: it's part of the sales and tax records. So "remove from history" hides it
 "show removed orders" at the bottom of the history lists them with "put back in history". Firestore
 `hidden_orders_<mode>/<square order id>` keeps only `createdAt`. Square's own reports still count the order; only a
 sandbox order stays out of the real account entirely.
+
+## "How did you hear about us?" at checkout, tagged on the Square order (2026-11-18)
+The owner wants to look back at where buyers come from, to see which marketing works. The checkout page asks "how
+did you hear about us?" with a required drop-down (friends & family, word of mouth, spca, etsy, google; the list is
+`server/heard-from.js`, which the page reads through `/api/catalog`). The server refuses an order without one of
+those answers. The answer goes on the Square order in two places: the order's metadata `heard_from` (the id, exact,
+for counting with code; Square's dashboard doesn't show metadata) and the start of the payment note ("found us:
+google"), which the dashboard shows on each payment. Not kept in Firestore: the Square order is the one record.
+Chosen over Square customer groups, which would mean creating or matching a customer profile for every buyer.
+Shown in lowercase on the site, like all customer copy. Only website orders carry it; booth sales don't ask.

@@ -29,7 +29,7 @@ const HOME = { name: 'pup person', email: 'buyer@example.com', line1: '1 main st
 const checkout = (env, items, token, extra = {}) => worker.fetch(new Request('https://x.test/api/checkout', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
-  body: JSON.stringify({ items: items || [{ key: 'aussie', qty: 1 }], ship_to: HOME, ...extra })
+  body: JSON.stringify({ items: items || [{ key: 'aussie', qty: 1 }], ship_to: HOME, heard_from: 'google', ...extra })
 }), env);
 const catalog = async (env) => (await worker.fetch(new Request('https://x.test/api/catalog'), env)).json();
 
@@ -92,7 +92,7 @@ test('checkout points at the Square items, so Square lowers the stock, and never
   ]);
   assert.equal(JSON.stringify(sq.links[0].order).includes('price'), false);
   // no shipping choice sent (a bag from before the choice existed): the first one, ground, free on $51 of pins
-  assert.equal(sq.links[0].payment_note, 'free ground shipping (2 to 5 days)');
+  assert.equal(sq.links[0].payment_note, 'found us: google / free ground shipping (2 to 5 days)');
   const small = await checkout(env, [{ key: 'aussie', qty: 1 }]);
   assert.equal(small.status, 200);
   // the shipping line is on the order (Square refuses its shipping_fee option with its address form off)
@@ -123,11 +123,11 @@ test('ground is free when the pins come to $40, counted at Square prices; the ot
   // $12 + $12 + $15 = $39: just under, ground costs
   assert.equal((await checkout(env, [{ key: 'aussie', qty: 2 }, { key: 'aussie:large', qty: 1 }])).status, 200);
   assert.equal(sq.links.at(-1).order.service_charges[0].amount_money.amount, 700);
-  assert.equal(sq.links.at(-1).payment_note, undefined);
+  assert.equal(sq.links.at(-1).payment_note, 'found us: google');
   // $45 of pins: no shipping line to pay, and a note on the payment so the owner knows to send it ground
   assert.equal((await checkout(env, [{ key: 'aussie:large', qty: 3 }])).status, 200);
   assert.equal(sq.links.at(-1).order.service_charges, undefined);
-  assert.equal(sq.links.at(-1).payment_note, 'free ground shipping (2 to 5 days)');
+  assert.equal(sq.links.at(-1).payment_note, 'found us: google / free ground shipping (2 to 5 days)');
   // priority and express are never free
   assert.equal((await checkout(env, [{ key: 'aussie:large', qty: 3 }], null, { shipping: 'priority' })).status, 200);
   assert.equal(sq.links.at(-1).order.service_charges[0].amount_money.amount, 1300);
@@ -175,7 +175,7 @@ test('a signed-in checkout tags the order and notes it for order history', async
   const { env, sq, g } = setup(true);
   const r = await checkout(env, null, await sign({}));
   assert.equal(r.status, 200);
-  assert.deepEqual(sq.links[0].order.metadata, { uid: 'uid123' });
+  assert.deepEqual(sq.links[0].order.metadata, { heard_from: 'google', uid: 'uid123' });
   // Square refuses a pre-filled email together with the order's shipment: the email rides on the shipment
   assert.equal(sq.links[0].pre_populated_data, undefined);
   assert.equal(sq.links[0].order.fulfillments[0].shipment_details.recipient.email_address, 'buyer@example.com');
@@ -186,7 +186,7 @@ test('signed out, or with a bad ticket, checkout still works but nothing is tagg
   const { env, sq, g } = setup(true);
   assert.equal((await checkout(env)).status, 200);
   assert.equal((await checkout(env, null, 'not-a-ticket')).status, 200);
-  assert.equal(sq.links[0].order.metadata, undefined);
+  assert.deepEqual(sq.links[0].order.metadata, { heard_from: 'google' });
   assert.equal(sq.links[1].pre_populated_data, undefined);
   assert.deepEqual(Object.keys(g.docs).filter((k) => !k.startsWith('settings/')), []);
 });
@@ -212,4 +212,20 @@ test('sales tax is Square\'s own per-item tax (the booth\'s), never a rate typed
   assert.equal(order.taxes, undefined);
   // and the shipping line is never taxed
   assert.equal(order.service_charges[0].taxable, false);
+});
+
+test('"how did you hear about us?" is required, listed in the catalog, and tagged on the Square order', async () => {
+  const { env, sq } = setup(true);
+  const c = await catalog(env);
+  assert.deepEqual(c.heard_from.map((h) => h.id), ['friends-family', 'word-of-mouth', 'spca', 'etsy', 'google']);
+  // no answer, or one that isn't ours: refused before anything reaches Square
+  assert.equal((await checkout(env, null, null, { heard_from: undefined })).status, 400);
+  const r = await checkout(env, null, null, { heard_from: 'tiktok' });
+  assert.equal(r.status, 400);
+  assert.equal((await r.json()).error, 'heard_from');
+  assert.equal(sq.links.length, 0);
+  // answered: the id on the order's metadata, and the words on the payment note in the Square dashboard
+  assert.equal((await checkout(env, null, null, { heard_from: 'friends-family' })).status, 200);
+  assert.equal(sq.links[0].order.metadata.heard_from, 'friends-family');
+  assert.ok(sq.links[0].payment_note.startsWith('found us: friends & family'));
 });

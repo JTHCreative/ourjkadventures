@@ -32,7 +32,7 @@ const post = (env, path, body, token) => worker.fetch(new Request('https://x.tes
 }), env);
 const quote = (env, extra = {}) => post(env, '/api/checkout/quote', { items: [{ key: 'aussie', qty: 2 }], shipping: 'ground', ...extra });
 const pay = (env, extra = {}, token) => post(env, '/api/checkout/pay', {
-  items: [{ key: 'aussie', qty: 2 }], shipping: 'ground', ship_to: HOME, source_id: 'cnon:card-nonce-ok', attempt: 'attempt-0001', ...extra
+  items: [{ key: 'aussie', qty: 2 }], shipping: 'ground', ship_to: HOME, heard_from: 'google', source_id: 'cnon:card-nonce-ok', attempt: 'attempt-0001', ...extra
 }, token);
 
 test('the catalog tells the page about Square\'s card form only once it is set up, and never the token', async () => {
@@ -211,4 +211,17 @@ test('a pay press for an order that is already paid can\'t charge again', async 
   assert.deepEqual(await r.json(), { ok: true, url: 'https://x.test/thank-you.html', already: true });
   assert.equal(sq.payments.length, 1);
   assert.equal(sq.orders.length, 1);
+});
+
+test('paying asks "how did you hear about us?": refused without it, tagged on the order and the payment with it', async () => {
+  const { env, sq } = setup();
+  const r = await pay(env, { heard_from: '' });
+  assert.equal(r.status, 400);
+  assert.equal((await r.json()).error, 'heard_from');
+  assert.equal(sq.payments.length, 0);
+  // the quote doesn't need it: the summary shows before the form is filled in
+  assert.equal((await quote(env)).status, 200);
+  assert.equal((await pay(env, { heard_from: 'spca' })).status, 200);
+  assert.equal(sq.orders[0].order.metadata.heard_from, 'spca');
+  assert.ok(sq.payments[0].body.note.startsWith('found us: spca'));
 });

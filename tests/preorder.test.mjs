@@ -50,7 +50,7 @@ function setup({ preorder = [], unavailable = [], dates } = {}) {
 const item = async (s, slug) => (await (await s.call('GET', '/api/catalog')).json()).items.find((p) => p.slug === slug);
 
 const HOME = { name: 'pup person', email: 'buyer@example.com', line1: '1 main st', city: 'oakland', state: 'CA', zip: '94607' };
-const buy = (s, items, extra = {}) => s.call('POST', '/api/checkout', { body: { items, ship_to: HOME, ...extra } });
+const buy = (s, items, extra = {}) => s.call('POST', '/api/checkout', { body: { items, ship_to: HOME, heard_from: 'google', ...extra } });
 
 test('a pin on pre-order with its date is for sale at its Square price, without looking at the shelf', async () => {
   const s = setup({ preorder: ['aussie'], unavailable: ['aussie'] });
@@ -96,7 +96,7 @@ test('a bag with a pre-order and an in-stock pin: the shelf is checked for the i
   const link = s.sq.links[0];
   const w = 'pre-order. expected to ship around ' + prettyDate(D30);
   assert.deepEqual(link.order.line_items.map((l) => l.note || ''), [w, '', w]);
-  assert.ok(link.payment_note.startsWith('pre-order: the whole order ships together'));
+  assert.ok(link.payment_note.startsWith('found us: google / pre-order: the whole order ships together'));
 });
 
 test('a pin on pre-order sells even when ticked sold out in Square (it is being made); a closed shop sells nothing', async () => {
@@ -127,7 +127,7 @@ test('a pre-order date: in the catalog, on the line, the shipment, the payment a
   const ship = link.order.fulfillments[0].shipment_details;
   assert.equal(ship.shipping_note, 'pre-order: the whole order ships together around ' + words);
   assert.equal(ship.expected_shipped_at, date + 'T17:00:00Z');
-  assert.equal(link.payment_note, 'pre-order: the whole order ships together around ' + words);
+  assert.equal(link.payment_note, 'found us: google / pre-order: the whole order ships together around ' + words);
   assert.equal(link.checkout_options.redirect_url, 'https://x.test/thank-you.html?preorder=' + date);
 });
 

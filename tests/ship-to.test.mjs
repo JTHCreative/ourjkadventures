@@ -29,7 +29,7 @@ function setup() {
 const checkout = (env, extra) => worker.fetch(new Request('https://x.test/api/checkout', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ items: [{ key: 'aussie', qty: 1 }], ship_to: HOME, ...extra })
+  body: JSON.stringify({ items: [{ key: 'aussie', qty: 1 }], ship_to: HOME, heard_from: 'google', ...extra })
 }), env);
 
 test('the 50 states and d.c., and nothing else', () => {
@@ -92,7 +92,7 @@ test('checkout puts the checked address on the order and turns off square\'s own
   }]);
   // never both a shipment and a pre-filled email: Square refuses that (CONFLICTING_PARAMETERS)
   assert.equal(link.pre_populated_data, undefined);
-  assert.equal(link.order.metadata, undefined);
+  assert.deepEqual(link.order.metadata, { heard_from: 'google' });
 });
 
 test('checkout refuses an address outside the u.s. states, or none at all, and says which box', async () => {
@@ -113,8 +113,8 @@ test('a gift: the note goes on the order and the payment; our own record keeps n
   assert.equal(r.status, 200);
   const link = sq.links[0];
   assert.equal(link.order.fulfillments[0].shipment_details.shipping_note, 'gift. write on the card: "happy birthday, mo!\nlove, k"');
-  assert.deepEqual(link.order.metadata, { gift: 'yes', gift_note: 'happy birthday, mo!\nlove, k' });
-  assert.ok(link.payment_note.startsWith('gift. write on the card'));
+  assert.deepEqual(link.order.metadata, { gift: 'yes', gift_note: 'happy birthday, mo!\nlove, k', heard_from: 'google' });
+  assert.ok(link.payment_note.startsWith('found us: google / gift. write on the card'));
   assert.ok(link.payment_note.includes('ship to: pup person, 1 main st, apt 2, oakland, CA 94607'));
   // just "this order has a card to write": no name, email, address or note in Firestore
   assert.deepEqual(Object.keys(g.docs['gifts/ORDER_1']), ['createdAt']);
@@ -128,10 +128,10 @@ test('a gift that also ships free keeps both notes for the owner', async () => {
   const { env, sq } = setup();
   const r = await worker.fetch(new Request('https://x.test/api/checkout', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items: [{ key: 'aussie:large', qty: 3 }], ship_to: HOME, gift: { gift: true } })
+    body: JSON.stringify({ items: [{ key: 'aussie:large', qty: 3 }], ship_to: HOME, heard_from: 'google', gift: { gift: true } })
   }), env);
   assert.equal(r.status, 200);
-  assert.ok(sq.links[0].payment_note.startsWith('free ground shipping (2 to 5 days) / gift. blank card, no note'));
+  assert.ok(sq.links[0].payment_note.startsWith('found us: google / free ground shipping (2 to 5 days) / gift. blank card, no note'));
 });
 
 test('/admin lists paid gift orders with the note, email and address, read from Square; "card written" takes one off', async () => {
