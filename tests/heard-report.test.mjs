@@ -61,7 +61,7 @@ test('adds up the answers per choice, across pages, leaving out booth sales, unp
   assert.equal(by.spca.orders, 1);
   assert.equal(by.etsy.orders, 0);
   // every choice on the list shows, even with none, and an answer no longer on the list keeps its own pile
-  assert.deepEqual(r.sources.map((x) => x.id), ['friends-family', 'word-of-mouth', 'spca', 'etsy', 'google', 'instagram', 'facebook', 'tiktok']);
+  assert.deepEqual(r.sources.map((x) => x.id), ['friends-family', 'word-of-mouth', 'spca', 'etsy', 'google', 'instagram', 'facebook', 'craft-fair', 'tiktok']);
   assert.equal(r.asked, 4);
   assert.deepEqual(r.unasked, { orders: 1, cents: 2000 });
   // months in california's calendar: 11pm UTC on october 31 is 4pm there, so it counts in october

@@ -9,7 +9,8 @@ export const HEARD_FROM = [
   { id: 'etsy', label: 'etsy' },
   { id: 'google', label: 'google' },
   { id: 'instagram', label: 'instagram' },
-  { id: 'facebook', label: 'facebook' }
+  { id: 'facebook', label: 'facebook' },
+  { id: 'craft-fair', label: 'craft fair' }
 ];
 
 // the choice the browser sent, or null when it isn't one of ours
