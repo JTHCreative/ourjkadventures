@@ -5,9 +5,11 @@
 export const HEARD_FROM = [
   { id: 'friends-family', label: 'friends & family' },
   { id: 'word-of-mouth', label: 'word of mouth' },
-  { id: 'spca', label: 'spca' },
+  { id: 'spca', label: 'peninsula humane society spca' },
   { id: 'etsy', label: 'etsy' },
-  { id: 'google', label: 'google' }
+  { id: 'google', label: 'google' },
+  { id: 'instagram', label: 'instagram' },
+  { id: 'facebook', label: 'facebook' }
 ];
 
 // the choice the browser sent, or null when it isn't one of ours

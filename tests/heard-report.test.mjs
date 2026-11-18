@@ -48,7 +48,7 @@ test('adds up the answers per choice, across pages, leaving out booth sales, unp
       order('UNPAID', 'google', { tenders: undefined }),
       order('BACK', 'etsy', { refunds: [{ status: 'COMPLETED', amount_money: usd(2000) }] })
     ],
-    [order('OLD', null, { created_at: '2026-09-02T18:00:00Z' }), order('GONE', 'instagram')]
+    [order('OLD', null, { created_at: '2026-09-02T18:00:00Z' }), order('GONE', 'tiktok')]
   ]);
   const r = await (await s.get('?period=all')).json();
   assert.equal(r.square, true);
@@ -61,12 +61,12 @@ test('adds up the answers per choice, across pages, leaving out booth sales, unp
   assert.equal(by.spca.orders, 1);
   assert.equal(by.etsy.orders, 0);
   // every choice on the list shows, even with none, and an answer no longer on the list keeps its own pile
-  assert.deepEqual(r.sources.map((x) => x.id), ['friends-family', 'word-of-mouth', 'spca', 'etsy', 'google', 'instagram']);
+  assert.deepEqual(r.sources.map((x) => x.id), ['friends-family', 'word-of-mouth', 'spca', 'etsy', 'google', 'instagram', 'facebook', 'tiktok']);
   assert.equal(r.asked, 4);
   assert.deepEqual(r.unasked, { orders: 1, cents: 2000 });
   // months in california's calendar: 11pm UTC on october 31 is 4pm there, so it counts in october
   assert.deepEqual(r.months.map((m) => m.month), ['2026-11', '2026-10', '2026-09']);
-  assert.deepEqual(r.months[0].counts, { google: 2, instagram: 1 });
+  assert.deepEqual(r.months[0].counts, { google: 2, tiktok: 1 });
   assert.equal(r.months[2].unasked, 1);
   assert.equal(r.rows.length, 5);
   assert.deepEqual(r.rows[0], { date: '2026-11-09', number: 'A1', heard: 'google', cents: 2000 });

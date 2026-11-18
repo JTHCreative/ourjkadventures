@@ -1034,7 +1034,8 @@ sandbox order stays out of the real account entirely.
 
 ## "How did you hear about us?" at checkout, tagged on the Square order (2026-11-18)
 The owner wants to look back at where buyers come from, to see which marketing works. The checkout page asks "how
-did you hear about us?" with a required drop-down (friends & family, word of mouth, spca, etsy, google; the list is
+did you hear about us?" with a required drop-down (friends & family, word of mouth, peninsula humane society spca, etsy, google,
+instagram, facebook; the list is
 `server/heard-from.js`, which the page reads through `/api/catalog`). The server refuses an order without one of
 those answers. The answer goes on the Square order in two places: the order's metadata `heard_from` (the id, exact,
 for counting with code; Square's dashboard doesn't show metadata) and the start of the payment note ("found us:
