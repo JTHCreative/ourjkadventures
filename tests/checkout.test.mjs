@@ -217,7 +217,7 @@ test('sales tax is Square\'s own per-item tax (the booth\'s), never a rate typed
 test('"how did you hear about us?" is required, listed in the catalog, and tagged on the Square order', async () => {
   const { env, sq } = setup(true);
   const c = await catalog(env);
-  assert.deepEqual(c.heard_from.map((h) => h.id), ['friends-family', 'word-of-mouth', 'spca', 'etsy', 'google']);
+  assert.deepEqual(c.heard_from.map((h) => h.id), ['friends-family', 'word-of-mouth', 'spca', 'etsy', 'google', 'instagram', 'facebook']);
   // no answer, or one that isn't ours: refused before anything reaches Square
   assert.equal((await checkout(env, null, null, { heard_from: undefined })).status, 400);
   const r = await checkout(env, null, null, { heard_from: 'tiktok' });

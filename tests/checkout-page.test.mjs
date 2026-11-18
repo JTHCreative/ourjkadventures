@@ -223,5 +223,5 @@ test('paying asks "how did you hear about us?": refused without it, tagged on th
   assert.equal((await quote(env)).status, 200);
   assert.equal((await pay(env, { heard_from: 'spca' })).status, 200);
   assert.equal(sq.orders[0].order.metadata.heard_from, 'spca');
-  assert.ok(sq.payments[0].body.note.startsWith('found us: spca'));
+  assert.ok(sq.payments[0].body.note.startsWith('found us: peninsula humane society spca'));
 });
