@@ -746,6 +746,21 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .photo-view .icon-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 /* the owner's product photos on /admin: upload, then each product's photos with a remove button */
 /* pin requests on /admin: one card-ish block each, newest first */
+/* where buyers come from (/admin) */
+.heard-periods { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: var(--space-3); border: 1.5px solid var(--line-strong); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); }
+.heard-period { min-height: 44px; padding: var(--space-2) var(--space-1); font-family: var(--font-serif); font-size: 16px; line-height: 20px; color: var(--ink); background: transparent; border: 0; cursor: pointer; }
+.heard-period + .heard-period { border-left: 1.5px solid var(--line); }
+.heard-period[aria-pressed="true"] { background: var(--balloon-100); box-shadow: inset 0 0 0 2px var(--accent); }
+.heard-period:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: -3px; }
+.heard-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.heard-row { display: grid; grid-template-columns: 1fr auto; gap: var(--space-1) var(--space-3); align-items: baseline; }
+.heard-name { font-weight: 500; }
+.heard-nums { font-size: 16px; color: var(--ink-soft); text-align: right; }
+.heard-bar { grid-column: 1 / -1; height: 10px; border-radius: var(--radius-pill); background: var(--surface-sunken); overflow: hidden; }
+.heard-bar span { display: block; height: 100%; border-radius: var(--radius-pill); background: var(--accent); }
+.heard-months { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-2) 0; }
+.heard-months p { margin: 0; }
+@media (max-width: 480px) { .heard-periods { grid-template-columns: repeat(2, minmax(0, 1fr)); } .heard-period:nth-child(3) { border-left: 0; } .heard-period:nth-child(n+3) { border-top: 1.5px solid var(--line); } }
 .admin-requests { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-3); }
 .admin-request { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-3) var(--space-4); border: 1.5px solid var(--line); border-radius: var(--radius-sm); }
 .admin-request p { margin: 0; }

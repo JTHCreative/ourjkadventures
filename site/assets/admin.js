@@ -1326,6 +1326,101 @@ async function loadRequests() {
   try { paintRequests(await api('GET', '/api/admin/pin-requests')); } catch (e) { $('[data-requests-state]').textContent = RESTING; }
 }
 
+/* ---------- where buyers come from: the "how did you hear about us?" answers, added up (server/heard-report.js) ---------- */
+// a pile per answer with a bar for its share of the orders, a count per month, and a spreadsheet of every order.
+// the period picked is remembered in this browser
+const HEARD_KEY = 'jka_admin_heard_period';
+const PERIOD_WORDS = { '30d': 'in the last 30 days', '90d': 'in the last 90 days', year: 'this year', all: 'so far' };
+let heardData = null;
+const ordersWord = (n) => (n === 1 ? '1 order' : n + ' orders');
+function monthName(m) {
+  const [y, mo] = m.split('-');
+  return FULL_MONTHS[Number(mo) - 1] + ' ' + y;
+}
+function paintHeard(data) {
+  heardData = data;
+  const state = $('[data-heard-state]');
+  const list = $('[data-heard-list]');
+  const unasked = $('[data-heard-unasked]');
+  const monthsWrap = $('[data-heard-months-wrap]');
+  const months = $('[data-heard-months]');
+  const download = $('[data-heard-download]');
+  list.textContent = '';
+  months.textContent = '';
+  if (!data.square) {
+    state.textContent = 'square isn\'t connected yet, so there are no orders to count.';
+    unasked.hidden = true; monthsWrap.hidden = true; download.hidden = true;
+    return;
+  }
+  const when = PERIOD_WORDS[data.period] || '';
+  state.textContent = data.asked
+    ? ordersWord(data.asked) + ' with an answer ' + when + '.' + (data.partial ? ' that\'s a lot of orders: this only counts the newest 10,000.' : '')
+    : 'no answers ' + when + ' yet.';
+  // most orders first; ones with none stay on the list (at the bottom), so every choice shows
+  const rows = data.sources.slice().sort((a, b) => b.orders - a.orders || b.cents - a.cents);
+  if (data.asked) {
+    rows.forEach((s) => {
+      const share = Math.round((s.orders / data.asked) * 100);
+      const li = el('li', 'heard-row');
+      li.appendChild(el('span', 'heard-name', s.label));
+      li.appendChild(el('span', 'heard-nums', ordersWord(s.orders) + ' · ' + share + '% · ' + money(s.cents) + ' paid'));
+      const bar = el('span', 'heard-bar');
+      bar.setAttribute('aria-hidden', 'true');
+      const fill = el('span');
+      fill.style.width = share + '%';
+      bar.appendChild(fill);
+      li.appendChild(bar);
+      list.appendChild(li);
+    });
+  }
+  unasked.hidden = !data.unasked.orders;
+  unasked.textContent = 'plus ' + ordersWord(data.unasked.orders) + ' (' + money(data.unasked.cents) + ' paid) from before checkout asked.';
+  monthsWrap.hidden = !data.months.length;
+  data.months.forEach((m) => {
+    const p = el('p');
+    p.appendChild(el('strong', null, monthName(m.month) + ': '));
+    const parts = rows.filter((s) => m.counts[s.id]).map((s) => s.label + ' ' + m.counts[s.id]);
+    if (m.unasked) parts.push('before checkout asked ' + m.unasked);
+    p.appendChild(document.createTextNode(parts.join(' · ')));
+    months.appendChild(p);
+  });
+  download.hidden = !data.rows.length;
+}
+async function loadHeard(period) {
+  document.querySelectorAll('[data-heard-periods] [data-period]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.period === period ? 'true' : 'false'));
+  $('[data-heard-state]').textContent = 'one moment, counting the orders in square.';
+  try { paintHeard(await api('GET', '/api/admin/heard-from?period=' + period)); } catch (e) { $('[data-heard-state]').textContent = RESTING; }
+}
+// one row per order: date, order number, how they heard about us, what they paid. a quote mark inside a cell is doubled
+function heardCsv(data) {
+  const cell = (v) => (/[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v));
+  const lines = [['date', 'order', 'how they heard about us', 'paid'].join(',')];
+  data.rows.forEach((r) => lines.push([r.date, r.number, r.heard || 'before checkout asked', (r.cents / 100).toFixed(2)].map(cell).join(',')));
+  return lines.join('\n') + '\n';
+}
+function wireHeard() {
+  let period = 'year';
+  try { const saved = localStorage.getItem(HEARD_KEY); if (PERIOD_WORDS[saved]) period = saved; } catch (e) {}
+  document.querySelectorAll('[data-heard-periods] [data-period]').forEach((b) => {
+    b.addEventListener('click', () => {
+      try { localStorage.setItem(HEARD_KEY, b.dataset.period); } catch (e) {}
+      loadHeard(b.dataset.period);
+    });
+  });
+  $('[data-heard-download]').addEventListener('click', () => {
+    if (!heardData) return;
+    const blob = new Blob([heardCsv(heardData)], { type: 'text/csv' });
+    const a = el('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'where-buyers-come-from-' + heardData.period + '-' + new Date().toLocaleDateString('en-CA') + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+  loadHeard(period);
+}
+
 /* ---------- product photos: the owner's own, shown under the pup board (server/media.js) ---------- */
 // photos go up one at a time, each shrunk in the browser first by app.js (the same as review photos).
 // each photo has a pencil (change its words, right there under it) and a trash can (take it down). the order is the
@@ -1808,6 +1903,7 @@ async function open() {
   loadFeatured();
   loadNotify();
   loadRequests();
+  wireHeard();
   wireMedia();
   loadMedia();
   loadReviews();

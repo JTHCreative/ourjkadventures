@@ -1041,3 +1041,7 @@ for counting with code; Square's dashboard doesn't show metadata) and the start 
 google"), which the dashboard shows on each payment. Not kept in Firestore: the Square order is the one record.
 Chosen over Square customer groups, which would mean creating or matching a customer profile for every buyer.
 Shown in lowercase on the site, like all customer copy. Only website orders carry it; booth sales don't ask.
+The owner reads them on `/admin` in "where buyers come from" (`server/heard-report.js`): read from Square each time,
+like the order history, so there is no second copy to drift. Money is what the buyer paid in all, less refunds, so it
+matches Square's own totals for those orders; one refunded in full is left out. A CSV download (one row per order)
+is there for anything the card doesn't show, rather than building more charts.

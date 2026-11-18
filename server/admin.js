@@ -37,6 +37,8 @@
 //                            new date and put it on the Square order (each order in the list carries moved: { from, to })
 //   GET  /api/admin/gifts    paid gift orders: the note to write on the card, the buyer's email, the address it ships to
 //   POST /api/admin/gifts    { id }  the card is written: off the list
+//   GET  /api/admin/heard-from?period=30d|90d|year|all   where buyers come from: the "how did you hear about us?"
+//                            answers on website orders, added up (server/heard-report.js), read from Square each time
 //   GET  /api/admin/pin-requests   pins people asked us to make (server/pin-requests.js), newest first
 //   DELETE /api/admin/pin-requests { id }  take one off the list
 //   GET  /api/admin/instagram  does the key in cloudflare open @ourjkadventures, and how many reels (never the key)
@@ -58,6 +60,7 @@ import { giftList, giftDone } from './ship-to.js';
 import { ordersToShip, markShipped, sendMoved, orderHistory, hideOrder, hiddenHistory } from './shipped.js';
 import { emailConfigured } from './email.js';
 import { listRequests, removeRequest } from './pin-requests.js';
+import { heardReport, PERIODS } from './heard-report.js';
 
 // a pre-order date the owner picked: a real day, from today up to two years out. { date } or { error }
 function checkPreorderDate(raw) {
@@ -254,6 +257,14 @@ export async function admin(request, env, fetchFn = fetch) {
       const result = await addMedia(env, body, new Set(products.map((p) => p.slug)), user.email, fetchFn);
       if (result.error) return json(result, result.status || 400);
       return withProducts(result);
+    }
+
+    if (route === 'heard-from') {
+      if (request.method !== 'GET') return json({ error: 'method' }, 405);
+      const period = url.searchParams.get('period') || 'year';
+      if (!PERIODS.includes(period)) return json({ error: 'bad period' }, 400);
+      if (!squareConfigured(env)) return json({ square: false });
+      return json({ ...(await heardReport(env, period, fetchFn)), square: true });
     }
 
     if (route === 'orders/history') {

@@ -103,6 +103,27 @@
         </details>
       </section>
 
+      <section class="card clean admin-card" aria-labelledby="admin-heard-title">
+        <h2 class="admin-title" id="admin-heard-title">where buyers come from</h2>
+        <p class="caption">what buyers picked for "how did you hear about us?" at checkout, added up from the website orders in square. "paid" is what they paid in all (pins, shipping, tax and any tip), less refunds. an order refunded in full doesn't count. sales at the booth aren't asked, so they aren't here.</p>
+        <div class="heard-periods" role="group" aria-label="time period" data-heard-periods>
+          <button class="heard-period" type="button" data-period="30d" aria-pressed="false">last 30 days</button>
+          <button class="heard-period" type="button" data-period="90d" aria-pressed="false">last 90 days</button>
+          <button class="heard-period" type="button" data-period="year" aria-pressed="false">this year</button>
+          <button class="heard-period" type="button" data-period="all" aria-pressed="false">all time</button>
+        </div>
+        <p class="body-sm" data-heard-state role="status">one moment.</p>
+        <ul class="heard-list" data-heard-list></ul>
+        <p class="caption" data-heard-unasked hidden></p>
+        <details class="order-group" data-heard-months-wrap hidden>
+          <summary class="order-summary order-group-title"><span class="order-summary-name">by month</span></summary>
+          <div class="heard-months" data-heard-months></div>
+        </details>
+        <div class="admin-actions">
+          <button class="jka-btn jka-btn--quiet jka-btn--sm" type="button" data-heard-download hidden>download for a spreadsheet</button>
+        </div>
+      </section>
+
       <section class="card clean admin-card" aria-labelledby="admin-products-title">
         <h2 class="admin-title" id="admin-products-title">products and square</h2>
         <p class="caption" data-products-mode></p>
