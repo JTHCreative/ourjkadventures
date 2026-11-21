@@ -1069,3 +1069,14 @@ The owner wants to run Instagram and Facebook ads and show pins again to people 
 - Purchase's value is the order's total without the tip. PageView isn't passed on by the server (it would mean a
   worker call per page view for little gain). The privacy page's "we do not run advertising trackers" line is gone,
   replaced by a section that says all this.
+
+## The Meta Pixel is on unless turned off (2026-11-21)
+The owner asked for the Pixel to run by default with a way to turn it off, in place of asking first: with ask-first,
+only people who pressed "sure" were counted, and most visitors never answer a cookie note. Now the Pixel and the
+server's events run for everyone except a visitor who pressed "turn it off" (the note on a first visit, or "cookie
+choices" in any footer) or whose browser sends Global Privacy Control, which still counts as off without asking.
+The note is a notice now: "okay" or "turn it off". Its words are short and don't mention ads, at the owner's
+request; the privacy page it links to says plainly that this is Meta and what for. This is the usual U.S. way
+(notice and opt-out), and we only ship to the U.S. Worth knowing: the EU and UK ask for a yes first, so if the shop
+ever sells or advertises there, go back to ask-first for those visitors. Still never on `/admin`, sign-in or account
+pages.

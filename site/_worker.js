@@ -51,7 +51,7 @@ export default {
     if (url.pathname === APPLE_PAY_PATH) return applePayFile();
     if (url.pathname === '/api/checkout' || url.pathname === '/api/checkout/quote' || url.pathname === '/api/checkout/pay' || url.pathname === '/api/checkout/status') return checkoutRoute(request, env, url, ctx);
     if (url.pathname === '/api/catalog') return catalogRoute(request, env);
-    // the meta pixel's server side: browser events passed on to meta, only after a yes on the cookie note (server/meta.js)
+    // the meta pixel's server side: browser events passed on to meta, not for visitors who turned it off (server/meta.js)
     if (url.pathname === '/api/meta-event') return metaEventRoute(request, env, ctx);
     if (url.pathname === '/api/account' || url.pathname === '/api/account/orders') return account(request, env);
     if (url.pathname.startsWith('/api/account/email/')) return accountEmailRoute(request, env);

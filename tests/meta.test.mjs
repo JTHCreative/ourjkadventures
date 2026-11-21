@@ -55,7 +55,7 @@ test('an email is scrambled the way meta asks: trimmed, lowercase, sha-256', asy
   assert.equal(await hashEmail(''), '');
 });
 
-test('a paid order without a yes on the cookie note: the page gets its ticket, meta hears nothing from us', async () => {
+test('a paid order from someone who turned the pixel off: the page gets its ticket, meta hears nothing from us', async () => {
   const { env, sq, meta } = setup();
   const r = await pay(env);
   assert.equal(r.status, 200);
@@ -69,7 +69,7 @@ test('a paid order without a yes on the cookie note: the page gets its ticket, m
   assert.equal(meta.length, 0);
 });
 
-test('a paid order with a yes: one Purchase to meta, same ticket, email scrambled, the key never in the address', async () => {
+test('a paid order with the pixel on: one Purchase to meta, same ticket, email scrambled, the key never in the address', async () => {
   const { env, sq, meta } = setup();
   const r = await pay(env, { meta: { consent: true, fbp: FBP, fbc: 'not a cookie' }, tip: { cents: 500 } });
   const j = await r.json();
@@ -178,11 +178,14 @@ test('the pixel\'s number lives in one file, and the browser code never names th
   assert.deepEqual(browser.filter((p) => fs.readFileSync(p, 'utf8').includes('META_CAPI_TOKEN')), []);
 });
 
-test('the pixel only loads after a yes, stays off the private pages, and guards every call', () => {
+test('the pixel stays off after a "no" or a privacy signal, off the private pages, and guards every call', () => {
   const src = fs.readFileSync(new URL('../site/assets/pixel.js', import.meta.url), 'utf8');
-  // meta's script is only ever added inside load(), and load() is only reached from empty() after a "yes"
+  // meta's script is only ever added inside load(), and load() is only reached from empty() when it's allowed
   assert.equal(src.split('connect.facebook.net').length, 2);
-  assert.match(src, /if \(choice !== 'yes'\) return;[^\n]*\n\s*load\(\);/);
+  assert.equal(src.match(/[^.\w]load\(\);/g).length, 1);
+  assert.match(src, /if \(!allowed\(\)\) \{ tray\.length = 0; return; \}\s*load\(\);/);
+  assert.match(src, /return !quiet && choice !== 'no' && !\(choice === null && askedNotTo\(\)\);/);
+  assert.match(src, /if \(!allowed\(\)\) return null;/);
   assert.match(src, /function load\(\) \{\s*if \(loaded \|\| quiet\) return;/);
   for (const page of ['admin', 'sign-in', 'account', 'reset-password', 'email']) assert.match(src, new RegExp('[(|]' + page + '[|)]'));
   // no bare fbq calls outside the guarded helper and the starter

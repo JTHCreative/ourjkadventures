@@ -9,9 +9,9 @@ show our pins again to people who've stopped by. Two parts do the same job:
 
 Each event carries the same ticket number in both, so Meta counts it once.
 
-Nothing is sent, either way, until a visitor says "sure" on the cookie note at the bottom of the page. "No thanks",
-no answer, or a browser's "global privacy control" signal all mean nothing goes to Meta. "cookie choices" in the
-footer brings the note back. Never on `/admin` or the sign-in and account pages.
+Both are on for every visitor unless they turn it off. A small note at the bottom of the page says so on a first
+visit, with "okay" and "turn it off". "Turn it off", or a browser's "global privacy control" signal, means nothing
+goes to Meta. "cookie choices" in the footer brings the note back. Never on `/admin` or the sign-in and account pages.
 
 | Event | When | Browser | Server |
 |---|---|---|---|
@@ -45,12 +45,12 @@ Until this is done only the browser's Pixel runs, which is fine to start with.
 4. To practise locally, put `META_CAPI_TOKEN=` in `.dev.vars` (gitignored). Careful: a real token sends real events.
 
 ## C. Check it works
-**The browser, with the Meta Pixel Helper extension for Chrome:**
-1. Open the site in a private window. The Helper should show **no pixel** yet.
-2. Press **sure** on the cookie note. The Helper shows the pixel and **PageView**.
+**The browser, with Meta's Chrome extension (Meta Ads Data Advisor, once called Meta Pixel Helper):**
+1. Open the site in a private window. The cookie note shows, and the Helper already shows the pixel and **PageView**.
+2. Press **okay** on the cookie note. It goes away and nothing else changes.
 3. Open a pup, e.g. `/pup-club/corgi`: **ViewContent**. Press **add to bag**: **AddToCart**. Open `/checkout`:
    **InitiateCheckout**. Each one lists its Event ID.
-4. Press **cookie choices** in the footer, then **no thanks**. The page reloads and the Helper shows no pixel.
+4. Press **cookie choices** in the footer, then **turn it off**. The page reloads and the Helper shows no pixel.
 
 **Events Manager > Test events:**
 1. On the **Test events** tab, type the site's address under "test browser events" and open it. Do the steps above;
@@ -64,7 +64,7 @@ Until this is done only the browser's Pixel runs, which is fine to start with.
    real count.
 
 ## If something's off
-- No events at all: was the note answered "sure"? Is an ad blocker on? (An ad blocker stops the browser's Pixel only.)
+- No events at all: was the note answered "turn it off" earlier (press **cookie choices**, then **okay**)? Is an ad blocker on? (An ad blocker stops the browser's Pixel only.)
 - Browser events but no server ones: the secret's name must be exactly `META_CAPI_TOKEN`. Cloudflare's logs
   (the Worker > Logs) say `meta events error` with Meta's reason.
 - Changing the pixel: edit `site/assets/pixel-id.js`, and make a new token for the new pixel.

@@ -8,8 +8,8 @@
 //   POST /api/meta-event   the browser's ViewContent, AddToCart and InitiateCheckout, passed on
 //   purchaseEvent()        Purchase, made by /api/checkout/pay the moment the card is charged (server/checkout.js)
 //
-// Only ever after a yes on the cookie note: the browser calls /api/meta-event only then, and the checkout page
-// sends meta.consent only then. Prices are looked up here, never taken from the browser. The buyer's email goes to
+// Never for a visitor who turned it off on the cookie note (or whose browser sends "global privacy control"): the
+// browser doesn't call /api/meta-event then, and the checkout page doesn't send meta.consent. Prices are looked up here, never taken from the browser. The buyer's email goes to
 // Meta scrambled (SHA-256), as Meta's rules ask; nothing else about them is sent but what any website sees (the
 // connection's address and the browser's name) and Meta's own cookie values.
 //
@@ -128,7 +128,7 @@ export function purchaseDetails(catalog, lines, orderId, totalCents, currency) {
   };
 }
 
-// consent: the checkout page's { consent: true, fbp, fbc }, sent only after a yes on the cookie note
+// consent: the checkout page's { consent: true, fbp, fbc }, not sent by a visitor who turned the pixel off
 export async function purchaseEvent(env, request, ctx, { consent, details, orderId, email, origin }, fetchFn = fetch) {
   if (!metaConfigured(env) || !consent || consent.consent !== true) return;
   const { event_id, ...custom } = details;
