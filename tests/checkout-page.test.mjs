@@ -88,7 +88,11 @@ test('paying makes the order with its shipment and charges its own total, tip on
   const { env, sq } = setup();
   const r = await pay(env, { tip: { percent: 15 }, price_cents: 1, total: 1 });
   assert.equal(r.status, 200);
-  assert.deepEqual(await r.json(), { ok: true, url: 'https://x.test/thank-you.html' });
+  const paid = await r.json();
+  assert.equal(paid.ok, true);
+  assert.equal(paid.url, 'https://x.test/thank-you.html');
+  // the thank-you page's pixel event (tests/meta.test.mjs): the order's own total, no tip
+  assert.equal(paid.purchase.value, 33.25);
   assert.equal(sq.orders.length, 1);
   const order = sq.orders[0].order;
   assert.equal(order.line_items[0].catalog_object_id, 'V_AUS');

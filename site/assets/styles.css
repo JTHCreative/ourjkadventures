@@ -195,6 +195,24 @@ h1, h2, h3 { font-weight: 500; text-transform: none; }
 .site-footer { padding-bottom: calc(var(--space-7) + 64px); }
 .site-footer .links { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2) var(--space-5); margin-bottom: var(--space-4); }
 .site-footer a { color: var(--ink); }
+.site-footer .link-btn { align-self: auto; color: var(--ink); font-size: inherit; line-height: inherit; }
+
+/* the cookie note (assets/pixel.js): a small card at the bottom left until it's answered */
+.cookie-note {
+  position: fixed;
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  z-index: 35;
+  max-width: 440px;
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface);
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+.cookie-note p { font-size: 18px; line-height: 26px; color: var(--ink); }
+.cookie-note-row { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-3); }
 
 /* ---------- button and tag ---------- */
 

@@ -23,3 +23,7 @@ META_APP_ID=
 RESEND_API_KEY=
 EMAIL_FROM=
 EMAIL_DAILY_LIMIT=
+# the meta pixel's server side (docs/setup/meta-pixel.md). leave the key empty and only the browser's pixel runs.
+# careful: a real key sends real events to meta, even locally. the test code makes them show under "test events"
+META_CAPI_TOKEN=
+META_TEST_EVENT_CODE=

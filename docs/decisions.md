@@ -1046,3 +1046,26 @@ The owner reads them on `/admin` in "where buyers come from" (`server/heard-repo
 like the order history, so there is no second copy to drift. Money is what the buyer paid in all, less refunds, so it
 matches Square's own totals for those orders; one refunded in full is left out. A CSV download (one row per order)
 is there for anything the card doesn't show, rather than building more charts.
+
+## The Meta Pixel, behind a cookie note (2026-11-20)
+The owner wants to run Instagram and Facebook ads and show pins again to people who've visited. This is the
+"decision and a cookie notice" the 2026-10 accounts entry said tracking would need. What was chosen:
+- **Ask first.** Nothing loads from Meta and the server tells Meta nothing until "sure" on a small note at the bottom
+  of the page (`site/assets/pixel.js`). The answer is kept in the browser (`jka_cookie_choice`), "cookie choices" in
+  every footer changes it, and a "no" clears Meta's cookies and reloads. A browser's Global Privacy Control signal
+  counts as "no" without asking (California treats it as an opt-out, and we're a California shop). Stricter than
+  U.S. law asks for a shop our size, but it matches how the rest of the site treats people's details.
+- **Both the Pixel and the Conversions API** (`server/meta.js`), with one `event_id` per event so Meta counts once.
+  Purchase is sent by the server from `/api/checkout/pay` the moment the card is charged, not from the Square
+  webhook: at pay time the server still has the buyer's connection, browser and consent, and a closed tab can't lose
+  it. The thank-you page fires the browser's twin from a note in sessionStorage.
+- **Little goes to Meta.** Page addresses, our product keys, order value, the connection's address and browser name,
+  Meta's own cookie values, and with an order the buyer's email as a SHA-256 hash. No name, address or gift note.
+  The Pixel's "automatic" reading of buttons and page details is switched off (`autoConfig`).
+- **Never on `/admin`, sign-in or account pages**: some of those addresses carry one-time codes.
+- **Prices stay the server's.** The browser's values are only for Meta's report; the server looks its own up.
+- **The pixel's number in one file** (`site/assets/pixel-id.js`), read by the browser and bundled into the worker.
+  Not through `/api/catalog`, so PageView doesn't wait on Square. The key is the Cloudflare secret `META_CAPI_TOKEN`.
+- Purchase's value is the order's total without the tip. PageView isn't passed on by the server (it would mean a
+  worker call per page view for little gain). The privacy page's "we do not run advertising trackers" line is gone,
+  replaced by a section that says all this.

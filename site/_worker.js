@@ -11,6 +11,7 @@
 //   INSTAGRAM_ACCESS_TOKEN, META_APP_SECRET, REEL_STORE  the About page's reels, see server/instagram.js
 //   RESEND_API_KEY, EMAIL_FROM, EMAIL_DAILY_LIMIT  every email the site sends, see server/email.js
 //   SQUARE_WEBHOOK_SIGNATURE_KEY, SQUARE_WEBHOOK_URL  Square's "it's paid" doorbell, see server/square-webhook.js
+//   META_CAPI_TOKEN (secret), META_TEST_EVENT_CODE (optional)  the meta pixel's server side, see server/meta.js
 //   REVIEW_PHOTOS                  the R2 bucket for review photos and the owner's product photos, see server/photos.js and server/media.js
 //
 // The account code lives in ../server so it is bundled into this worker but never published as a file.
@@ -30,12 +31,13 @@ import { reelsRoute } from '../server/instagram.js';
 import { mediaRoute } from '../server/media.js';
 import { pupPageRoute } from '../server/pup-pages.js';
 import { staticOrNotFound } from '../server/not-found.js';
+import { metaEventRoute } from '../server/meta.js';
 
 // old pup club addresses that now live under a new name
 const RENAMED_PUPS = { poodle: 'doodle' };
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     // one real address: a page asked for at www.ourjkadventures.com moves to ourjkadventures.com, so sign-ins, saved
     // bags and the "i'm interested" ticket all live in one place. only page visits (GET/HEAD): a POST is let through.
@@ -47,8 +49,10 @@ export default {
     }
     // Apple Pay's domain check (server/apple-pay.js)
     if (url.pathname === APPLE_PAY_PATH) return applePayFile();
-    if (url.pathname === '/api/checkout' || url.pathname === '/api/checkout/quote' || url.pathname === '/api/checkout/pay' || url.pathname === '/api/checkout/status') return checkoutRoute(request, env, url);
+    if (url.pathname === '/api/checkout' || url.pathname === '/api/checkout/quote' || url.pathname === '/api/checkout/pay' || url.pathname === '/api/checkout/status') return checkoutRoute(request, env, url, ctx);
     if (url.pathname === '/api/catalog') return catalogRoute(request, env);
+    // the meta pixel's server side: browser events passed on to meta, only after a yes on the cookie note (server/meta.js)
+    if (url.pathname === '/api/meta-event') return metaEventRoute(request, env, ctx);
     if (url.pathname === '/api/account' || url.pathname === '/api/account/orders') return account(request, env);
     if (url.pathname.startsWith('/api/account/email/')) return accountEmailRoute(request, env);
     if (url.pathname === '/api/square-webhook') return squareWebhook(request, env);

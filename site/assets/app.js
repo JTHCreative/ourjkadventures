@@ -385,6 +385,17 @@
     return Promise.race([ticket, giveUp]).catch(function () { return null; });
   }
 
+  /* ---------- the meta pixel's tray (assets/pixel.js) ---------- */
+  // events wait here until pixel.js picks them up, and it only does once the visitor has said yes to the cookie
+  // note. items: [{ key, qty }]. never lets a problem there reach the shop
+  function pixel(name, items) {
+    try {
+      var tray = window.jkaPixel = window.jkaPixel || [];
+      tray.push({ name: name, items: items });
+      if (typeof tray.go === 'function') tray.go();
+    } catch (e) {}
+  }
+
   /* ---------- adding things ---------- */
   function addToBag(key, btn, label) {
     var entry = catalog.byKey[key];
@@ -393,6 +404,7 @@
     cart[key] = Math.min(before + 1, maxQty(entry));
     saveCart();
     paintCount();
+    if (cart[key] > before) pixel('AddToCart', [{ key: key, qty: 1 }]);
     btn.disabled = true;
     btn.textContent = cart[key] > before ? 'in your bag.' : 'that is all we have.';
     setTimeout(function () { btn.textContent = label; btn.disabled = false; }, 1600);
@@ -1118,6 +1130,7 @@
   function paintPup(p, panel) {
     panel.setAttribute('data-slug', p.slug);
     pupAddress(p);
+    pixel('ViewContent', [{ key: p.slug, qty: 1 }]);
     panel.textContent = '';
     var sheet = el('div', 'card clean pup-sheet');
     var close = el('button', 'icon-btn close');
@@ -2096,6 +2109,7 @@
       if (featured) buildFeatured(featured);
       if (wanted) buildWanted(wanted);
       draw();
+      if (boardBuy && catalog.items['bay-area-pin-board']) pixel('ViewContent', [{ key: 'bay-area-pin-board', qty: 1 }]);
     }).catch(function () {
       // the shop's live list (/api/catalog) didn't answer. still show the pups and the board from products.json,
       // with nothing for sale (no sizes, no prices, the shop counts as closed), so the page is never just an
@@ -2342,6 +2356,8 @@
     initPinRequest();
     initRoom();
     initZoom();
+    // the cookie note and the meta pixel: its own file, so a page works the same with or without it
+    try { import('/assets/pixel.js').catch(function () {}); } catch (e) {}
   }
   // /admin shrinks the owner's product photos the same way as review photos (site/assets/admin.js)
   // the checkout page (site/assets/checkout.js) shares the bag, the catalog and the words for them
@@ -2351,7 +2367,7 @@
     lineName: lineName, pinImage: function (slug) { return PIN_IMG[slug] || BOARD_IMG[slug] || ''; },
     money: money, el: el, svg: svg, save: save, read: read, suggestEmail: suggestEmail, signInTicket: signInTicket,
     shipChoice: shipChoice, shipCents: shipCents, hasPreorder: hasPreorder, preorderTogether: preorderTogether,
-    prettyDate: prettyDate, openBag: openBag, contactEmail: CONTACT_EMAIL
+    prettyDate: prettyDate, openBag: openBag, pixel: pixel, contactEmail: CONTACT_EMAIL
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
   else init();
