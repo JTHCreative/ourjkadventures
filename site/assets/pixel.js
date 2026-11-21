@@ -166,7 +166,7 @@ function showBar(focus) {
   bar.className = 'cookie-note';
   bar.setAttribute('aria-label', 'cookies');
   var p = document.createElement('p');
-  p.appendChild(document.createTextNode('hi! is it okay if we use a cookie from meta (instagram and facebook)? it helps us see which of our ads bring folks by, and show our pins to people who\'ve visited. '));
+  p.appendChild(document.createTextNode('hi! is it okay if we use a cookie to learn how folks find our little shop? '));
   var more = document.createElement('a');
   more.href = '/privacy#ads';
   more.textContent = 'more in privacy';
