@@ -1,11 +1,12 @@
 /* j+k adventures: the cookie note and the Meta Pixel (docs/setup/meta-pixel.md, docs/decisions.md).
 
-   Nothing here talks to Meta until the visitor says "sure" on the small note at the bottom of the page. Like a
-   guest book at the booth: we only write someone in once they've said it's fine. Their answer is kept in their own
+   The Pixel is on unless the visitor turns it off (since 2026-11-21; before that it waited for a yes). A small note
+   at the bottom of the page says so on a first visit, with "okay" and "turn it off". Like a guest book at the booth
+   that's open on the table: anyone can ask to be left out, and then they are. Their answer is kept in their own
    browser (jka_cookie_choice: "yes" or "no"), and "cookie choices" in the footer brings the note back to change it.
-   A browser that sends the "global privacy control" signal counts as "no thanks" without being asked.
+   A browser that sends the "global privacy control" signal counts as "turn it off" without being asked.
 
-   app.js and checkout.js drop events in a tray (window.jkaPixel); this file empties the tray once there's a yes:
+   app.js and checkout.js drop events in a tray (window.jkaPixel); this file empties the tray unless it's off:
      PageView          every public page
      ViewContent       a pup's page or the board's page opens
      AddToCart         "add to bag"
@@ -132,24 +133,27 @@ function purchase() {
 }
 
 var tray = window.jkaPixel = window.jkaPixel || [];
-function empty() {
+// on unless turned off: a "no", or the browser's own "please don't" signal with no answer from the visitor
+function allowed() {
   var choice = readChoice();
-  if (quiet || choice === 'no' || (choice === null && askedNotTo())) { tray.length = 0; return; }
-  if (choice !== 'yes') return;   // not answered yet: the tray keeps this page's events for a "sure"
+  return !quiet && choice !== 'no' && !(choice === null && askedNotTo());
+}
+function empty() {
+  if (!allowed()) { tray.length = 0; return; }
   load();
   while (tray.length) { try { send(tray.shift()); } catch (e) {} }
   purchase();
 }
 tray.go = empty;
-// the checkout page asks this before it pays: may the server tell meta about the order, and which browser is it
+// the checkout page asks this before it pays: may the server tell meta about the order (not if it's turned off),
+// and which browser is it
 tray.info = function () {
-  if (quiet || readChoice() !== 'yes') return null;
+  if (!allowed()) return null;
   return { consent: true, fbp: cookie('_fbp'), fbc: cookie('_fbc') };
 };
 
 /* ---------- the cookie note ---------- */
 function answer(yes) {
-  var was = readChoice();
   saveChoice(yes ? 'yes' : 'no');
   if (bar) { bar.remove(); bar = null; }
   if (yes) { empty(); return; }
@@ -158,7 +162,7 @@ function answer(yes) {
   dropCookie('_fbp');
   dropCookie('_fbc');
   // meta's script can't be taken back out of an open page: a fresh page has none of it
-  if (was === 'yes' && loaded) location.reload();
+  if (loaded) location.reload();
 }
 function showBar(focus) {
   if (bar) { if (focus) bar.querySelector('button').focus(); return; }
@@ -166,7 +170,7 @@ function showBar(focus) {
   bar.className = 'cookie-note';
   bar.setAttribute('aria-label', 'cookies');
   var p = document.createElement('p');
-  p.appendChild(document.createTextNode('hi! is it okay if we use a cookie to learn how folks find our little shop? '));
+  p.appendChild(document.createTextNode('hi! we use a cookie to learn how folks find our little shop. '));
   var more = document.createElement('a');
   more.href = '/privacy#ads';
   more.textContent = 'more in privacy';
@@ -177,12 +181,12 @@ function showBar(focus) {
   var yes = document.createElement('button');
   yes.type = 'button';
   yes.className = 'jka-btn jka-btn--sm';
-  yes.textContent = 'sure';
+  yes.textContent = 'okay';
   yes.addEventListener('click', function () { answer(true); });
   var no = document.createElement('button');
   no.type = 'button';
   no.className = 'jka-btn jka-btn--quiet jka-btn--sm';
-  no.textContent = 'no thanks';
+  no.textContent = 'turn it off';
   no.addEventListener('click', function () { answer(false); });
   row.appendChild(yes);
   row.appendChild(no);
@@ -206,8 +210,7 @@ function footerLink() {
 
 function start() {
   footerLink();
-  var choice = readChoice();
-  if (!quiet && choice === null && !askedNotTo()) showBar(false);
+  if (!quiet && readChoice() === null && !askedNotTo()) showBar(false);
   empty();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);

@@ -358,8 +358,8 @@ async function pay(request, env, url, body, ctx) {
       await firestoreSet(env, attemptPath(env, attempt), { order: order.id, url: new URL(done).pathname + new URL(done).search, createdAt: new Date() });
     } catch (e) { console.log('attempt note failed', e.message); }
   }
-  // the meta pixel's Purchase (server/meta.js): the thank-you page fires it with this ticket number, and, only if the
-  // buyer said yes to the cookie note, we tell meta ourselves with the same one. never blocks the sale
+  // the meta pixel's Purchase (server/meta.js): the thank-you page fires it with this ticket number, and, unless the
+  // buyer turned it off on the cookie note, we tell meta ourselves with the same one. never blocks the sale
   const purchase = purchaseDetails(p.catalog, p.keys.map((k) => ({ key: k, qty: p.qtyByKey[k] })), order.id, total, p.currency);
   try {
     await purchaseEvent(env, request, ctx, { consent: body.meta, details: purchase, orderId: order.id, email: p.address.email, origin: url.origin });

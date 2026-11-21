@@ -632,7 +632,7 @@
     body.attempt = attempt;
     // the total they saw: the server charges nothing if Square's total has changed since
     body.expected_total_cents = currentQuote().total_cents;
-    // only after a yes on the cookie note: lets the server tell meta about the order (assets/pixel.js)
+    // unless they turned it off on the cookie note: lets the server tell meta about the order (assets/pixel.js)
     try { var tray = window.jkaPixel; body.meta = tray && typeof tray.info === 'function' ? tray.info() : null; } catch (e) { body.meta = null; }
     rememberAttempt();
     setBusy(true, 'one moment.');
@@ -651,7 +651,7 @@
       if (res === 'quiet') { setBusy(false); return; }
       if (res.r.ok && res.j.ok && res.j.url) {
         payBtn.textContent = 'paid. thank you!';
-        // a note for the thank-you page's pixel event: this tab only, and only read after a yes on the cookie note
+        // a note for the thank-you page's pixel event: this tab only, and not read if they turned it off on the cookie note
         if (res.j.purchase) { try { sessionStorage.setItem('jka_purchase', JSON.stringify(res.j.purchase)); } catch (e) {} }
         location.href = res.j.url;
         return;
