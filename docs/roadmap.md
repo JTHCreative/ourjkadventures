@@ -150,4 +150,7 @@ Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
 - [x] "Page not found" page (2026-11-05): `site/404.html` for any address we don't have, shown by the worker (`server/not-found.js`). Cloudflare's own `not_found_handling` setting was tried and dropped: it answered a browser's visit to `/pup-club/corgi` with "not found" before the worker could build the page
 - [x] Sitemap dates from git: `python3 scripts/sitemap-dates.py` (`--check` to only look). Owner: by hand, or a GitHub Action?
 - [ ] Shipping and returns in the product data (`shippingDetails`, `hasMerchantReturnPolicy`), once the owner says where we ship and what the return policy is. Google lists them as recommended, not required
+- [x] Meta Pixel and Conversions API (2026-11-20): a cookie note asks first; PageView, ViewContent, AddToCart, InitiateCheckout and Purchase, each with an event id shared by the browser and the server (`site/assets/pixel.js`, `server/meta.js`). The privacy page says so
+- [ ] Owner: make the Conversions API token and add `META_CAPI_TOKEN` in Cloudflare, then run the checks (`setup/meta-pixel.md`)
+- [ ] Later, if ads should show the exact pin someone looked at: a Meta product catalog whose ids match our keys (`aussie`, `aussie:large`)
 - [ ] The pup club intro says "pins from $12", a price typed into the page. Prices should come from Square only: reword it or fill it from the catalog

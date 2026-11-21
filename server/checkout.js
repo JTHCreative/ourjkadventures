@@ -23,6 +23,7 @@ import { stockCounts, squareHost, squareMode, SQUARE_VERSION } from './square.js
 import { cleanShipTo, cleanGift, squareAddress, addressLine, noteGift } from './ship-to.js';
 import { shopToday, whenWords } from './preorder-words.js';
 import { cleanHeardFrom } from './heard-from.js';
+import { purchaseDetails, purchaseEvent } from './meta.js';
 
 const MAX_LINES = 30;
 export const lineUid = (key) => key.replace(/:/g, '.');
@@ -42,7 +43,7 @@ const ATTEMPT_RE = /^[A-Za-z0-9-]{8,64}$/;
 // check ticket stub: the number and the hook, never whose coat it is
 const attemptPath = (env, attempt) => 'checkout_attempts_' + squareMode(env) + '/' + attempt;
 
-export async function checkoutRoute(request, env, url) {
+export async function checkoutRoute(request, env, url, ctx) {
   if (url.pathname === '/api/checkout/status') return attemptStatus(request, env, url);
   if (request.method !== 'POST') return json({ error: 'method' }, 405);
   if (!env.SQUARE_ACCESS_TOKEN || !env.SQUARE_LOCATION_ID) return json({ error: 'not configured' }, 503);
@@ -50,7 +51,7 @@ export async function checkoutRoute(request, env, url) {
   try { body = await request.json(); } catch (e) { return json({ error: 'bad request' }, 400); }
   if (!body || typeof body !== 'object') return json({ error: 'bad request' }, 400);
   if (url.pathname === '/api/checkout/quote') return quote(request, env, url, body);
-  if (url.pathname === '/api/checkout/pay') return pay(request, env, url, body);
+  if (url.pathname === '/api/checkout/pay') return pay(request, env, url, body, ctx);
   return paymentLink(request, env, url, body);
 }
 
@@ -286,7 +287,7 @@ const CARD_PROBLEMS = {
   CARD_NOT_SUPPORTED: 'card', CARD_DECLINED_VERIFICATION_REQUIRED: 'verify'
 };
 
-async function pay(request, env, url, body) {
+async function pay(request, env, url, body, ctx) {
   if (!env.SQUARE_APPLICATION_ID) return json({ error: 'not configured' }, 503);
   const source = body.source_id;
   if (typeof source !== 'string' || !source || source.length > 500) return json({ error: 'payment' }, 400);
@@ -357,7 +358,13 @@ async function pay(request, env, url, body) {
       await firestoreSet(env, attemptPath(env, attempt), { order: order.id, url: new URL(done).pathname + new URL(done).search, createdAt: new Date() });
     } catch (e) { console.log('attempt note failed', e.message); }
   }
-  return json({ ok: true, url: done });
+  // the meta pixel's Purchase (server/meta.js): the thank-you page fires it with this ticket number, and, only if the
+  // buyer said yes to the cookie note, we tell meta ourselves with the same one. never blocks the sale
+  const purchase = purchaseDetails(p.catalog, p.keys.map((k) => ({ key: k, qty: p.qtyByKey[k] })), order.id, total, p.currency);
+  try {
+    await purchaseEvent(env, request, ctx, { consent: body.meta, details: purchase, orderId: order.id, email: p.address.email, origin: url.origin });
+  } catch (e) { console.log('meta purchase failed', e.message); }
+  return json({ ok: true, url: done, purchase });
 }
 
 // the thank-you page for a pay press that was paid, or null (not paid, not noted, or the note can't be read)
