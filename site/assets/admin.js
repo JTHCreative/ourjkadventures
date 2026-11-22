@@ -1646,7 +1646,9 @@ function wireMedia() {
         last = await api('POST', '/api/admin/media', { slug, jpeg: pic.jpeg, alt: $('[data-media-alt]').value });
         done++;
       } catch (err) {
-        problems.push(err.data && err.data.error === 'too many' ? 'that product already has ' + err.data.max + ' photos.' : file.name + " didn't upload.");
+        problems.push(err.data && err.data.error === 'too many' ? 'that product already has ' + err.data.max + ' photos.'
+          : err.heic ? file.name + " is a heic photo this browser can't open. save it as a jpeg, or upload it from your iphone or safari."
+          : file.name + " didn't upload.");
         if (err.data && err.data.error === 'too many') break;
       }
     }

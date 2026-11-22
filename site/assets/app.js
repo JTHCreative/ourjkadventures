@@ -1508,8 +1508,36 @@
       c.toBlob(function (b) { if (b) resolve(b); else reject(new Error('photo')); }, 'image/jpeg', quality);
     });
   }
+  // Apple's HEIC photos: an iPhone turns them into JPEGs when a page asks, and Safari can open them, but most
+  // other browsers can't. When a photo won't open, peek at its name and first few bytes (a HEIC file says "ftyp"
+  // then a brand like "heic" near the start), so we can say why instead of a plain "couldn't open it"
+  var HEIC_BRANDS = /^(heic|heix|heim|heis|hevc|hevx|mif1|msf1)$/;
+  function looksHeic(file) {
+    if (/\.(heic|heif)$/i.test(file.name || '') || /heic|heif/i.test(file.type || '')) return Promise.resolve(true);
+    if (!file.slice) return Promise.resolve(false);
+    return new Promise(function (resolve) {
+      var r = new FileReader();
+      r.onload = function () {
+        var b = new Uint8Array(r.result || new ArrayBuffer(0));
+        var text = String.fromCharCode.apply(null, Array.prototype.slice.call(b, 4, 12));
+        resolve(text.slice(0, 4) === 'ftyp' && HEIC_BRANDS.test(text.slice(4)));
+      };
+      r.onerror = function () { resolve(false); };
+      r.readAsArrayBuffer(file.slice(0, 12));
+    });
+  }
+  function openPhoto(file) {
+    return openImage(file).catch(function () {
+      return looksHeic(file).then(function (heic) {
+        var err = new Error('photo');
+        if (heic) err.heic = true;
+        throw err;
+      });
+    });
+  }
+  var HEIC_NOTE = 'that photo is in apple\'s heic format, which this browser can\'t open. try adding it from your iphone, or save it as a jpeg first.';
   function shrinkPhoto(file) {
-    return openImage(file).then(function (pic) {
+    return openPhoto(file).then(function (pic) {
       var w = pic.naturalWidth || pic.width, h = pic.naturalHeight || pic.height;
       if (!w || !h) throw new Error('photo');
       var scale = Math.min(1, PHOTO_SIDE / Math.max(w, h));
@@ -1604,8 +1632,8 @@
         shrinkPhoto(file).then(function (pic) {
           var url = URL.createObjectURL(pic.blob);
           items.push({ jpeg: pic.jpeg, src: url, blobUrl: url });
-        }).catch(function () {
-          note.textContent = 'we couldn\'t open one of those photos. try a different one.';
+        }).catch(function (err) {
+          note.textContent = err && err.heic ? HEIC_NOTE : 'we couldn\'t open one of those photos. try a different one.';
         }).then(function () { working--; paint(); });
       });
       paint();
