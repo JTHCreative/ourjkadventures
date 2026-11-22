@@ -63,6 +63,11 @@ Until this is done only the browser's Pixel runs, which is fine to start with.
 4. **Delete `META_TEST_EVENT_CODE` when done**, or the server's events keep going to the test tab instead of the
    real count.
 
+## Where to look afterwards
+The **meta ads** card on `/admin` has shortcuts to these pages: website activity and test events (Events Manager,
+opened on our pixel), audiences and campaigns (Ads Manager), and insights (Business Suite). Meta shows totals and
+groups to advertise to, never which people visited.
+
 ## If something's off
 - No events at all: was the note answered "turn it off" earlier (press **cookie choices**, then **okay**)? Is an ad blocker on? (An ad blocker stops the browser's Pixel only.)
 - Browser events but no server ones: the secret's name must be exactly `META_CAPI_TOKEN`. Cloudflare's logs

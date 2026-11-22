@@ -197,6 +197,11 @@ h1, h2, h3 { font-weight: 500; text-transform: none; }
 .site-footer a { color: var(--ink); }
 .site-footer .link-btn { align-self: auto; color: var(--ink); font-size: inherit; line-height: inherit; }
 
+/* /admin "meta ads": a short list of links out, each with a line saying what's there */
+.admin-shortcuts { list-style: none; padding: 0; margin: var(--space-4) 0 0; display: grid; gap: var(--space-4); }
+.admin-shortcuts a { display: block; font-size: 20px; line-height: 26px; }
+.admin-shortcuts .caption { display: block; }
+
 /* the cookie note (assets/pixel.js): a small card at the bottom left until it's answered */
 .cookie-note {
   position: fixed;

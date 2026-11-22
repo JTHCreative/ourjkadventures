@@ -2,6 +2,12 @@
    (ADMIN_EMAILS in Cloudflare). This page only shows what the server agrees to; every change goes through /api/admin,
    which checks the sign-in again each time. Anyone else sees one line: "this page is for the shop owner." */
 import { signedInUser, signInWithGoogle, signOutHere, friendlyError } from './account.js';
+import { META_PIXEL_ID } from './pixel-id.js';
+
+// "meta ads": the events manager shortcuts open straight on our pixel (its number is only in pixel-id.js)
+document.querySelectorAll('[data-ads-link]').forEach((a) => {
+  a.href = 'https://business.facebook.com/events_manager2/list/dataset/' + META_PIXEL_ID + '/' + a.getAttribute('data-ads-link');
+});
 
 const $ = (sel) => document.querySelector(sel);
 const NOT_OWNER = 'this page is for the shop owner.';
