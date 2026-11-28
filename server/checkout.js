@@ -17,7 +17,8 @@
 // worked out here from Square's prices. Never a discount: nothing here takes anything off.
 
 import { noteOrder } from './account.js';
-import { configured as firebaseConfigured, userFromRequest, firestoreGet, firestoreSet } from './firebase.js';
+import { configured as firebaseConfigured, userFromRequest, firestoreGet, firestoreSet, firestoreCommit } from './firebase.js';
+import { PATH, settleRewards } from './codes.js';
 import { getCatalog, shippingCharge } from './catalog.js';
 import { stockCounts, squareHost, squareMode, SQUARE_VERSION } from './square.js';
 import { cleanShipTo, cleanGift, squareAddress, addressLine, noteGift } from './ship-to.js';
@@ -83,10 +84,59 @@ export function cleanTip(raw, itemsCents) {
   return { cents: c };
 }
 
+/* ---------- the collector's path: a pin on us at ten (docs/collectors-path-spec.md) ---------- */
+// Someone who has registered ten pins may add one pin to an order, on us. It rides with a paid order, never alone
+// (there's always at least one paid line here), and only through our own checkout page. Like the tenth stamp on a
+// coffee card: the card is checked by us, at the till, not by the customer.
+// The pin goes on the order as its own line with no price ("collector's path pin: corgi pin"), typed in rather
+// than pointed at the Square item, so no price is ever marked down: every pin's price stays what it is.
+// Square can't lower the stock count for a typed line, so the line's note asks the owner to take one off.
+const FREE_PIN_UID = 'collectors-path-pin';
+const LOCK_MS = 10 * 60 * 1000;
+const lockPath = (uid) => 'users/' + encodeURIComponent(uid) + '/locks/free_pin';
+
+// has this buyer a pin on us to use? null when signed out, not confirmed, or not at ten
+async function freePinBuyer(request, env) {
+  const buyer = await buyerOf(request, env);
+  if (!buyer || buyer.email_verified !== true) return null;
+  let me = null;
+  try { me = await firestoreGet(env, 'users/' + encodeURIComponent(buyer.sub)); } catch (e) { return null; }
+  return me && (me.charges || 0) >= PATH.pin ? buyer : null;
+}
+function pinWordsFor(catalog, key) {
+  const en = catalog.byKey[key];
+  const item = catalog.items.find((p) => p.slug === en.slug);
+  return (en.size === 'large' ? 'large ' : '') + (en.slug === 'golden' ? 'goldie' : item.name) + ' pin';
+}
+// One pay press at a time may use the pin: a note that can only be made once (Firestore refuses a second), so two
+// tabs pressing pay together can't both get one. A note left behind by a press that never finished goes stale.
+async function holdFreePin(env, uid) {
+  const take = () => firestoreCommit(env, [{ create: lockPath(uid), data: { at: new Date() } }]);
+  if (await take()) return true;
+  const had = await firestoreGet(env, lockPath(uid));
+  if (had && had.at && Date.now() - new Date(had.at).getTime() < LOCK_MS) return false;
+  await firestoreCommit(env, [{ remove: lockPath(uid), any: true }]);
+  return take();
+}
+async function letGoFreePin(env, uid) {
+  try { await firestoreCommit(env, [{ remove: lockPath(uid), any: true }]); } catch (e) { console.log('free pin hold not released', e.message); }
+}
+// the order is paid: ten come off the count, and the order is noted so it can only ever count once
+async function useFreePin(env, uid, orderId, key) {
+  const at = new Date();
+  const user = 'users/' + encodeURIComponent(uid);
+  await firestoreCommit(env, [
+    { create: user + '/redemptions/' + orderId, data: { key, at } },
+    { add: user, field: 'charges', by: -PATH.pin, data: { lastFreePinAt: at } },
+    { remove: lockPath(uid), any: true }
+  ]);
+  await settleRewards(env, uid);
+}
+
 // Everything every checkout shares: read the items, the shelf, shipping, the address and the gift, and put the
 // Square order together. addressNeeded: false for the quote (the summary shows before the address is typed).
 // Returns { res } (an answer to send back now) or the pieces of the order.
-async function prepare(request, env, url, body, addressNeeded) {
+async function prepare(request, env, url, body, addressNeeded, freeAllowed = true) {
   const wanted = Array.isArray(body.items) ? body.items : [];
   if (!wanted.length || wanted.length > MAX_LINES) return { res: json({ error: 'bad items' }, 400) };
 
@@ -145,6 +195,26 @@ async function prepare(request, env, url, body, addressNeeded) {
   const short = keys.filter((k) => qtyByKey[k] > left(k));
   if (short.length) return { res: json({ error: 'stock', items: short.map((k) => ({ key: k, stock: left(k) })) }, 409) };
 
+  // the collector's path: a pin on us. the browser only names which pin; whether they've earned one is ours to check
+  let freePin = null;
+  if (body.free_pin !== undefined && body.free_pin !== null) {
+    const key = body.free_pin;
+    if (!freeAllowed) return { res: json({ error: 'free_pin', reason: 'checkout' }, 400) };
+    const en = typeof key === 'string' ? catalog.byKey[key] : null;
+    // a pin from the shelf: not a board, and not a pre-order still being made
+    if (!en || en.kind !== 'pin' || en.preorder) return { res: json({ error: 'free_pin', reason: 'pin' }, 400) };
+    const buyer = await freePinBuyer(request, env);
+    if (!buyer) return { res: json({ error: 'free_pin', reason: 'not ready' }, 403) };
+    let shelf = onShelf[en.variation_id];
+    if (shelf === undefined) {
+      try { shelf = (await stockCounts(env, [en.variation_id]))[en.variation_id] || 0; } catch (e) { return { res: json({ error: 'square unreachable' }, 502) }; }
+    }
+    const there = en.marked_sold_out ? 0 : shelf;
+    // one more than they're buying has to be on the shelf
+    if (there < (qtyByKey[key] || 0) + 1) return { res: json({ error: 'free_pin', reason: 'stock', key }, 409) };
+    freePin = { key, uid: buyer.sub, words: pinWordsFor(catalog, key) };
+  }
+
   // a pre-order in the bag: the whole order waits and ships together once the last pre-order pin arrives, around
   // the latest of their dates. a pin is only on sale as a pre-order with its date, so every one has one
   const today = shopToday();
@@ -162,6 +232,12 @@ async function prepare(request, env, url, body, addressNeeded) {
   }));
   const currency = catalog.currency;
   const itemsCents = keys.reduce((n, k) => n + catalog.byKey[k].price_cents * qtyByKey[k], 0);
+  if (freePin) {
+    lines.push({
+      uid: FREE_PIN_UID, name: "collector's path pin: " + freePin.words, quantity: '1', base_price_money: { amount: 0, currency },
+      note: 'a pin on us for ten pins registered. take one ' + freePin.words + ' off the count in square, and send it with a card from a "pins on us" batch.'
+    });
+  }
 
   const shipWords = ship.name + ' shipping' + (ship.days ? ' (' + ship.days + ')' : '');
   const giftWords = gift ? (gift.message ? 'gift. write on the card: "' + gift.message + '"' : 'gift. blank card, no note') : '';
@@ -185,6 +261,7 @@ async function prepare(request, env, url, body, addressNeeded) {
   if (preorderKeys.length) order.metadata = { ...(order.metadata || {}), preorder: 'yes' };
   // where they heard about us, tagged on the order so we can count it later
   if (heard) order.metadata = { ...(order.metadata || {}), heard_from: heard.id };
+  if (freePin) order.metadata = { ...(order.metadata || {}), free_pin: freePin.key };
   // sales tax: Square applies each item's own tax, the same one the booth uses (today "Millbrae Sales Tax"), so
   // web and booth sales sit under one tax in Square's reports and the rate lives in one place. the shipping line
   // is marked not taxable. (TAX_PERCENT in Cloudflare is no longer read: setting it can't add tax twice)
@@ -197,6 +274,7 @@ async function prepare(request, env, url, body, addressNeeded) {
   // first, so the 500-letter cut never drops it: shows on the payment in the Square dashboard
   if (heard) notes.push('found us: ' + heard.label);
   if (preorderKeys.length) notes.push(preorderWords);
+  if (freePin) notes.push("collector's path: a " + freePin.words + ' on us');
   if (charge.free) {
     notes.push('free ' + shipWords);
   } else {
@@ -209,7 +287,7 @@ async function prepare(request, env, url, body, addressNeeded) {
   if (gift) notes.push(giftWords + ' ship to: ' + addressLine(address));
 
   return {
-    catalog, keys, qtyByKey, order, address, gift, ship, charge, shipDate, currency, itemsCents,
+    catalog, keys, qtyByKey, order, address, gift, ship, charge, shipDate, currency, itemsCents, freePin,
     // Square takes at most 500 characters here; the full note and address are on the shipment too
     paymentNote: notes.length ? notes.join(' / ').slice(0, 500) : null
   };
@@ -268,7 +346,10 @@ async function quote(request, env, url, body) {
     tax_cents: amountOf(o.total_tax_money),
     tip_cents: tip.cents,
     total_cents: total + tip.cents,
-    ...(p.shipDate ? { preorder_date: p.shipDate } : {})
+    ...(p.shipDate ? { preorder_date: p.shipDate } : {}),
+    // the collector's path: the pin on us that's on this order, and whether this buyer has one to use
+    ...(p.freePin ? { free_pin: { key: p.freePin.key } } : {}),
+    ...(p.freePin || (request.headers.get('Authorization') && (await freePinBuyer(request, env))) ? { free_pin_ready: true } : {})
   });
 }
 
@@ -306,7 +387,23 @@ async function pay(request, env, url, body, ctx) {
   const buyer = await buyerOf(request, env);
   if (buyer) p.order.metadata = { ...(p.order.metadata || {}), uid: buyer.sub };
   if (tip.cents) p.order.metadata = { ...(p.order.metadata || {}), tip: String(tip.cents) };
+  if (!p.freePin) return charge(request, env, url, body, ctx, p, tip, buyer, source, attempt);
 
+  // a pin on us: one pay press at a time may use it, and it's only used up once the order is paid
+  let held = false;
+  try { held = await holdFreePin(env, p.freePin.uid); } catch (e) { console.log('free pin hold failed', e.message); }
+  if (!held) return json({ error: 'free_pin', reason: 'busy' }, 409);
+  let res;
+  try { res = await charge(request, env, url, body, ctx, p, tip, buyer, source, attempt); } catch (e) {
+    await letGoFreePin(env, p.freePin.uid);
+    throw e;
+  }
+  if (res.status !== 200) await letGoFreePin(env, p.freePin.uid);
+  return res;
+}
+
+// the Square order, then the payment for it
+async function charge(request, env, url, body, ctx, p, tip, buyer, source, attempt) {
   const made = await square(env, '/v2/orders', {
     idempotency_key: 'jka-' + (await sha(attempt + JSON.stringify(p.order))),
     order: p.order
@@ -351,6 +448,11 @@ async function pay(request, env, url, body, ctx) {
     return json({ error: 'square' }, 502);
   }
   await afterOrder(env, buyer, p.gift, order.id);
+  // the pin on us is used: ten off the count. the sale is done either way; if this can't be written the hold
+  // goes stale by itself and their pin is still waiting, which errs in the collector's favour
+  if (p.freePin) {
+    try { await useFreePin(env, p.freePin.uid, order.id, p.freePin.key); } catch (e) { console.log('free pin not counted', e.message); }
+  }
   const done = thankYou(url, p.shipDate);
   // noted so a tab closed mid-payment can find out it went through, instead of paying again. never blocks the sale
   if (firebaseConfigured(env)) {
@@ -388,7 +490,8 @@ async function attemptStatus(request, env, url) {
 /* ---------- Square's hosted payment page (the fallback) ---------- */
 
 async function paymentLink(request, env, url, body) {
-  const p = await prepare(request, env, url, body, true);
+  // no pin on us here: Square's page takes the money later, and we'd have no sure moment to count it as used
+  const p = await prepare(request, env, url, body, true, false);
   if (p.res) return p.res;
   const buyer = await buyerOf(request, env);
   if (buyer) p.order.metadata = { ...(p.order.metadata || {}), uid: buyer.sub };
