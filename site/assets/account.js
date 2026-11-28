@@ -1,5 +1,5 @@
 /* j+k adventures: accounts. Firebase Authentication holds passwords and hands out sign-in tickets (ID tokens).
-   This file runs the sign-in, create, reset, account, details and orders pages, and lends a ticket to checkout (see app.js).
+   This file runs the sign-in, create, reset, account, details, orders, register-your-pin and my-collection pages, and lends a ticket to checkout (see app.js).
    Customer details come from our own server at /api/account, never straight from Firestore. */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
 import {
@@ -274,6 +274,324 @@ async function sendVerify(user) {
   return sendEmailVerification(user, { url: location.origin + '/account.html' }).catch(function () { return sendEmailVerification(user); });
 }
 
+/* ---------- code cards: registering a pin (server/codes.js) ---------- */
+// A code is 8 characters, like AUS7K2M9: three letters for the pin, then five from CODE_LETTERS (the same list the
+// server draws from: no vowels, and no 0, 1 or L). The code someone is part way through registering is kept in this
+// browser (CODE_KEY) so it's still here after they confirm their email or make an account.
+const CODE_LETTERS = '23456789BCDFGHJKMNPQRSTVWXYZ';
+const CODE_KEY = 'jka_code';
+function tidyCode(s) {
+  const code = String(s || '').toUpperCase().replace(/[\s\-_.]/g, '');
+  if (code.length !== 8 || !/^[A-Z]{3}/.test(code)) return null;
+  for (let i = 3; i < 8; i++) if (CODE_LETTERS.indexOf(code[i]) < 0) return null;
+  return code;
+}
+function savedCode() { try { return tidyCode(localStorage.getItem(CODE_KEY)); } catch (e) { return null; } }
+function saveCode(code) { try { if (code) localStorage.setItem(CODE_KEY, code); else localStorage.removeItem(CODE_KEY); } catch (e) {} }
+function aPin(name) { return (/^[aeiou]/.test(name) ? 'an ' : 'a ') + name + ' pin'; }
+
+// the line under the box: once three letters are in, it says which pin they belong to ("an aussie pin!")
+function codeBox(form) {
+  const input = form.code;
+  const hint = form.querySelector('[data-code-pin]');
+  const resting = hint ? hint.textContent : '';
+  let names = null;
+  function paint() {
+    if (!hint) return;
+    const start = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3);
+    if (!names || start.length < 3) { hint.textContent = resting; return; }
+    hint.textContent = names[start] ? aPin(names[start]) + '!' : 'we don\'t have a pin that starts with ' + start.toLowerCase() + '. have another look at the first three letters.';
+  }
+  input.addEventListener('input', paint);
+  fetch('/products.json').then(function (r) { return r.json(); }).then(function (data) {
+    names = {};
+    (data.items || []).forEach(function (p) { if (p.code) names[p.code] = p.slug === 'golden' ? 'goldie' : p.name; });
+    paint();
+  }).catch(function () {});
+  return { set: function (v) { input.value = v || ''; paint(); } };
+}
+
+// { http, status?, error?, pin?, charges? }. never throws
+async function sendCode(user, code) {
+  try {
+    const res = await fetch('/api/codes/register', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + (await user.getIdToken()), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: code })
+    });
+    const data = await res.json().catch(function () { return {}; });
+    data.http = res.status;
+    return data;
+  } catch (e) { return { http: 0 }; }
+}
+const CODE_WORDS = {
+  shape: 'a code is 8 characters, like aus7k2m9. have another look at the card.',
+  unknown: 'we couldn\'t find that code. have another look at the card and try again.',
+  taken: 'that card has already been registered to another account. if that doesn\'t sound right, write to us at ' + CONTACT_EMAIL + '.',
+  limit: 'that\'s a lot of tries. give it an hour, then try again.',
+  resting: 'we could not register it just now. try again in a moment, or write to us at ' + CONTACT_EMAIL + '.'
+};
+function countWords(n) { return n === 1 ? 'that\'s 1 pin on your collector\'s path.' : 'that\'s ' + n + ' pins on your collector\'s path.'; }
+
+// One try at registering what's in the box. Returns the server's answer once the pin is theirs ("registered" or
+// "yours"), or null after saying why not. needsConfirm is called when their email isn't confirmed yet.
+async function tryCode(user, form, kit, needsConfirm) {
+  kit.say('');
+  const code = tidyCode(form.code.value);
+  if (!code) { kit.say(CODE_WORDS.shape); form.code.focus(); return null; }
+  saveCode(code);
+  kit.busy(true);
+  // back from the confirm link, this browser may still hold the old "not confirmed" answer
+  if (!user.emailVerified) {
+    try { await user.reload(); if (user.emailVerified) await user.getIdToken(true); } catch (e) {}
+  }
+  if (!user.emailVerified) { kit.busy(false); needsConfirm(); return null; }
+  const out = await sendCode(user, code);
+  kit.busy(false);
+  if (out.status === 'registered' || out.status === 'yours') { saveCode(null); return out; }
+  if (out.error === 'confirm') { needsConfirm(); return null; }
+  if (out.status === 'taken') saveCode(null);
+  kit.say(out.error === 'code' ? CODE_WORDS.shape : CODE_WORDS[out.status] || CODE_WORDS.resting);
+  return null;
+}
+
+async function registerPage() {
+  const form = $('#code-form');
+  const kit = formKit(form);
+  const box = codeBox(form);
+  const card = $('[data-code-card]');
+  const join = $('[data-code-join]');
+  const done = $('[data-code-done]');
+  const confirmBox = $('[data-code-confirm]');
+
+  // the card's QR code brings the code along in the address (?code=AUS7K2M9). it goes in the box, and comes out
+  // of the address straight away so it isn't kept in the browser's history
+  const fromCard = new URLSearchParams(location.search).get('code');
+  if (fromCard !== null) {
+    box.set(fromCard.slice(0, 12));
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+  } else {
+    box.set(savedCode() || '');
+  }
+
+  let user = await ready;
+  join.hidden = !!user;
+
+  function needsConfirm() {
+    $('[data-confirm-email]').textContent = user.email || 'your email';
+    confirmBox.hidden = false;
+  }
+  $('[data-verify-again]').addEventListener('click', async function () {
+    const again = this;
+    again.disabled = true;
+    try { await sendVerify(user); again.textContent = 'sent. check your inbox.'; } catch (err) {
+      again.textContent = friendly(err) || 'we could not send it just now. try again in a few minutes.';
+      again.disabled = false;
+    }
+  });
+
+  async function go() {
+    if (!user) {
+      const code = tidyCode(form.code.value);
+      if (!code) { kit.say(CODE_WORDS.shape); form.code.focus(); return; }
+      saveCode(code);
+      kit.say('got it. sign in or make an account below, and we\'ll add your pin right after.', true);
+      join.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      return;
+    }
+    const out = await tryCode(user, form, kit, needsConfirm);
+    if (!out) return;
+    confirmBox.hidden = true;
+    const img = $('[data-done-img]');
+    img.onerror = function () { img.hidden = true; };
+    img.src = 'assets/img/pins/' + out.pin.slug + '.webp';
+    img.hidden = false;
+    $('[data-done-line]').textContent = out.status === 'yours'
+      ? 'this ' + out.pin.name + ' pin is already in your collection.'
+      : 'your ' + out.pin.name + ' pin is in your collection. thank you!';
+    const count = $('[data-done-count]');
+    // a card that came with a pin on us joins the collection without adding a step
+    count.textContent = out.status !== 'registered' ? '' : out.full ? 'you\'ve already walked all ten steps of the path, so this one is just for your board.'
+      : out.counted === false ? 'this one came as a pin on us, so it joins your collection without adding a step.'
+        : REACHED_WORDS[out.reached] || countWords(out.charges);
+    count.hidden = !count.textContent;
+    card.hidden = true;
+    done.hidden = false;
+    done.focus();
+  }
+  form.addEventListener('submit', function (e) { e.preventDefault(); go(); });
+  $('[data-code-another]').addEventListener('click', function () {
+    box.set('');
+    kit.say('');
+    done.hidden = true;
+    card.hidden = false;
+    form.code.focus();
+  });
+
+  // signed out: make an account or sign in right here, then the pin is added
+  function arrived(u) {
+    user = u;
+    join.hidden = true;
+    kit.say('');
+    if (tidyCode(form.code.value)) go(); else form.code.focus();
+  }
+  const joinMsg = $('[data-join-msg]');
+  $('[data-google]').addEventListener('click', async function () {
+    joinMsg.hidden = true;
+    try {
+      const cred = await signInWithPopup(auth, new GoogleAuthProvider());
+      await hello(cred.user).catch(function () {});
+      arrived(cred.user);
+    } catch (err) {
+      joinMsg.textContent = friendly(err);
+      joinMsg.hidden = !joinMsg.textContent;
+    }
+  });
+  const create = $('#create-form');
+  const ckit = formKit(create);
+  create.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    ckit.say('');
+    if (create.password.value.length < 8) {
+      create.password.setAttribute('aria-invalid', 'true');
+      create.password.focus();
+      ckit.say('please choose a longer password, at least 8 characters.');
+      return;
+    }
+    create.password.removeAttribute('aria-invalid');
+    ckit.busy(true);
+    try {
+      const name = create.firstName.value.trim();
+      const cred = await createUserWithEmailAndPassword(auth, create.email.value.trim(), create.password.value);
+      if (name) await updateProfile(cred.user, { displayName: name }).catch(function () {});
+      // the folder first, so the confirm email can say hi with their name
+      await hello(cred.user, name).catch(function () {});
+      await sendVerify(cred.user).catch(function () {});
+      ckit.busy(false);
+      arrived(cred.user);
+    } catch (err) {
+      ckit.busy(false);
+      ckit.say(friendly(err));
+    }
+  });
+  const signIn = $('#sign-in-form');
+  const skit = formKit(signIn);
+  signIn.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    skit.say('');
+    skit.busy(true);
+    try {
+      const cred = await signInWithEmailAndPassword(auth, signIn.email.value.trim(), signIn.password.value);
+      await hello(cred.user).catch(function () {});
+      skit.busy(false);
+      arrived(cred.user);
+    } catch (err) {
+      skit.busy(false);
+      skit.say(friendly(err));
+    }
+  });
+  const swap = $('[data-join-swap]');
+  swap.addEventListener('click', function () {
+    const toSignIn = signIn.hidden;
+    signIn.hidden = !toSignIn;
+    create.hidden = toSignIn;
+    $('[data-join-forgot]').hidden = !toSignIn;
+    swap.textContent = toSignIn ? 'new here? create an account.' : 'already have an account? sign in.';
+    (toSignIn ? signIn.email : create.firstName).focus();
+  });
+}
+
+// "my collection": the collector's path, the pin board (assets/collection.js) and a box to register another pin
+const PATH_END = 10;
+const PATH_MARKS = [3, 6, 10];
+function paintPath(charges, rewards) {
+  const n = Math.max(0, Math.min(PATH_END, charges || 0));
+  $('[data-path-line]').textContent = !n ? 'register your first pin and you\'re on your way.'
+    : n >= PATH_END ? 'all ' + PATH_END + ' pins. you made it the whole way!'
+      : n === 1 ? '1 pin so far, on the way to ' + PATH_END + '.' : n + ' pins so far, on the way to ' + PATH_END + '.';
+  const track = $('[data-path-track]');
+  track.textContent = '';
+  for (let i = 1; i <= PATH_END; i++) {
+    const li = document.createElement('li');
+    if (i <= n) li.className = 'is-done';
+    if (PATH_MARKS.indexOf(i) >= 0) li.classList.add('is-mark');
+    track.appendChild(li);
+  }
+  // what's theirs right now, and what has already been sent
+  const r = rewards || {};
+  const notes = {
+    3: r.early ? 'yours.' : '',
+    6: r.gift === 'coming' ? 'yours. it\'ll be in your next order from our shop.' : r.gift === 'sent' ? 'sent with one of your orders.' : '',
+    10: r.pin === 'ready' ? 'it\'s ready! pick your pin at checkout, the next time you order.' : r.pin === 'used' ? 'sent with one of your orders. thank you for collecting with us!' : ''
+  };
+  document.querySelectorAll('[data-path-step]').forEach(function (li) {
+    const step = li.getAttribute('data-path-step');
+    li.classList.toggle('is-reached', !!notes[step] || n >= Number(step));
+    const note = li.querySelector('[data-path-note]');
+    if (note) { note.textContent = notes[step]; note.hidden = !notes[step]; }
+  });
+}
+const REACHED_WORDS = {
+  early: 'that\'s three: you\'ll get a first look at new pins from now on.',
+  gift: 'that\'s six: a little something extra will be in your next order from our shop.',
+  pin: 'that\'s ten: your next order comes with a pin on us. pick it at checkout.'
+};
+async function collectionPage() {
+  const user = await signedIn();
+  if (!user) return;
+  const notice = $('#account-notice');
+  async function read() {
+    const res = await fetch('/api/collection', { headers: { Authorization: 'Bearer ' + (await user.getIdToken()) } });
+    if (!res.ok) throw new Error('collection ' + res.status);
+    return res.json();
+  }
+  let mine, kit;
+  try {
+    await hello(user).catch(function () {});
+    mine = await read();
+    kit = await import('./collection.js');
+  } catch (e) {
+    notice.textContent = 'we could not open your collection just now. try again in a moment, or write to us at ' + CONTACT_EMAIL + '.';
+    notice.hidden = false;
+    return;
+  }
+  paintPath(mine.charges, mine.rewards);
+  $('#collection-view').hidden = false;
+  const board = kit.mountBoard({
+    board: $('[data-board]'), tools: $('[data-board-tools]'), toolsName: $('[data-board-name]'), trayWrap: $('[data-tray-wrap]'),
+    tray: $('[data-tray]'), empty: $('[data-board-empty]'), status: $('[data-board-status]'), pins: mine.pins,
+    save: async function (list) {
+      const res = await fetch('/api/collection/board', {
+        method: 'POST', keepalive: true,
+        headers: { Authorization: 'Bearer ' + (await user.getIdToken()), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pins: list })
+      });
+      return res.ok;
+    }
+  });
+
+  // registering another pin here drops it straight into the tray
+  const form = $('#code-form');
+  const fkit = formKit(form);
+  const box = codeBox(form);
+  box.set(savedCode() || '');
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const out = await tryCode(user, form, fkit, function () {
+      fkit.say('confirm your email first: use the link we sent you (you can send it again from your account page), then press the button once more.');
+    });
+    if (!out) return;
+    box.set('');
+    if (out.status === 'yours') { fkit.say('this ' + out.pin.name + ' pin is already in your collection.', true); return; }
+    fkit.say('your ' + out.pin.name + ' pin is in your collection. thank you! you\'ll find it under the board, ready to put up.' + (REACHED_WORDS[out.reached] ? ' ' + REACHED_WORDS[out.reached] : ''), true);
+    try {
+      const now = await read();
+      paintPath(now.charges, now.rewards);
+      board.setPins(now.pins);
+    } catch (err) {}
+  });
+}
+
 async function accountPage() {
   const user = await signedIn();
   if (!user) return;
@@ -318,6 +636,8 @@ async function accountPage() {
     // only the owner sees the way in. the admin page checks again on the server, every time
     const adminLink = $('[data-admin-link]');
     if (adminLink && me.admin === true) adminLink.hidden = false;
+    const n = me.pins || 0;
+    $('[data-pin-count]').textContent = !n ? 'no pins registered yet.' : n === 1 ? '1 pin registered.' : n + ' pins registered.';
   } catch (e) {
     couldNotOpen(notice);
   }
@@ -505,3 +825,5 @@ else if (page === 'reset') resetPage();
 else if (page === 'home') accountPage();
 else if (page === 'details') detailsPage();
 else if (page === 'orders') ordersPage();
+else if (page === 'register') registerPage();
+else if (page === 'collection') collectionPage();

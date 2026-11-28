@@ -16,6 +16,7 @@
 //   POST /api/admin/availability  { slug, available: true|false }  not available: off sale, shows "i'm interested"
 //   POST /api/admin/preorder  { slug, preorder: true|false, date: "2026-12-15" }  (the date is required to switch on)  pre-order: off sale (whatever the available switch says),
 //                             shows "being made now" and "email me when it's here", no "i'm interested"
+//   POST /api/admin/early  { slug, early: true|false }  collectors first: only accounts with a first look can buy it
 //   POST /api/admin/preorder-date  { slug, date: "2026-12-15" }  when a pre-order pin is expected in stock and shipping
 //   GET  /api/admin/notify   who is waiting for an "it's here" email, per product, and today's email count
 //   POST /api/admin/notify   { slug }  send "it's here" to everyone waiting for it (up to today's allowance)
@@ -41,6 +42,11 @@
 //                            answers on website orders, added up (server/heard-report.js), read from Square each time
 //   GET  /api/admin/pin-requests   pins people asked us to make (server/pin-requests.js), newest first
 //   DELETE /api/admin/pin-requests { id }  take one off the list
+//   GET  /api/admin/codes          code cards (server/codes.js): the pins that have them and every print run
+//   POST /api/admin/codes { slug, size, count, free? }  make a print run of new codes (free: cards for pins on us)
+//   GET  /api/admin/collectors     who has reached 3, 6 and 10 on the collector's path (server/codes.js)
+//   GET  /api/admin/codes/batch?id=  one print run's codes, for the spreadsheet
+//   POST /api/admin/codes/card { code }  look a card up; with cancelled: true | false, cancel it or put it back
 //   GET  /api/admin/instagram  does the key in cloudflare open @ourjkadventures, and how many reels (never the key)
 //
 // Cloudflare setting (Settings > Variables and secrets):
@@ -52,7 +58,7 @@ import { pendingReviews, setReviewStatus, REVIEW_STATUSES, ownerPhoto } from './
 import { siteProducts, siteKeys, readLinks, saveLinks, freshCatalog, readFeatured, saveFeatured, stockOf, MAX_FEATURED, forgetCatalog } from './catalog.js';
 import { squareConfigured, squareMode, listVariations, stockCounts } from './square.js';
 import { instagramStatus } from './instagram.js';
-import { readAvailability, setAvailable, readPreorder, setPreorder, readInterest, readAsked, closeRound, readPreorderDates, setPreorderDate, cleanDate } from './interest.js';
+import { readAvailability, setAvailable, readPreorder, setPreorder, readEarly, setEarly, readInterest, readAsked, closeRound, readPreorderDates, setPreorderDate, cleanDate } from './interest.js';
 import { shopToday } from './preorder-words.js';
 import { notifySummary, sendItsHere, removeWaiting, restoreWaiting } from './notify.js';
 import { adminMedia, addMedia, removeMedia, editMedia, orderMedia } from './media.js';
@@ -60,6 +66,7 @@ import { giftList, giftDone } from './ship-to.js';
 import { ordersToShip, markShipped, sendMoved, orderHistory, hideOrder, hiddenHistory } from './shipped.js';
 import { emailConfigured } from './email.js';
 import { listRequests, removeRequest } from './pin-requests.js';
+import { codeCards, makeBatch, batchCodes, lookUp, setCancelled, collectors } from './codes.js';
 import { heardReport, PERIODS } from './heard-report.js';
 
 // a pre-order date the owner picked: a real day, from today up to two years out. { date } or { error }
@@ -163,6 +170,18 @@ export async function admin(request, env, fetchFn = fetch) {
       await setAvailable(env, body.slug, body.available, fetchFn);
       forgetCatalog();
       return json({ slug: body.slug, available: body.available });
+    }
+
+    if (route === 'early') {
+      // collectors first: only accounts with a first look (three pins on the collector's path) can buy it
+      if (request.method !== 'POST') return json({ error: 'method' }, 405);
+      const body = await readJson(request);
+      if (typeof body.early !== 'boolean') return json({ error: 'early must be true or false' }, 400);
+      const pins = new Set((await siteProducts(env, request.url)).items.filter((p) => p.kind === 'pin').map((p) => p.slug));
+      if (typeof body.slug !== 'string' || !pins.has(body.slug)) return json({ error: 'unknown pin' }, 400);
+      await setEarly(env, body.slug, body.early, fetchFn);
+      forgetCatalog();
+      return json({ slug: body.slug, early: body.early });
     }
 
     if (route === 'preorder') {
@@ -300,7 +319,7 @@ export async function admin(request, env, fetchFn = fetch) {
       if (result.error) return json(result, result.status || 400);
       // a gift's card went in the box with it: off the "cards to write" list (never blocks: the order is shipped)
       try { await giftDone(env, body.id, fetchFn); } catch (e) { console.log('gift card clear failed', e.message); }
-      return list({ shipped: body.id, emailed: result.emailed });
+      return list({ shipped: body.id, emailed: result.emailed, pathGift: result.pathGift === true });
     }
 
     if (route === 'gifts') {
@@ -318,6 +337,32 @@ export async function admin(request, env, fetchFn = fetch) {
       const out = await removeRequest(env, (await readJson(request)).id, fetchFn);
       if (out.error) return json({ error: out.error }, out.status);
       return json(await listRequests(env, fetchFn));
+    }
+
+    // code cards (server/codes.js): print runs, one run's codes for the spreadsheet, and looking a card up
+    if (route === 'codes') {
+      if (request.method === 'GET') return json(await codeCards(env, url.origin, fetchFn));
+      if (request.method !== 'POST') return json({ error: 'method' }, 405);
+      const out = await makeBatch(env, url.origin, await readJson(request), user.email, fetchFn);
+      if (out.error) return json({ error: out.error }, out.status);
+      return json({ ...(await codeCards(env, url.origin, fetchFn)), made: out.made });
+    }
+    if (route === 'collectors') {
+      if (request.method !== 'GET') return json({ error: 'method' }, 405);
+      return json(await collectors(env, fetchFn));
+    }
+    if (route === 'codes/batch') {
+      if (request.method !== 'GET') return json({ error: 'method' }, 405);
+      const out = await batchCodes(env, url.origin, url.searchParams.get('id'), fetchFn);
+      return out.error ? json({ error: out.error }, out.status) : json(out);
+    }
+    if (route === 'codes/card') {
+      if (request.method !== 'POST') return json({ error: 'method' }, 405);
+      const body = await readJson(request);
+      const out = 'cancelled' in body
+        ? await setCancelled(env, url.origin, body.code, body.cancelled, fetchFn)
+        : await lookUp(env, url.origin, body.code, fetchFn);
+      return out.error ? json({ error: out.error }, out.status) : json(out);
     }
 
     if (route === 'instagram') {
@@ -361,7 +406,9 @@ async function productLinks(request, env, fetchFn) {
   const preorder = Object.fromEntries(slugs.map((s) => [s, onPreorder[s] === true]));
   // each pre-order date, as set ("2026-12-15"), and today in the shop's time zone, so the page can flag a passed date
   const preorderDates = await readPreorderDates(env, fetchFn);
-  return { mode: squareMode(env), products: keys, links, square, squareError, available, preorder, preorderDates, today: shopToday(), interest: await readInterest(env, fetchFn),
+  const onEarly = await readEarly(env, fetchFn);
+  const early = Object.fromEntries(slugs.map((s) => [s, onEarly[s] === true]));
+  return { mode: squareMode(env), products: keys, links, square, squareError, available, preorder, early, preorderDates, today: shopToday(), interest: await readInterest(env, fetchFn),
     // how many asked in the last round, for products that arrived and had their "it's here" sent
     asked: await readAsked(env, fetchFn) };
 }

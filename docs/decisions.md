@@ -1080,3 +1080,83 @@ request; the privacy page it links to says plainly that this is Meta and what fo
 (notice and opt-out), and we only ship to the U.S. Worth knowing: the EU and UK ask for a yes first, so if the shop
 ever sells or advertises there, go back to ask-first for those visitors. Still never on `/admin`, sign-in or account
 pages.
+
+## Code cards: the only way to earn a charge (2026-11-28)
+The owner asked for the Collector's Path to run on code cards: a card with its own code goes out with every pin,
+and registering it puts the pin in the buyer's collection and adds one to their path. This replaces the
+2026-10-25 plan (a hidden code plus a serial sticker the owner scanned while packing web orders).
+- **The card is the only way, on every channel.** Nothing is counted from an order, so a pin can't count twice and
+  there's no packing tool, serial sticker or booth mode to build or to remember to use. The cost: someone who buys
+  on our own site types a code like everyone else.
+- **A card only goes out with a pin.** A card handed out alone would be a charge for no purchase, which
+  `pricing-and-loyalty.md` rules out. Keep cards out of sight on a booth table: a visible code can be photographed.
+- **8 characters, the first three for the pin** (AUS, COR, GOL ..., `code` in `products.json`), so the page can say
+  "an aussie pin!" as it's typed. The other five are random from 28 characters: no vowels (a printed card can't
+  spell a word by accident) and no 0, 1 or L (they look like other characters). About 17 million per pin. With 500
+  aussie cards out, a random guess hits about 1 time in 34,000, and an account gets 10 wrong guesses an hour.
+- **The QR code opens `/register?code=...`** with the code in the box, and the code is printed too. The page takes
+  it out of the address straight away, and the Meta Pixel never loads there.
+- **Codes are stored as they are, not hashed** (the old spec said hashed). The owner needs to download a batch
+  again if the printer loses the file, and with five random characters a hash could be undone by trying them all,
+  so it would only have looked safer. Firestore is server only either way.
+- **One lock per card.** Registering is a single all-or-nothing write that makes `code_claims/<code>`; Firestore
+  refuses to make it twice, so two people pressing at the same moment can't both win.
+- **Confirmed email first**, as accounts always planned: an unconfirmed address could be anyone's. Google sign-ins
+  are confirmed already, so that's the quickest way through at a craft fair.
+- **The collection and the count are separate.** Registered pins are kept for good (`users/<uid>/collection`); the
+  count toward 10 starts over after a free pin.
+- **Not one list per Square mode**, unlike the shop's other lists: cards are printed, real things and have nothing
+  to do with Square. A card made while practising is real too; cancel it on `/admin` if it shouldn't work.
+- **Deleting an account** takes its pins with it, and the cards stay used.
+- **No QR pictures from us yet.** The download has the link each QR code should open; card printers and tools like
+  Canva turn a column of links into QR codes. Making the pictures ourselves would mean a new library, so it waits
+  until the owner asks.
+
+## My collection: a pin board you arrange yourself (2026-11-28)
+The owner asked for a "my collection" page where each registered pin appears on a virtual pin board the collector
+builds by moving and turning pins, with the Collector's Path as part of the same page.
+- **A tray, then the board.** A new pin waits under the board and a tap puts it up, so nothing lands on top of an
+  arrangement someone made. Taking a pin down only moves it back to the tray: a pin never leaves a collection.
+- **Places are kept as shares of a square board**, not pixels, so one arrangement fits a phone and a desk.
+- **Three ways to do everything**: drag (mouse or finger), buttons under the board, and the keyboard. The round
+  handle turns freely and settles dead straight when it's nearly straight.
+- **No new library.** Dragging is the browser's own pointer events, about 250 lines in `assets/collection.js`.
+- **The server only moves pins that are already yours.** The board's save can't add a pin, remove one or touch the
+  count: those only ever change when a code card is registered.
+- **Dark felt**, like the pup club board, so the pins look the way they do in the shop.
+- **The path's words name the rewards** (a first look at new pins, a little extra with an order, a pin on us with
+  an order) with no dates and nothing that runs out. Until stage 3 they aren't automatic.
+- Not done: sharing a board with other people, more than one board, or board backgrounds. Worth asking the owner.
+
+## The rewards at 3, 6 and 10 (2026-11-28)
+- **Worked out from the count, every time.** An account's rewards are re-derived whenever a card is registered or
+  the collection is opened, like checking a punch card against its own punches. Nothing can drift, and a hiccup
+  mid-registration puts itself right on the next visit.
+- **The pin on us is a line with no price, not a discount.** It goes on the Square order as its own typed line
+  ("collector's path pin: corgi pin", $0) beside the paid lines. No Square discount is used and no pin's price is
+  ever marked down, so "no discounts, ever" holds in Square's reports too. The cost: Square can't lower the stock
+  count for a typed line, so the line's note asks the owner to take one off by hand.
+- **Picked at checkout, not in the bag.** The checkout page already knows who is signed in; the bag doesn't load
+  the sign-in code. One drop-down, shown only to a collector with ten.
+- **Only on our own card form.** Square's hosted page (the fallback) takes the money later, on Square's site, and
+  we'd have no sure moment to count the pin as used. It refuses an order that asks for one.
+- **Used only once the order is paid, and one pay press at a time.** A small hold note in the account stops two
+  tabs both getting one; a declined card lets go of it. If the count can't be written after a payment, the
+  collector keeps their pin: a mistake in their favour, never against them.
+- **The count stops at ten, and the pin on us is used once (owner, 2026-11-28).** First built as "ten come off
+  and extras carry over"; the owner asked to keep it at a maximum of 10 with no reset until they've thought
+  through how a second time round should work. So a pin registered after ten joins the collection but not the
+  count, and using the pin on us marks it used and leaves the count at 10.
+- **A free pin never earns a step.** Its card comes from a "pins on us" batch: it joins the collection, the count
+  doesn't move.
+- **The 6-pin extra waits for a signed-in order.** It's flagged on the Square order through the account id the
+  checkout already puts there. A collector who checks out signed out isn't recognised, by design: we never match
+  people up by email behind their back.
+- **Collectors first is a switch per pin (owner, 2026-11-28).** On, the pin is for sale only to accounts with a
+  first look; everyone else sees it, with its price, and "with our collectors first. it'll be in the shop for
+  everyone soon." Like opening the booth half an hour early for the regulars. The owner turns it off by hand:
+  no timer, so there's no countdown on the page and nothing to forget about in code. The server refuses the
+  order from anyone else; the page only decides what to offer. The page asks who's looking only when such a pin
+  exists and the visitor is signed in, so ordinary visits don't load the sign-in code. Pins only, and no price
+  goes to search engines while it's on.
+- **Stock for a pin on us stays manual (owner, 2026-11-28).**

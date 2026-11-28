@@ -128,7 +128,7 @@
         <h2 class="admin-title" id="admin-products-title">products and square</h2>
         <p class="caption" data-products-mode></p>
         <p class="body-sm" data-products-note role="status"></p>
-        <p class="caption">the switches by each name say whether it's in the shop. available off: it's off sale and shows "i'm interested". pre-order on: it's being made, and people can buy it now with a "pre-order" button, whatever available says. it isn't limited by stock, and square's "sold out" tick doesn't matter, but it needs a square link. switching pre-order on asks for the date it's expected in stock and shipping, and it only turns on once that's saved; buyers see "pre-order. expected in stock and shipping around december 15." the gear changes the date. if the date passes, it goes back to "being made now. coming soon." until you set a new one. a bag with a pre-order ships all together around its date. turn pre-order off when the pins arrive. each saves as soon as you flip it.</p>
+        <p class="caption">the switches by each name say whether it's in the shop. available off: it's off sale and shows "i'm interested". pre-order on: it's being made, and people can buy it now with a "pre-order" button, whatever available says. it isn't limited by stock, and square's "sold out" tick doesn't matter, but it needs a square link. switching pre-order on asks for the date it's expected in stock and shipping, and it only turns on once that's saved; buyers see "pre-order. expected in stock and shipping around december 15." the gear changes the date. collectors first (pins only): it's for sale, but only collectors with a first look (three pins registered) can buy it; everyone else sees it with its price and "with our collectors first." switch it off to let everyone buy. if the date passes, it goes back to "being made now. coming soon." until you set a new one. a bag with a pre-order ships all together around its date. turn pre-order off when the pins arrive. each saves as soon as you flip it.</p>
         <form data-products-form hidden>
           <div class="link-list" data-link-list></div>
           <div class="admin-actions">
@@ -151,6 +151,46 @@
         <p class="caption">pins people asked us to make, from "don't see your pup in the pack?" under the pup club board (the pin request page). newest first. name and email are optional, so not every one has them. nothing is sent to them: write back yourself if you'd like to. remove one once you've read it or answered it.</p>
         <p class="body-sm" data-requests-state role="status">one moment.</p>
         <div class="admin-requests" data-requests-list></div>
+      </section>
+
+      <section class="card clean admin-card" aria-labelledby="admin-codes-title">
+        <h2 class="admin-title" id="admin-codes-title">code cards</h2>
+        <p class="caption">the little card that goes with every pin we sell. each card has its own code: the first three letters say which pin, the rest is random. the buyer types it in (or scans the card) at ourjkadventures.com/register and the pin joins their collection, once, for one account. make a batch here, download it, and send the file to whoever prints the cards: it has each code and the link its QR code should open. a card only ever goes out with a pin.</p>
+        <form class="admin-codes-form" data-codes-form>
+          <div class="field">
+            <label for="codes-pin">which pin?</label>
+            <select id="codes-pin" data-codes-pin></select>
+          </div>
+          <div class="field" data-codes-size-field hidden>
+            <label for="codes-size">which size?</label>
+            <select id="codes-size" data-codes-size></select>
+          </div>
+          <div class="field">
+            <label for="codes-count">how many cards?</label>
+            <input id="codes-count" type="number" inputmode="numeric" min="1" max="200" value="50" data-codes-count>
+          </div>
+          <label class="gift-tick admin-codes-free"><input type="checkbox" data-codes-free> <span>these go with pins on us (the reward at ten pins): they join a collection without adding a step</span></label>
+          <button class="jka-btn jka-btn--sm" type="submit">make the codes</button>
+        </form>
+        <p class="body-sm" data-codes-state role="status">one moment.</p>
+        <div class="admin-requests" data-codes-list></div>
+        <h3 class="admin-subtitle">look up a card</h3>
+        <p class="caption">type a card's code to see whether it's been registered, and by whom. a lost or misprinted card that nobody has registered can be cancelled, so it stops working.</p>
+        <form class="admin-codes-form" data-card-form>
+          <div class="field">
+            <label for="card-code">the code</label>
+            <input id="card-code" type="text" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" data-card-code>
+          </div>
+          <button class="jka-btn jka-btn--quiet jka-btn--sm" type="submit">look it up</button>
+        </form>
+        <div data-card-result role="status"></div>
+      </section>
+
+      <section class="card clean admin-card" aria-labelledby="admin-collectors-title">
+        <h2 class="admin-title" id="admin-collectors-title">collectors</h2>
+        <p class="caption">who has reached what on the collector's path. three pins: a first look at new pins. switch a pin to "collectors first" in products and square and only these collectors can buy it, until you switch it off; copy their emails to tell them it's there. six pins: a little extra with their next order; it shows on that order in "orders to ship", and marking it shipped ticks it off. ten pins: a pin on us, once, which they pick themselves at checkout; it shows as its own line on the order, and you take one off that pin's count in square by hand.</p>
+        <p class="body-sm" data-collectors-state role="status">one moment.</p>
+        <div data-collectors-list></div>
       </section>
 
       <section class="card clean admin-card" aria-labelledby="admin-featured-title">

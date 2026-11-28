@@ -168,6 +168,7 @@ function paintProducts(data) {
   const form = $('[data-products-form]');
   const available = data.available || {};
   const preorder = data.preorder || {};
+  const early = data.early || {};
   const dates = data.preorderDates || {};
   const today = data.today || new Date().toISOString().slice(0, 10);
   const interest = data.interest || {};
@@ -230,6 +231,8 @@ function paintProducts(data) {
     };
     const avail = makeSwitch('available', 'available');
     const pre = makeSwitch('pre-order', 'on pre-order');
+    // collectors first: for sale, but only to collectors with a first look (three pins). pins only
+    const first = p.kind === 'pin' ? makeSwitch('collectors first', 'with collectors first') : null;
     // the gear: "pre-order settings", a small window with this product's pre-order date
     const gear = el('button', 'icon-btn gear-btn');
     gear.type = 'button';
@@ -240,18 +243,23 @@ function paintProducts(data) {
       '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
     const switches = el('span', 'link-product-switches');
     switches.append(avail.wrap, pre.wrap, gear);
+    if (first) switches.append(first.wrap);
     head.append(name, switches);
     const words = el('p', 'caption link-product-note');
     words.setAttribute('role', 'status');
     let on = available[p.slug] !== false;
     let preOn = preorder[p.slug] === true;
+    let firstOn = early[p.slug] === true;
     const show = (extra) => {
       avail.sw.setAttribute('aria-checked', on ? 'true' : 'false');
       pre.sw.setAttribute('aria-checked', preOn ? 'true' : 'false');
+      if (first) first.sw.setAttribute('aria-checked', firstOn ? 'true' : 'false');
       box.classList.toggle('is-unavailable', !on && !preOn);
       box.classList.toggle('is-preorder', preOn);
       // in the shop: how many asked before it arrived (this round's tally, or the last round's once "it's here" went out)
-      words.textContent = availableWords(on, (interest[p.slug] || 0) || (on ? asked[p.slug] || 0 : 0), preOn, dates[p.slug], today) + (extra ? ' ' + extra : '');
+      words.textContent = availableWords(on, (interest[p.slug] || 0) || (on ? asked[p.slug] || 0 : 0), preOn, dates[p.slug], today)
+        + (firstOn ? (on || preOn ? ' collectors first: only collectors with a first look can buy it for now.' : ' collectors first is on, and starts once it\'s available or on pre-order.') : '')
+        + (extra ? ' ' + extra : '');
       // the heading's "n not available" and "n on pre-order" counts listen for this
       box.dispatchEvent(new Event('change', { bubbles: true }));
     };
@@ -274,6 +282,10 @@ function paintProducts(data) {
       avail.sw.disabled = false;
       pre.sw.disabled = false;
     };
+    if (first) first.sw.addEventListener('click', () => {
+      const want = !firstOn;
+      flip('/api/admin/early', 'early', want, () => { firstOn = want; early[p.slug] = want; });
+    });
     avail.sw.addEventListener('click', () => {
       const want = !on;
       flip('/api/admin/availability', 'available', want, () => { on = want; available[p.slug] = want; });
@@ -726,6 +738,7 @@ function orderRow(o, data) {
   if (o.preorder) bits.push('pre-order');
   if (o.moved) bits.push('new date to email');
   if (o.refunded) bits.push('partly refunded');
+  if (o.pathGift) bits.push('collector\'s extra');
   sum.appendChild(el('span', 'caption', bits.filter(Boolean).join(' · ')));
   fold.appendChild(sum);
   const body = el('div', 'order-body');
@@ -742,6 +755,13 @@ function orderRow(o, data) {
   if (o.shipping) how.push('usps ' + o.shipping + ' shipping.');
   if (o.preorder) how.push('has a pre-order: the whole order ships together' + (o.expected ? ' around ' + orderDay(o.expected) : '') + '.');
   body.appendChild(orderPart('what\'s in it', what, how.length ? el('p', 'caption', how.join(' ')) : null));
+
+  // the collector's path: this buyer reached 6 pins, and their little extra rides along with this order
+  if (o.pathGift) {
+    body.appendChild(orderPart('collector\'s path',
+      el('p', 'body-sm', 'this collector reached 6 pins. tuck their little extra into this order (an upgraded backing card, a mini sticker sheet).'),
+      el('p', 'caption', 'marking the order shipped counts the extra as sent.')));
+  }
 
   // a pre-order whose date moved since it was paid for: tell the buyer, and the date moves on the square order too
   if (o.moved) body.appendChild(orderPart('new pre-order date', movedPart(o, data)));
@@ -1332,6 +1352,165 @@ async function loadRequests() {
   try { paintRequests(await api('GET', '/api/admin/pin-requests')); } catch (e) { $('[data-requests-state]').textContent = RESTING; }
 }
 
+/* ---------- code cards: the card that goes with every pin (server/codes.js) ---------- */
+// printed cards always point at the real shop, wherever this page happens to be open
+const REGISTER_LINK = 'https://ourjkadventures.com/register?code=';
+const sizeWords = (b) => (b.size && b.size !== 'standard' ? b.size + ' ' : '') + b.name + ' pin';
+function download(name, text) {
+  const a = el('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function codesCsv(run) {
+  const lines = ['code,pin,size,link for the qr code,status,goes with'];
+  run.codes.forEach((c) => lines.push([c.code, run.batch.name, run.batch.size, REGISTER_LINK + c.code, c.status === 'open' ? 'not registered' : c.status, run.batch.free ? 'a pin on us' : 'a pin sold'].join(',')));
+  return lines.join('\n') + '\n';
+}
+let codePinList = [];
+function paintCodeSizes() {
+  const pin = codePinList.find((p) => p.slug === $('[data-codes-pin]').value);
+  const sizes = (pin && pin.sizes) || ['standard'];
+  const sel = $('[data-codes-size]');
+  sel.textContent = '';
+  sizes.forEach((sz) => { const o = el('option', null, sz); o.value = sz; sel.appendChild(o); });
+  $('[data-codes-size-field]').hidden = sizes.length < 2;
+}
+function paintCodes(data, said) {
+  const state = $('[data-codes-state]');
+  const box = $('[data-codes-list]');
+  const pinSel = $('[data-codes-pin]');
+  codePinList = data.pins || [];
+  if (!pinSel.options.length) {
+    codePinList.forEach((p) => { const o = el('option', null, p.name + ' (' + p.prefix.toLowerCase() + ')'); o.value = p.slug; pinSel.appendChild(o); });
+    paintCodeSizes();
+  }
+  $('[data-codes-count]').max = data.max || 200;
+  box.textContent = '';
+  const runs = data.batches || [];
+  state.textContent = said || (!runs.length ? 'no batches yet.' : runs.length === 1 ? 'one batch.' : runs.length + ' batches, newest first.');
+  runs.forEach((b) => {
+    const item = el('article', 'admin-request');
+    const head = el('p', 'admin-request-head');
+    head.appendChild(el('strong', null, sizeWords(b) + (b.free ? ' · for pins on us' : '')));
+    const day = requestDay(b.at);
+    if (day) head.appendChild(el('span', 'caption', day));
+    item.appendChild(head);
+    item.appendChild(el('p', 'body-sm', (b.count === 1 ? '1 card' : b.count + ' cards') + ', ' + (b.claimed || 0) + ' registered.'));
+    const dl = el('button', 'link-btn', 'download for printing');
+    dl.type = 'button';
+    dl.setAttribute('aria-label', 'download the ' + sizeWords(b) + ' batch from ' + day);
+    dl.addEventListener('click', async () => {
+      dl.disabled = true;
+      try {
+        const run = await api('GET', '/api/admin/codes/batch?id=' + encodeURIComponent(b.id));
+        download('code-cards-' + b.slug + (b.size !== 'standard' ? '-' + b.size : '') + '-' + String(b.at).slice(0, 10) + '.csv', codesCsv(run));
+      } catch (e) { state.textContent = "that didn't download. try again in a moment."; }
+      dl.disabled = false;
+    });
+    item.appendChild(dl);
+    box.appendChild(item);
+  });
+}
+function paintCard(card, said) {
+  const box = $('[data-card-result]');
+  box.textContent = '';
+  if (!card) { box.appendChild(el('p', 'body-sm', said)); return; }
+  const day = requestDay(card.at);
+  const words = card.status === 'registered'
+    ? 'registered' + (day ? ' on ' + day : '') + (card.email ? ' by ' + card.email : '') + '.'
+    : card.status === 'cancelled' ? 'cancelled. it won\'t work if someone types it in.' : 'not registered yet.';
+  const item = el('article', 'admin-request');
+  const head = el('p', 'admin-request-head');
+  head.appendChild(el('strong', null, card.code));
+  head.appendChild(el('span', 'caption', sizeWords({ name: card.pin.name, size: card.pin.size }) + (card.free ? ' · for a pin on us' : '')));
+  item.appendChild(head);
+  item.appendChild(el('p', 'body-sm admin-request-about', words));
+  if (card.status !== 'registered') {
+    const cancel = card.status === 'open';
+    const b = el('button', 'link-btn', cancel ? 'cancel this card' : 'put this card back');
+    b.type = 'button';
+    b.addEventListener('click', async () => {
+      if (cancel && !confirm('cancel ' + card.code + '? it will stop working. you can put it back later.')) return;
+      b.disabled = true;
+      try { paintCard((await api('POST', '/api/admin/codes/card', { code: card.code, cancelled: cancel })).card); } catch (e) {
+        b.disabled = false;
+        paintCard(card);
+        box.appendChild(el('p', 'body-sm', "that didn't save. try again in a moment."));
+      }
+    });
+    item.appendChild(b);
+  }
+  box.appendChild(item);
+}
+function wireCodes() {
+  $('[data-codes-pin]').addEventListener('change', paintCodeSizes);
+  $('[data-codes-form]').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const state = $('[data-codes-state]');
+    const btn = e.target.querySelector('button[type="submit"]');
+    const count = Number($('[data-codes-count]').value);
+    const max = Number($('[data-codes-count]').max) || 200;
+    if (!Number.isInteger(count) || count < 1 || count > max) { state.textContent = 'how many cards? a number from 1 to ' + max + '.'; return; }
+    btn.disabled = true;
+    state.textContent = 'one moment.';
+    try {
+      paintCodes(await api('POST', '/api/admin/codes', { slug: $('[data-codes-pin]').value, size: $('[data-codes-size]').value, count, free: $('[data-codes-free]').checked }), 'made ' + (count === 1 ? '1 code' : count + ' codes') + '. the new batch is at the top: download it for printing.');
+    } catch (err) { state.textContent = "that didn't work. try again in a moment."; }
+    btn.disabled = false;
+  });
+  $('[data-card-form]').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = $('[data-card-code]').value.trim();
+    if (!code) return;
+    try { paintCard((await api('POST', '/api/admin/codes/card', { code })).card); } catch (err) {
+      paintCard(null, err.status === 404 ? 'there\'s no card with that code.' : err.status === 400 ? 'a code is 8 characters, like aus7k2m9.' : RESTING);
+    }
+  });
+}
+/* ---------- collectors: who has reached 3, 6 and 10 on the collector's path (server/codes.js) ---------- */
+function paintCollectors(data) {
+  const box = $('[data-collectors-list]');
+  box.textContent = '';
+  const groups = [
+    ['a first look at new pins', 'three pins or more, at some point. for good.', data.early || []],
+    ['a little extra still to send', 'reached six pins. it goes out with their next order.', data.gift || []],
+    ['a pin on us waiting', 'at ten pins now. they pick it at checkout.', data.pin || []]
+  ];
+  const total = groups.reduce((n, g) => n + g[2].length, 0);
+  $('[data-collectors-state]').textContent = total ? '' : 'nobody has reached three pins yet.';
+  groups.forEach(([title, words, people]) => {
+    const item = el('article', 'admin-request');
+    const head = el('p', 'admin-request-head');
+    head.appendChild(el('strong', null, title));
+    head.appendChild(el('span', 'caption', people.length === 1 ? '1 collector' : people.length + ' collectors'));
+    item.appendChild(head);
+    item.appendChild(el('p', 'caption', words));
+    if (people.length) {
+      const list = el('ul', 'order-items');
+      people.forEach((u) => list.appendChild(el('li', 'notify-email', (u.name ? u.name + ', ' : '') + u.email + ' (' + (u.pins === 1 ? '1 pin' : u.pins + ' pins') + ')')));
+      item.appendChild(list);
+      const copy = el('button', 'link-btn', 'copy their emails');
+      copy.type = 'button';
+      copy.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(people.map((u) => u.email).join(', ')); copy.textContent = 'copied.'; } catch (e) { copy.textContent = "couldn't copy. select them above instead."; }
+      });
+      item.appendChild(copy);
+    }
+    box.appendChild(item);
+  });
+}
+async function loadCollectors() {
+  try { paintCollectors(await api('GET', '/api/admin/collectors')); } catch (e) { $('[data-collectors-state]').textContent = RESTING; }
+}
+
+async function loadCodes() {
+  try { paintCodes(await api('GET', '/api/admin/codes')); } catch (e) { $('[data-codes-state]').textContent = RESTING; }
+}
+
 /* ---------- where buyers come from: the "how did you hear about us?" answers, added up (server/heard-report.js) ---------- */
 // a pile per answer with a bar for its share of the orders, a count per month, and a spreadsheet of every order.
 // the period picked is remembered in this browser
@@ -1911,6 +2090,9 @@ async function open() {
   loadFeatured();
   loadNotify();
   loadRequests();
+  wireCodes();
+  loadCodes();
+  loadCollectors();
   wireHeard();
   wireMedia();
   loadMedia();

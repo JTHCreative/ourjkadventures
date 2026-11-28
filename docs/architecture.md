@@ -103,6 +103,9 @@ browser ──► Cloudflare Worker ──► static files in site/ (HTML, CSS, 
   - Other pages don't load Firebase. The header reads a `jka_user` hint in localStorage (first name,
     or absent when signed out). At checkout, `app.js` imports `account.js` only if that hint exists,
     and sends the ticket as `Authorization: Bearer`.
+  - Code cards (`server/codes.js`, `register.html`): a card with an 8-character code goes out with every pin.
+    `/api/codes/register` adds the pin to the signed-in person's collection and one to their Collector's Path,
+    once per card. The owner makes and downloads batches on `/admin`. See `collectors-path-spec.md`.
   - `server/firebase.js` checks tickets against Google's published keys and calls Firestore and the
     Auth admin API with the service account. Built-in crypto only, no npm libraries.
   - `server/account.js`: `POST /api/account` creates `users/{uid}` on first visit and returns the

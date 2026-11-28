@@ -51,6 +51,10 @@
   // Google Pay or Apple Pay filled in, not charged yet: { name, token, key, total, card }. the pay button takes it
   var walletPay = null;
   var quoteAsk = 0;
+  // the collector's path: a pin on us, for a signed-in collector with ten pins registered. the server says whether
+  // there's one to use (free_pin_ready on the quote); the page only names which pin they'd like (a key, or null)
+  var freeReady = false;
+  var freeKey = null;
   var busy = false;
   // one "pay" press. kept while retrying after a dropped connection, so nothing is charged twice; new after a decline.
   // remembered in this browser for half an hour (jka_pay_attempt), so a tab closed mid-payment and opened again can
@@ -318,6 +322,26 @@
       li.appendChild(el('span', 'co-line-price', cents(en.size.price_cents * it.qty)));
       list.appendChild(li);
     });
+    // the pin on us: its own line, with no price
+    if (freeKey && catalog.byKey[freeKey]) {
+      var fli = el('li', 'co-line');
+      var fpic = el('span', 'co-pic');
+      var fsrc = J.pinImage(catalog.byKey[freeKey].product.slug);
+      if (fsrc) {
+        var fimg = el('img');
+        fimg.src = fsrc;
+        fimg.alt = '';
+        fimg.width = 56;
+        fimg.height = 56;
+        fpic.appendChild(fimg);
+      }
+      fli.appendChild(fpic);
+      var fwords = el('span', 'co-line-name', J.lineName(freeKey));
+      fwords.appendChild(el('span', 'co-line-note', 'for ten pins on your collector\'s path'));
+      fli.appendChild(fwords);
+      fli.appendChild(el('span', 'co-line-price', 'on us'));
+      list.appendChild(fli);
+    }
   }
   // the server's quote when it matches what's on screen; otherwise our own sums, with tax still to come
   function paintSummary() {
@@ -357,7 +381,7 @@
 
   // what the quote was asked for, so an old answer never paints over a newer choice
   function quoteKey() {
-    return JSON.stringify([items(), J.shipChoice().id, cardMode ? tipAsk() : null]);
+    return JSON.stringify([items(), J.shipChoice().id, cardMode ? tipAsk() : null, freeKey]);
   }
   var quoteTimer = null;
   function askQuote() {
@@ -370,23 +394,85 @@
     var key = quoteKey();
     var mine = ++quoteAsk;
     var tip = cardMode ? tipAsk() : null;
-    return fetch('/api/checkout/quote', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items: its, shipping: J.shipChoice().id, tip: tip })
-    }).then(function (r) {
-      return r.json().catch(function () { return {}; }).then(function (j) {
-        if (r.status === 409 || r.status === 403) return shelfChanged(j, r.status === 403);
-        if (!r.ok) throw new Error('quote');
-        if (mine !== quoteAsk) return null;
-        lastQuote = { ask: key, data: j };
-        paintSummary();
-        return j;
-      });
+    var ask = { items: its, shipping: J.shipChoice().id, tip: tip };
+    if (freeKey) ask.free_pin = freeKey;
+    // with their sign-in ticket when they have one, so the server can say whether a pin on us is waiting
+    return post('/api/checkout/quote', ask).then(function (res) {
+      var r = res.r, j = res.j;
+      if (j.error === 'free_pin') return freePinRefused(j);
+      if (j.error === 'early') return collectorsFirst(j);
+      if (r.status === 409 || r.status === 403) return shelfChanged(j, r.status === 403);
+      if (!r.ok) throw new Error('quote');
+      if (mine !== quoteAsk) return null;
+      lastQuote = { ask: key, data: j };
+      freeReady = j.free_pin_ready === true;
+      paintFreePin();
+      paintLines();
+      paintSummary();
+      return j;
     }).catch(function () {
       if (mine !== quoteAsk) return null;
       $('[data-co-tax]').textContent = 'added when you pay';
       return null;
     });
+  }
+
+  /* ---------- the collector's path: a pin on us ---------- */
+  // pins on the shelf right now: not boards, and not pre-orders still being made
+  function freeChoices() {
+    return Object.keys(catalog.byKey).filter(function (k) {
+      var en = catalog.byKey[k];
+      return en.product.kind === 'pin' && !en.size.preorder && J.buyable(en) && en.size.stock > 0;
+    });
+  }
+  function paintFreePin() {
+    var box = $('[data-co-free-pin]');
+    var pick = $('[data-co-free-pick]');
+    var keys = freeChoices();
+    if (freeKey && keys.indexOf(freeKey) < 0) freeKey = null;
+    box.hidden = !(freeReady && cardMode && keys.length);
+    if (box.hidden) { freeKey = null; return; }
+    pick.textContent = '';
+    var none = el('option', null, 'not this time');
+    none.value = '';
+    pick.appendChild(none);
+    keys.forEach(function (k) {
+      var o = el('option', null, J.lineName(k));
+      o.value = k;
+      pick.appendChild(o);
+    });
+    pick.value = freeKey || '';
+  }
+  $('[data-co-free-pick]').addEventListener('change', function () {
+    freeKey = this.value || null;
+    $('[data-co-free-msg]').hidden = true;
+    paintLines();
+    paintSummary();
+    askQuote();
+  });
+  // the server wouldn't add it (the last one just sold, or the pin on us was used in another tab): the order
+  // goes on without it, and nothing is charged for it either way
+  function freePinRefused(j) {
+    var was = freeKey;
+    freeKey = null;
+    if (j.reason === 'not ready') freeReady = false;
+    lastQuote = null;
+    var msg = $('[data-co-free-msg]');
+    msg.textContent = j.reason === 'stock' && was ? 'we\'ve just run out of the ' + J.lineName(was) + ' on the shelf. another pin, maybe?'
+      : j.reason === 'busy' ? 'your pin on us is being used in another tab or window. finish there, or try again in a few minutes.'
+        : 'we couldn\'t add your pin on us just now. your order is fine without it, and your pin will keep.';
+    msg.hidden = false;
+    return J.loadCatalog(true).then(function () { repaint(); return null; }, function () { repaint(); return null; });
+  }
+
+  // a pin in the bag went to "collectors first" (or they signed out) since it was added: it can't be bought by this
+  // visitor yet. nothing is charged; the page says which, and the order goes on once it's out of the bag
+  function collectorsFirst(j) {
+    var names = (j.items || []).map(function (it) { return catalog.byKey[it.key] ? J.lineName(it.key) : ''; }).filter(Boolean);
+    showError((names.length ? 'the ' + names.join(' and the ') + (names.length > 1 ? ' are' : ' is') : 'one of these pins is')
+      + ' with our collectors first for now, and nothing was charged. take ' + (names.length > 1 ? 'them' : 'it') + ' out of your bag to carry on, or sign in if you\'re a collector.');
+    $('[data-co-tax]').textContent = 'added when you pay';
+    return null;
   }
 
   // someone else got there first, or the shop just closed: show the order as it really is now
@@ -419,6 +505,7 @@
     }
     paintLines();
     paintShipping();
+    paintFreePin();
     if (cardMode) paintTips();
     paintSummary();
     askQuote();
@@ -591,6 +678,8 @@
   // an answer the server gave that isn't "paid": say what to do next. true when it was handled
   function handleRefusal(res, o) {
     var r = res.r, j = res.j;
+    if (j.error === 'free_pin') { freePinRefused(j); showError('nothing was charged. take a look at your order, then press pay again.'); return true; }
+    if (j.error === 'early') { collectorsFirst(j); return true; }
     if (r.status === 409 && j.error === 'total') {
       // a price changed in Square while they were checking out: nothing was charged. show the new total to confirm
       lastQuote = null;
@@ -629,6 +718,7 @@
     if (!currentQuote()) { showError('one moment, we\'re still working out the total. try again in a second.'); askQuote(); return; }
     var body = order(o);
     body.tip = tipAsk();
+    if (freeKey) body.free_pin = freeKey;
     body.attempt = attempt;
     // the total they saw: the server charges nothing if Square's total has changed since
     body.expected_total_cents = currentQuote().total_cents;

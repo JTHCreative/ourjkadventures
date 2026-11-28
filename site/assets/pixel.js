@@ -20,7 +20,7 @@
 import { META_PIXEL_ID } from './pixel-id.js';
 
 var CHOICE = 'jka_cookie_choice';
-var QUIET = /^\/(admin|sign-in|create-account|account|account-details|orders|reset-password|email)(\.html)?\/?$/;
+var QUIET = /^\/(admin|sign-in|create-account|account|account-details|orders|reset-password|email|register|collection)(\.html)?\/?$/;
 var quiet = QUIET.test(location.pathname);
 var SERVER_EVENTS = { ViewContent: true, AddToCart: true, InitiateCheckout: true };
 var loaded = false;

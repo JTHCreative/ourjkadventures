@@ -20,6 +20,8 @@
 // sandbox never touches the real tallies:
 //   settings/available_<mode>          { aussie: true, corgi: false, ... }   missing means available
 //   settings/preorder_<mode>           { corgi: true, ... }                   missing means not on pre-order
+//   settings/early_<mode>              { corgi: true, ... }                   collectors first: only accounts with a
+//                                                                             first look can buy it
 //   settings/preorder_dates_<mode>     { corgi: "2026-12-15", ... }           when a pre-order pin is expected in
 //   interest_<mode>/{slug}             { slug, count }                        the public tally
 //   interest_votes_<mode>/{slug}_{h}   { slug, at, ipDoc }                    one per ticket per pin. ipDoc says which
@@ -36,6 +38,7 @@ const YEAR = 365 * 24 * 60 * 60;
 
 function availableDoc(env) { return 'settings/available_' + squareMode(env); }
 function preorderDoc(env) { return 'settings/preorder_' + squareMode(env); }
+function earlyDoc(env) { return 'settings/early_' + squareMode(env); }
 function preorderDatesDoc(env) { return 'settings/preorder_dates_' + squareMode(env); }
 function tallies(env) { return 'interest_' + squareMode(env); }
 function votes(env) { return 'interest_votes_' + squareMode(env); }
@@ -76,6 +79,24 @@ export async function setPreorder(env, slug, on, fetchFn = fetch) {
   await firestoreSet(env, preorderDoc(env), doc, fetchFn);
 }
 
+/* ---------- collectors first (set by the owner) ---------- */
+// A pin that's for sale (available, or on pre-order with its date) but, for now, only to collectors with a first
+// look: the reward at three pins on the collector's path. Everyone else sees it and a line saying so. Like opening
+// the booth half an hour early for the regulars. { corgi: true, ... }
+export async function readEarly(env, fetchFn = fetch) {
+  const doc = (await firestoreGet(env, earlyDoc(env), fetchFn)) || {};
+  const out = {};
+  for (const [k, v] of Object.entries(doc)) if (v === true) out[k] = true;
+  return out;
+}
+export function isEarly(early, slug) { return !!early && early[slug] === true; }
+export async function setEarly(env, slug, on, fetchFn = fetch) {
+  const doc = await readEarly(env, fetchFn);
+  if (on === true) doc[slug] = true;
+  else delete doc[slug];
+  await firestoreSet(env, earlyDoc(env), doc, fetchFn);
+}
+
 /* ---------- the pre-order date (set by the owner) ---------- */
 // when a pin on pre-order is expected in stock and ready to ship: "2026-12-15". { corgi: "2026-12-15", ... }
 // kept even while pre-order is off, so switching it back on brings the date back
@@ -101,10 +122,10 @@ export async function setPreorderDate(env, slug, date, fetchFn = fetch) {
 // what the shop goes by: both switches together, and the pre-order dates. available here means for sale outright,
 // so a pre-order pin counts as false. { available: { corgi: false, ... }, preorder: { corgi: true, ... }, dates: { corgi: "2026-12-15" } }
 export async function readShopStates(env, fetchFn = fetch) {
-  const [availability, preorder, dates] = await Promise.all([readAvailability(env, fetchFn), readPreorder(env, fetchFn), readPreorderDates(env, fetchFn)]);
+  const [availability, preorder, dates, early] = await Promise.all([readAvailability(env, fetchFn), readPreorder(env, fetchFn), readPreorderDates(env, fetchFn), readEarly(env, fetchFn)]);
   const available = { ...availability };
   for (const slug of Object.keys(preorder)) available[slug] = false;
-  return { available, preorder, dates };
+  return { available, preorder, dates, early };
 }
 
 /* ---------- the tallies ---------- */

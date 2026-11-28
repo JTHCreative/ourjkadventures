@@ -42,6 +42,9 @@ export function fakeGoogle() {
         if (w.currentDocument && w.currentDocument.exists === false && docs[path(w.update.name)]) {
           return Response.json({ error: { status: 'ALREADY_EXISTS' } }, { status: 409 });
         }
+        if (w.update && w.currentDocument && w.currentDocument.exists === true && !docs[path(w.update.name)]) {
+          return Response.json({ error: { status: 'NOT_FOUND' } }, { status: 404 });
+        }
         if (w.delete && w.currentDocument && w.currentDocument.exists === true && !docs[path(w.delete)]) {
           return Response.json({ error: { status: 'NOT_FOUND' } }, { status: 404 });
         }
@@ -171,8 +174,9 @@ export function fakeSquare() {
       const badUid = [...o.line_items, ...(o.service_charges || [])].find((l) => l.uid !== undefined && !/^[A-Za-z0-9._-]+$/.test(l.uid));
       if (badUid) return Response.json({ errors: [{ code: 'INVALID_VALUE', detail: 'Invalid uid: `' + badUid.uid + '`.', category: 'INVALID_REQUEST_ERROR' }] }, { status: 400 });
       const line_items = o.line_items.map((l) => {
-        const v = variations().find((x) => x.id === l.catalog_object_id);
-        const price = v.item_variation_data.price_money.amount;
+        // a line typed in by hand (no catalog item) carries its own name and price, like the real one
+        const v = l.catalog_object_id ? variations().find((x) => x.id === l.catalog_object_id) : null;
+        const price = v ? v.item_variation_data.price_money.amount : l.base_price_money.amount;
         const gross = price * Number(l.quantity);
         const tax = o.pricing_options && o.pricing_options.auto_apply_taxes ? Math.round(gross * 0.09375) : 0;
         return { ...l, base_price_money: { amount: price, currency: 'USD' }, gross_sales_money: { amount: gross, currency: 'USD' }, total_tax_money: { amount: tax, currency: 'USD' }, total_money: { amount: gross + tax, currency: 'USD' } };

@@ -9,6 +9,7 @@ import { _resetCaches } from '../server/firebase.js';
 import { _resetShopCache } from '../server/shop.js';
 import { _resetCatalogCache } from '../server/catalog.js';
 import { fakeWorld, sign, env as baseEnv } from './helpers.mjs';
+import { pupOffers } from '../server/pup-pages.js';
 
 const products = JSON.parse(fs.readFileSync(new URL('../site/products.json', import.meta.url)));
 const str = (s) => ({ stringValue: s });
@@ -228,4 +229,140 @@ test('paying asks "how did you hear about us?": refused without it, tagged on th
   assert.equal((await pay(env, { heard_from: 'spca' })).status, 200);
   assert.equal(sq.orders[0].order.metadata.heard_from, 'spca');
   assert.ok(sq.payments[0].body.note.startsWith('found us: peninsula humane society spca'));
+});
+
+/* ---------- the collector's path: a pin on us at ten ---------- */
+const collector = (w, charges, uid = 'juniper') => { w.g.docs['users/' + uid] = { charges: { integerValue: String(charges) }, freePinAvailable: { booleanValue: charges >= 10 }, earlyAccess: { booleanValue: true }, gift6Awarded: { booleanValue: true } }; };
+const juniper = (claims = {}) => sign({ sub: 'juniper', ...claims });
+
+test('a pin on us: only for a signed-in collector with ten pins, and only a pin from the shelf', async () => {
+  const w = setup();
+  collector(w, 10);
+  collector(w, 9, 'maple');
+  const ask = async (extra, token) => { const r = await post(w.env, '/api/checkout/quote', { items: [{ key: 'aussie', qty: 1 }], shipping: 'ground', ...extra }, token); return { http: r.status, ...(await r.json()) }; };
+
+  // the page learns there's one to use, without asking for it
+  assert.equal((await ask({}, await juniper())).free_pin_ready, true);
+  assert.equal((await ask({}, await sign({ sub: 'maple' }))).free_pin_ready, undefined);
+  assert.equal((await ask({})).free_pin_ready, undefined);
+
+  const q = await ask({ free_pin: 'aussie:large' }, await juniper());
+  assert.equal(q.http, 200);
+  assert.deepEqual(q.free_pin, { key: 'aussie:large' });
+  // the paid pin, shipping and tax on the paid pin: the pin on us adds nothing and takes nothing off
+  assert.deepEqual([q.items_cents, q.shipping.cents, q.tax_cents, q.total_cents], [1200, 700, 113, 2013]);
+  assert.deepEqual(q.lines, [{ key: 'aussie', qty: 1, cents: 1200 }]);
+
+  assert.deepEqual([(await ask({ free_pin: 'aussie' })).http, (await ask({ free_pin: 'aussie' })).error], [403, 'free_pin']);
+  assert.equal((await ask({ free_pin: 'aussie' }, await sign({ sub: 'maple' }))).http, 403);
+  assert.equal((await ask({ free_pin: 'aussie' }, await juniper({ email_verified: false }))).http, 403);
+  assert.equal((await ask({ free_pin: 'bay-area-pin-board' }, await juniper())).http, 400);
+  assert.equal((await ask({ free_pin: 'nope' }, await juniper())).http, 400);
+  assert.equal((await ask({ free_pin: 7 }, await juniper())).http, 400);
+  // the pomeranian is marked sold out in square; and three aussies on the shelf can't cover three bought plus one on us
+  assert.equal((await ask({ free_pin: 'pomeranian' }, await juniper())).http, 409);
+  const tight = await ask({ items: [{ key: 'aussie', qty: 3 }], free_pin: 'aussie' }, await juniper());
+  assert.deepEqual([tight.http, tight.error, tight.reason], [409, 'free_pin', 'stock']);
+});
+
+test('paying with a pin on us: a line with no price, used once, and the count stays at ten', async () => {
+  const w = setup();
+  collector(w, 10);
+  const token = await juniper();
+  const r = await pay(w.env, { items: [{ key: 'aussie', qty: 1 }], free_pin: 'aussie:large', expected_total_cents: 2013 }, token);
+  assert.equal(r.status, 200);
+  const order = w.sq.orders[0].order;
+  assert.equal(order.total_money.amount, 2013);
+  const line = order.line_items.find((l) => l.uid === 'collectors-path-pin');
+  assert.deepEqual([line.name, line.quantity, line.base_price_money.amount, line.catalog_object_id], ["collector's path pin: large aussie pin", '1', 0, undefined]);
+  assert.match(line.note, /take one large aussie pin off the count/);
+  assert.equal(order.metadata.free_pin, 'aussie:large');
+  assert.equal(order.discounts, undefined);
+  assert.match(w.sq.payments[0].body.note, /collector's path: a large aussie pin on us/);
+  // the count stays at ten (the path doesn't start again yet), and there's no pin waiting any more
+  assert.equal(w.g.docs['users/juniper'].charges.integerValue, '10');
+  assert.equal(w.g.docs['users/juniper'].freePinUsed.booleanValue, true);
+  assert.equal(w.g.docs['users/juniper'].freePinAvailable.booleanValue, false);
+  assert.ok(w.g.docs['users/juniper/redemptions/' + order.id]);
+  assert.equal(w.g.docs['users/juniper/locks/free_pin'], undefined);
+
+  // the same pay press again charges nothing and takes nothing more off
+  const again = await pay(w.env, { items: [{ key: 'aussie', qty: 1 }], free_pin: 'aussie:large' }, token);
+  assert.equal((await again.json()).already, true);
+  assert.equal(w.sq.orders.length, 1);
+  // a new press: no pin on us left
+  const next = await pay(w.env, { items: [{ key: 'aussie', qty: 1 }], free_pin: 'aussie', attempt: 'attempt-0002' }, token);
+  assert.equal(next.status, 403);
+  assert.equal(w.sq.orders.length, 1);
+});
+
+test('a pin on us is kept when the card is declined, and held by one pay press at a time', async () => {
+  const w = setup();
+  collector(w, 10);
+  const token = await juniper();
+  const declined = await pay(w.env, { items: [{ key: 'aussie', qty: 1 }], free_pin: 'aussie', source_id: 'cnon:card-declined' }, token);
+  assert.equal(declined.status, 402);
+  assert.equal(w.g.docs['users/juniper'].freePinUsed, undefined);
+  assert.equal(w.g.docs['users/juniper/locks/free_pin'], undefined);
+
+  // another tab is in the middle of paying with it
+  w.g.docs['users/juniper/locks/free_pin'] = { at: { timestampValue: new Date().toISOString() } };
+  const busy = await pay(w.env, { items: [{ key: 'aussie', qty: 1 }], free_pin: 'aussie', attempt: 'attempt-0003' }, token);
+  assert.deepEqual([busy.status, (await busy.json()).reason], [409, 'busy']);
+  // a hold left behind long ago doesn't lock them out
+  w.g.docs['users/juniper/locks/free_pin'] = { at: { timestampValue: new Date(Date.now() - 3600e3).toISOString() } };
+  const ok = await pay(w.env, { items: [{ key: 'aussie', qty: 1 }], free_pin: 'aussie', attempt: 'attempt-0004' }, token);
+  assert.equal(ok.status, 200);
+  assert.equal(w.g.docs['users/juniper'].freePinUsed.booleanValue, true);
+});
+
+test("square's hosted page never takes a pin on us", async () => {
+  const w = setup(true, {});
+  collector(w, 10);
+  const r = await post(w.env, '/api/checkout', { items: [{ key: 'aussie', qty: 1 }], shipping: 'ground', ship_to: HOME, heard_from: 'google', free_pin: 'aussie' }, await juniper());
+  assert.equal(r.status, 400);
+  assert.equal(w.sq.links.length, 0);
+  assert.equal(w.g.docs['users/juniper'].freePinUsed, undefined);
+});
+
+/* ---------- collectors first: a pin only accounts with a first look can buy ---------- */
+test('collectors first: the catalog says so, and only a collector with a first look can check out', async () => {
+  const w = setup();
+  w.g.docs['settings/early_sandbox'] = { aussie: { booleanValue: true }, 'bay-area-pin-board': { booleanValue: true } };
+  w.g.docs['users/juniper'] = { earlyAccess: { booleanValue: true }, charges: { integerValue: '3' } };
+  w.g.docs['users/maple'] = { charges: { integerValue: '2' } };
+  const c = await (await worker.fetch(new Request('https://x.test/api/catalog'), w.env)).json();
+  const aussie = c.items.find((p) => p.slug === 'aussie');
+  assert.equal(aussie.early, true);
+  // still shown with its price: people can see what's coming
+  assert.equal(aussie.sizes[0].price_cents, 1200);
+  assert.equal(c.items.find((p) => p.slug === 'pomeranian').early, undefined);
+  // no price for search engines while only collectors can buy it
+  assert.deepEqual(pupOffers({ open: true, items: [{ slug: 'aussie', available: true, early: true, sizes: [{ key: 'aussie', size: 'standard', price_cents: 1200, stock: 3 }] }] }, 'aussie'), []);
+
+  const go = async (token, items = [{ key: 'aussie', qty: 1 }]) => { const r = await post(w.env, '/api/checkout/quote', { items, shipping: 'ground' }, token); return { http: r.status, ...(await r.json()) }; };
+  const no = await go();
+  assert.deepEqual([no.http, no.error, no.items], [403, 'early', [{ key: 'aussie' }]]);
+  assert.equal((await go(await sign({ sub: 'maple' }))).http, 403);
+  assert.equal((await go(await juniper({ email_verified: false }))).http, 403);
+  assert.equal((await go(await juniper())).http, 200);
+  // paying is checked the same way, and nothing reaches square for someone without a first look
+  assert.equal((await pay(w.env, { items: [{ key: 'aussie', qty: 1 }] })).status, 403);
+  assert.equal(w.sq.orders.length, 0);
+  assert.equal((await pay(w.env, { items: [{ key: 'aussie', qty: 1 }] }, await juniper())).status, 200);
+});
+
+test('collectors first: only the owner flips the switch, and only for pins', async () => {
+  const w = setup();
+  const flip = async (body, email) => (await post({ ...w.env, ADMIN_EMAILS: 'owner@example.com' }, '/api/admin/early', body, await sign({ email }))).status;
+  assert.equal(await flip({ slug: 'aussie', early: true }, 'pup@example.com'), 403);
+  assert.equal(await flip({ slug: 'bay-area-pin-board', early: true }, 'owner@example.com'), 400);
+  assert.equal(await flip({ slug: 'aussie', early: 'yes' }, 'owner@example.com'), 400);
+  assert.equal(await flip({ slug: 'aussie', early: true }, 'owner@example.com'), 200);
+  assert.equal(w.g.docs['settings/early_sandbox'].aussie.booleanValue, true);
+  let c = await (await worker.fetch(new Request('https://x.test/api/catalog'), w.env)).json();
+  assert.equal(c.items.find((p) => p.slug === 'aussie').early, true);
+  assert.equal(await flip({ slug: 'aussie', early: false }, 'owner@example.com'), 200);
+  c = await (await worker.fetch(new Request('https://x.test/api/catalog'), w.env)).json();
+  assert.equal(c.items.find((p) => p.slug === 'aussie').early, undefined);
 });
