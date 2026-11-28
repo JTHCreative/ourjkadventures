@@ -7,6 +7,7 @@ import worker from '../site/_worker.js';
 import { _resetCaches } from '../server/firebase.js';
 import { cleanCode, cleanPlace, codePins, randomTail, LETTERS, TRIES_PER_HOUR, BATCH_MAX } from '../server/codes.js';
 import { fakeWorld, sign, env as baseEnv } from './helpers.mjs';
+import { inside, tidyTurn, landing } from '../site/assets/collection.js';
 
 const OWNER = 'owner@example.com';
 const products = JSON.parse(fs.readFileSync(new URL('../site/products.json', import.meta.url), 'utf8'));
@@ -203,4 +204,27 @@ test('the pin board: only your own pins can be placed, and only in sensible spot
   assert.equal(cleanPlace({ id: codes[1].toLowerCase(), off: true }), null);
   // charges are never touched by the board
   assert.equal(s.str('users/juniper', 'charges'), 2);
+});
+
+test('my collection keeps to itself too, and the board keeps pins where they can be reached', () => {
+  const read = (f) => fs.readFileSync(new URL('../site/' + f, import.meta.url), 'utf8');
+  const page = read('collection.html');
+  assert.match(page, /<meta name="robots" content="noindex">/);
+  assert.match(page, /data-account-page="collection"/);
+  assert.match(read('assets/pixel.js'), /QUIET = [^\n]*\|collection\)/);
+  assert.ok(!read('sitemap.xml').includes('/collection'));
+  // no money-off words on the path: rewards add something, they never take off a price
+  assert.doesNotMatch(page, /% off|discount|sale|coupon|promo/i);
+
+  assert.equal(inside(-3), 0.05);
+  assert.equal(inside(7), 0.95);
+  assert.equal(inside(0.123456), 0.1235);
+  assert.equal(tidyTurn(2), 0);
+  assert.equal(tidyTurn(190), -170);
+  assert.equal(tidyTurn(-375), -15);
+  assert.equal(tidyTurn(90.04), 90);
+  for (let n = 0; n < 40; n++) {
+    const spot = landing(n);
+    assert.equal(cleanPlace({ id: 'AUS22222', x: inside(spot.x), y: inside(spot.y), r: tidyTurn(n * 37), z: n }).data.on, true);
+  }
 });

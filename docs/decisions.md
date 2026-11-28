@@ -1112,3 +1112,19 @@ and registering it puts the pin in the buyer's collection and adds one to their 
   Canva turn a column of links into QR codes. Making the pictures ourselves would mean a new library, so it waits
   until the owner asks.
 
+## My collection: a pin board you arrange yourself (2026-11-28)
+The owner asked for a "my collection" page where each registered pin appears on a virtual pin board the collector
+builds by moving and turning pins, with the Collector's Path as part of the same page.
+- **A tray, then the board.** A new pin waits under the board and a tap puts it up, so nothing lands on top of an
+  arrangement someone made. Taking a pin down only moves it back to the tray: a pin never leaves a collection.
+- **Places are kept as shares of a square board**, not pixels, so one arrangement fits a phone and a desk.
+- **Three ways to do everything**: drag (mouse or finger), buttons under the board, and the keyboard. The round
+  handle turns freely and settles dead straight when it's nearly straight.
+- **No new library.** Dragging is the browser's own pointer events, about 250 lines in `assets/collection.js`.
+- **The server only moves pins that are already yours.** The board's save can't add a pin, remove one or touch the
+  count: those only ever change when a code card is registered.
+- **Dark felt**, like the pup club board, so the pins look the way they do in the shop.
+- **The path's words name the rewards** (a first look at new pins, a little extra with an order, a pin on us with
+  an order) with no dates and nothing that runs out. Until stage 3 they aren't automatic.
+- Not done: sharing a board with other people, more than one board, or board backgrounds. Worth asking the owner.
+

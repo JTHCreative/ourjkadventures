@@ -91,8 +91,9 @@ Stage 1, code cards:
 - [ ] Flag accounts registering more than 20 cards a day
 
 Stage 2, my collection:
-- [ ] `/collection`: the Collector's Path (charges and what's unlocked at 3, 6, 10) moves here from `/account`
-- [ ] The virtual pin board: registered pins in a tray, placed, moved and turned by the collector, saved to the account
+- [x] `/collection` (2026-11-28): the Collector's Path (pins so far and what 3, 6, 10 bring) moved here from `/account`
+- [x] The virtual pin board (2026-11-28): registered pins in a tray, placed, moved and turned by the collector, saved to the account (`assets/collection.js`, `POST /api/collection/board`)
+- [ ] Note: the page names the rewards, but until stage 3 nothing tells the owner when someone reaches 3, 6 or 10
 
 Stage 3, rewards:
 - [ ] 3 and 6 rewards on the first lap only; free pin at 10 every lap

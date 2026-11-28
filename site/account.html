@@ -49,23 +49,13 @@
           </div>
           <div class="row">
             <span class="caption">the collector's path</span>
-            <span class="body-sm" data-pin-count>one moment.</span>
+            <span class="body-sm"><span data-pin-count>one moment.</span> <a href="/collection">see my collection</a></span>
           </div>
         </div>
       </div>
-      <div class="card clean" style="margin-top:var(--space-5)">
-        <form class="form" id="code-form" novalidate>
-          <div class="field">
-            <label for="code">register a pin</label>
-            <span class="hint">got a code card with your pin? type its code here.</span>
-            <input class="code-input" id="code" name="code" type="text" maxlength="12" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="aus7k2m9" aria-describedby="code-pin">
-            <span class="hint" id="code-pin" data-code-pin aria-live="polite">8 characters. the first three letters say which pin it is.</span>
-          </div>
-          <p class="form-msg" role="alert" hidden></p>
-          <button class="jka-btn" type="submit">register this pin</button>
-        </form>
-      </div>
       <nav class="account-links" aria-label="your account">
+        <a class="card clean" href="/collection"><span class="title">my collection</span><span class="body-sm muted">your pins, your pin board and the collector's path.</span></a>
+        <a class="card clean" href="/register"><span class="title">register a pin</span><span class="body-sm muted">got a code card with your pin? add it here.</span></a>
         <a class="card clean" href="/orders"><span class="title">your orders</span><span class="body-sm muted">what you have ordered while signed in.</span></a>
         <a class="card clean" href="/account-details"><span class="title">your details</span><span class="body-sm muted">name, email and phone.</span></a>
         <a class="card clean" href="admin" data-admin-link hidden><span class="title">shop settings</span><span class="body-sm muted">open the shop, link square items, read new reviews.</span></a>

@@ -54,11 +54,21 @@ Wholesale buyers never register cards. They're reselling, so the cards go on to 
 the pins. Safeguard (not built yet): an account that registers an unusual number of cards (e.g. more
 than 20 in a day) is flagged for the owner to review. It isn't blocked automatically.
 
-## My collection (stage 2, not built yet)
-`/collection`, an account page. The Collector's Path sits at the top (where they are, what 3, 6 and 10
-unlock) and moves here from the account page. Below it, a virtual pin board: every registered pin
-appears in a tray, and the collector places it on the board, moves it and turns it. The layout is saved
-to their account through the server. Works by touch, mouse and keyboard, at 360px wide.
+## My collection (`/collection`, built 2026-11-28)
+An account page (noindex, no Meta Pixel), linked from `/account` and from the "it's yours" card on `/register`.
+- **The Collector's Path** at the top: how many pins so far on the way to 10, a ten-step track, and what 3, 6
+  and 10 bring. It moved here from the account page, which now shows the count and a link.
+- **The pin board** (`site/assets/collection.js`): every registered pin. A new pin waits in a tray under the
+  board; a tap puts it up. On the board a pin can be dragged, turned with its round handle, turned in steps
+  with buttons, brought to the front, or taken back down to the tray. Keyboard: arrow keys move (shift for
+  bigger steps), `[` and `]` turn. Two of the same pin are two pins.
+- **Places are shares of the board, not pixels**: x and y are the pin's middle from 0 to 1, r the turn in
+  degrees, z which is on top. The board is square, so it looks the same on a phone and a desk.
+- **Saving**: a moment after the last move, `POST /api/collection/board` with only the pins that changed. The
+  server only changes pins already in that person's collection, all or nothing; the board can't add or remove one.
+- **Register a pin** box at the bottom: a newly registered pin drops straight into the tray.
+- The rewards themselves (stage 3) aren't built: the page says what each step brings, but nothing tells the
+  owner yet when someone reaches one.
 
 ## Data (Firestore)
 ```
@@ -76,6 +86,7 @@ users/{uid}/orders/{squareOrderId}  // note that this buyer started a checkout, 
 
 users/{uid}/collection/{CODE}  // the pins they've registered, kept for good. server-written only
   slug, size, at
+  on?, x?, y?, r?, z?        // where it sits on their pin board (on: false or missing = in the tray)
 
 codes/{CODE}                  // one per card
   slug, size, batch, createdAt

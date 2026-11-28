@@ -1,5 +1,5 @@
 /* j+k adventures: accounts. Firebase Authentication holds passwords and hands out sign-in tickets (ID tokens).
-   This file runs the sign-in, create, reset, account, details, orders and register-your-pin pages, and lends a ticket to checkout (see app.js).
+   This file runs the sign-in, create, reset, account, details, orders, register-your-pin and my-collection pages, and lends a ticket to checkout (see app.js).
    Customer details come from our own server at /api/account, never straight from Firestore. */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js';
 import {
@@ -498,27 +498,78 @@ async function registerPage() {
   });
 }
 
-// the "register a pin" box on the account page
-function accountCodeBox(user, pins) {
+// "my collection": the collector's path, the pin board (assets/collection.js) and a box to register another pin
+const PATH_END = 10;
+const PATH_MARKS = [3, 6, 10];
+function paintPath(charges) {
+  const n = Math.max(0, Math.min(PATH_END, charges || 0));
+  $('[data-path-line]').textContent = !n ? 'register your first pin and you\'re on your way.'
+    : n === 1 ? '1 pin so far, on the way to ' + PATH_END + '.' : n + ' pins so far, on the way to ' + PATH_END + '.';
+  const track = $('[data-path-track]');
+  track.textContent = '';
+  for (let i = 1; i <= PATH_END; i++) {
+    const li = document.createElement('li');
+    if (i <= n) li.className = 'is-done';
+    if (PATH_MARKS.indexOf(i) >= 0) li.classList.add('is-mark');
+    track.appendChild(li);
+  }
+  document.querySelectorAll('[data-path-step]').forEach(function (li) {
+    li.classList.toggle('is-reached', n >= Number(li.getAttribute('data-path-step')));
+  });
+}
+async function collectionPage() {
+  const user = await signedIn();
+  if (!user) return;
+  const notice = $('#account-notice');
+  async function read() {
+    const res = await fetch('/api/collection', { headers: { Authorization: 'Bearer ' + (await user.getIdToken()) } });
+    if (!res.ok) throw new Error('collection ' + res.status);
+    return res.json();
+  }
+  let mine, kit;
+  try {
+    await hello(user).catch(function () {});
+    mine = await read();
+    kit = await import('./collection.js');
+  } catch (e) {
+    notice.textContent = 'we could not open your collection just now. try again in a moment, or write to us at ' + CONTACT_EMAIL + '.';
+    notice.hidden = false;
+    return;
+  }
+  paintPath(mine.charges);
+  $('#collection-view').hidden = false;
+  const board = kit.mountBoard({
+    board: $('[data-board]'), tools: $('[data-board-tools]'), toolsName: $('[data-board-name]'), trayWrap: $('[data-tray-wrap]'),
+    tray: $('[data-tray]'), empty: $('[data-board-empty]'), status: $('[data-board-status]'), pins: mine.pins,
+    save: async function (list) {
+      const res = await fetch('/api/collection/board', {
+        method: 'POST', keepalive: true,
+        headers: { Authorization: 'Bearer ' + (await user.getIdToken()), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pins: list })
+      });
+      return res.ok;
+    }
+  });
+
+  // registering another pin here drops it straight into the tray
   const form = $('#code-form');
-  const kit = formKit(form);
+  const fkit = formKit(form);
   const box = codeBox(form);
-  const count = $('[data-pin-count]');
-  function paintCount(n) { count.textContent = !n ? 'no pins registered yet.' : n === 1 ? '1 pin registered.' : n + ' pins registered.'; }
-  paintCount(pins);
-  // a code they started registering before confirming their email is waiting in the box
   box.set(savedCode() || '');
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
-    const out = await tryCode(user, form, kit, function () {
-      kit.say('confirm your email first: use the link we sent you (you can send it again above), then press the button once more.');
+    const out = await tryCode(user, form, fkit, function () {
+      fkit.say('confirm your email first: use the link we sent you (you can send it again from your account page), then press the button once more.');
     });
     if (!out) return;
     box.set('');
-    if (out.status === 'yours') { kit.say('this ' + out.pin.name + ' pin is already in your collection.', true); return; }
-    pins += 1;
-    paintCount(pins);
-    kit.say('your ' + out.pin.name + ' pin is in your collection. thank you! ' + countWords(out.charges), true);
+    if (out.status === 'yours') { fkit.say('this ' + out.pin.name + ' pin is already in your collection.', true); return; }
+    fkit.say('your ' + out.pin.name + ' pin is in your collection. thank you! you\'ll find it under the board, ready to put up.', true);
+    try {
+      const now = await read();
+      paintPath(now.charges);
+      board.setPins(now.pins);
+    } catch (err) {}
   });
 }
 
@@ -566,7 +617,8 @@ async function accountPage() {
     // only the owner sees the way in. the admin page checks again on the server, every time
     const adminLink = $('[data-admin-link]');
     if (adminLink && me.admin === true) adminLink.hidden = false;
-    accountCodeBox(user, me.pins || 0);
+    const n = me.pins || 0;
+    $('[data-pin-count]').textContent = !n ? 'no pins registered yet.' : n === 1 ? '1 pin registered.' : n + ' pins registered.';
   } catch (e) {
     couldNotOpen(notice);
   }
@@ -755,3 +807,4 @@ else if (page === 'home') accountPage();
 else if (page === 'details') detailsPage();
 else if (page === 'orders') ordersPage();
 else if (page === 'register') registerPage();
+else if (page === 'collection') collectionPage();

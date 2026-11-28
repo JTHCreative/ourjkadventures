@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>my collection. j+k adventures</title>
+<meta name="description" content="the pins you have registered, on your own pin board.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css">
+<meta name="robots" content="noindex">
+</head>
+<body data-account-page="collection">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <filter id="jka-rough" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="4"/></filter>
+  <filter id="jka-rough-fine" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="2" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.5"/></filter>
+</svg>
+<header class="site-header">
+  <div class="wrap">
+    <a class="logo-link" href="/" aria-label="j+k adventures, home"><img class="logo" src="assets/img/logo.svg" width="400" height="220" alt="j+k adventures"></a>
+    <nav class="nav" aria-label="main">
+      <a href="/">home</a>
+      <a href="/about">about us</a>
+      <a href="/shop">shop</a>
+      <a href="/contact">contact</a>
+      <a href="/account" data-account-link>sign in</a>
+      <button class="cart-btn" type="button" data-cart aria-label="open your bag">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/></svg>
+        <span class="cart-count" data-cart-count hidden>0</span>
+      </button>
+    </nav>
+  </div>
+</header>
+<main>
+
+<section class="section">
+  <div class="wrap narrow center">
+    <p class="eyebrow">your account</p>
+    <h1 class="display" style="margin-top:var(--space-2)">my collection.</h1>
+    <p class="notice" id="account-notice" role="status" hidden></p>
+  </div>
+  <div class="wrap collection" id="collection-view" hidden>
+    <section class="card clean" aria-labelledby="path-title">
+      <h2 class="title" id="path-title">the collector's path</h2>
+      <p class="body-lg" data-path-line></p>
+      <ol class="path-track" data-path-track aria-hidden="true"></ol>
+      <ul class="path-steps">
+        <li data-path-step="3"><strong>3 pins</strong><span>a first look at new pins, before they're in the shop.</span></li>
+        <li data-path-step="6"><strong>6 pins</strong><span>a little something extra, tucked into your next order.</span></li>
+        <li data-path-step="10"><strong>10 pins</strong><span>a pin on us, sent along with your next order. then the path starts again.</span></li>
+      </ul>
+      <p class="body-sm muted">every pin you register is one step. nothing here runs out, so take your time.</p>
+    </section>
+
+    <section class="card clean" aria-labelledby="board-title">
+      <h2 class="title" id="board-title">your pin board</h2>
+      <p class="body-sm muted" data-board-help>drag a pin to move it, and drag its little round handle to turn it. on a keyboard, the arrow keys move a pin and [ and ] turn it.</p>
+      <div class="cb-board" data-board role="group" aria-label="your pin board"></div>
+      <div class="cb-tools" data-board-tools hidden>
+        <span class="caption" data-board-name></span>
+        <button class="jka-btn jka-btn--quiet jka-btn--sm" type="button" data-board-do="left">turn left</button>
+        <button class="jka-btn jka-btn--quiet jka-btn--sm" type="button" data-board-do="right">turn right</button>
+        <button class="jka-btn jka-btn--quiet jka-btn--sm" type="button" data-board-do="straight">straighten</button>
+        <button class="jka-btn jka-btn--quiet jka-btn--sm" type="button" data-board-do="front">bring to the front</button>
+        <button class="jka-btn jka-btn--quiet jka-btn--sm" type="button" data-board-do="off">take it down</button>
+      </div>
+      <p class="caption cb-status" data-board-status role="status"></p>
+      <p class="body-sm" data-board-empty hidden>no pins here yet. register the code on your pin's card below, and it'll show up here.</p>
+      <div class="cb-tray-wrap" data-tray-wrap hidden>
+        <h3 class="cb-tray-title">not on the board yet</h3>
+        <p class="body-sm muted">tap a pin to put it up. taking a pin down brings it back here: it always stays in your collection.</p>
+        <ul class="cb-tray" data-tray></ul>
+      </div>
+    </section>
+
+    <section class="card clean collection-code" aria-label="register a pin">
+      <form class="form" id="code-form" novalidate>
+        <div class="field">
+          <label for="code">register a pin</label>
+          <span class="hint">got a code card with your pin? type its code here.</span>
+          <input class="code-input" id="code" name="code" type="text" maxlength="12" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="aus7k2m9" aria-describedby="code-pin">
+          <span class="hint" id="code-pin" data-code-pin aria-live="polite">8 characters. the first three letters say which pin it is.</span>
+        </div>
+        <p class="form-msg" role="alert" hidden></p>
+        <button class="jka-btn" type="submit">register this pin</button>
+      </form>
+    </section>
+
+    <p class="center"><a href="/account">back to your account</a></p>
+  </div>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="links">
+      <a href="/shop">shop</a>
+      <a href="/about">about us</a>
+      <a href="/contact">contact</a>
+      <a href="https://www.instagram.com/ourjkadventures/" target="_blank" rel="noopener">instagram</a>
+      <a href="mailto:support@ourjkadventures.com">email</a>
+      <a href="/privacy">privacy</a>
+    </div>
+    <p class="caption">&copy; 2026 j+k adventures.</p>
+  </div>
+</footer>
+<script src="assets/app.js"></script>
+<script type="module" src="assets/account.js"></script>
+</body>
+</html>
