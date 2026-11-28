@@ -166,7 +166,7 @@ test('the register page keeps to itself: not indexed, no pixel, and the same let
   const page = read('register.html');
   assert.match(page, /<meta name="robots" content="noindex">/);
   assert.match(page, /data-account-page="register"/);
-  assert.match(read('assets/pixel.js'), /QUIET = [^\n]*\|register\)/);
+  assert.match(read('assets/pixel.js'), /QUIET = [^\n]*\|register[|)]/);
   assert.ok(read('assets/account.js').includes("const CODE_LETTERS = '" + LETTERS + "';"));
   assert.ok(!read('sitemap.xml').includes('/register'));
 });
@@ -211,7 +211,7 @@ test('my collection keeps to itself too, and the board keeps pins where they can
   const page = read('collection.html');
   assert.match(page, /<meta name="robots" content="noindex">/);
   assert.match(page, /data-account-page="collection"/);
-  assert.match(read('assets/pixel.js'), /QUIET = [^\n]*\|collection\)/);
+  assert.match(read('assets/pixel.js'), /QUIET = [^\n]*\|collection[|)]/);
   assert.ok(!read('sitemap.xml').includes('/collection'));
   // no money-off words on the path: rewards add something, they never take off a price
   assert.doesNotMatch(page, /% off|discount|sale|coupon|promo/i);
