@@ -8,6 +8,7 @@
   "items": [
     {
       "slug": "aussie",
+      "code": "AUS",
       "name": "aussie",
       "kind": "pin",
       "series": "pup-club",
@@ -18,6 +19,7 @@
     },
     {
       "slug": "beagle",
+      "code": "BEA",
       "name": "beagle",
       "kind": "pin",
       "series": "pup-club",
@@ -28,6 +30,7 @@
     },
     {
       "slug": "cavalier",
+      "code": "CAV",
       "name": "cavalier",
       "kind": "pin",
       "series": "pup-club",
@@ -38,6 +41,7 @@
     },
     {
       "slug": "corgi",
+      "code": "COR",
       "name": "corgi",
       "kind": "pin",
       "series": "pup-club",
@@ -48,6 +52,7 @@
     },
     {
       "slug": "dachshund",
+      "code": "DAC",
       "name": "dachshund",
       "kind": "pin",
       "series": "pup-club",
@@ -58,6 +63,7 @@
     },
     {
       "slug": "doodle",
+      "code": "DOO",
       "name": "doodle",
       "kind": "pin",
       "series": "pup-club",
@@ -68,6 +74,7 @@
     },
     {
       "slug": "french-bulldog",
+      "code": "FRE",
       "name": "french bulldog",
       "kind": "pin",
       "series": "pup-club",
@@ -78,6 +85,7 @@
     },
     {
       "slug": "german-shepherd",
+      "code": "GER",
       "name": "german shepherd",
       "kind": "pin",
       "series": "pup-club",
@@ -88,6 +96,7 @@
     },
     {
       "slug": "golden",
+      "code": "GOL",
       "name": "golden",
       "kind": "pin",
       "series": "pup-club",
@@ -98,6 +107,7 @@
     },
     {
       "slug": "husky",
+      "code": "HUS",
       "name": "husky",
       "kind": "pin",
       "series": "pup-club",
@@ -108,6 +118,7 @@
     },
     {
       "slug": "pit-bull",
+      "code": "PIT",
       "name": "pit bull",
       "kind": "pin",
       "series": "pup-club",
@@ -118,6 +129,7 @@
     },
     {
       "slug": "pomeranian",
+      "code": "POM",
       "name": "pomeranian",
       "kind": "pin",
       "series": "pup-club",
@@ -128,6 +140,7 @@
     },
     {
       "slug": "pug",
+      "code": "PUG",
       "name": "pug",
       "kind": "pin",
       "series": "pup-club",
@@ -138,6 +151,7 @@
     },
     {
       "slug": "rottweiler",
+      "code": "ROT",
       "name": "rottweiler",
       "kind": "pin",
       "series": "pup-club",
@@ -148,6 +162,7 @@
     },
     {
       "slug": "shiba",
+      "code": "SHI",
       "name": "shiba",
       "kind": "pin",
       "series": "pup-club",
@@ -158,6 +173,7 @@
     },
     {
       "slug": "yorkie",
+      "code": "YOR",
       "name": "yorkie",
       "kind": "pin",
       "series": "pup-club",

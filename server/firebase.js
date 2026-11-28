@@ -237,6 +237,7 @@ export async function firestoreDelete(env, path, fetchFn = fetch) {
 // Each write is { create: path, data }  (fails the whole lot if the document is already there)
 //            or { remove: path }        (fails the whole lot if the document is not there; with any: true it never fails)
 //            or { add: path, field, by, data }  (adds `by` to a number field, making the document if needed)
+//               { add: path, fields: [...], by, data }  does the same to several number fields at once
 // Returns true when done, false when a `create` found its document already there or a `remove` found nothing.
 export async function firestoreCommit(env, writes, fetchFn = fetch) {
   const token = await accessToken(env, fetchFn);
@@ -250,7 +251,7 @@ export async function firestoreCommit(env, writes, fetchFn = fetch) {
     return {
       update: { name: name(w.add), fields: toFields(data) },
       updateMask: { fieldPaths: Object.keys(data) },
-      updateTransforms: [{ fieldPath: w.field, increment: { integerValue: String(w.by || 1) } }]
+      updateTransforms: (w.fields || [w.field]).map((f) => ({ fieldPath: f, increment: { integerValue: String(w.by || 1) } }))
     };
   });
   const res = await fetchFn(docsBase(env) + ':commit', {

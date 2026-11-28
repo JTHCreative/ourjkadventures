@@ -1,0 +1,231 @@
+// j+k adventures: code cards. Every pin we sell goes out with a little card, and on the card is a code. Typing the
+// code in (or scanning the card's QR code) puts that pin in the buyer's collection and adds one to their Collector's
+// Path. Like a raffle ticket stub: it proves a real pin left our hands, and it only works once.
+//
+// A code is 8 characters, like AUS7K2M9. The first three say which pin (AUS = the aussie, the "code" in
+// products.json). The other five are drawn at random from LETTERS: no vowels, so a card can't spell a word by
+// accident, and no 0, 1 or L, which look like other characters in print. That's about 17 million codes per pin.
+//
+//   POST /api/codes/register   { code }   (signed in, email confirmed)
+//        -> { status: "registered", pin, charges }   it's yours now
+//           { status: "yours", pin }                 you registered this card before
+//           { status: "taken" }                      someone else registered it first
+//           { status: "unknown" }                    no such card (or a cancelled one). counts as a wrong try
+//           { status: "limit" }                      too many wrong tries this hour
+//           { error: "code" } (400), { error: "signed out" } (401), { error: "confirm" } (403: email not confirmed)
+//   GET  /api/collection                  (signed in) -> { charges, pins: [{ slug, name, size, at }] }, newest first
+//   (owner, through server/admin.js) codeCards, makeBatch, batchCodes, lookUp, setCancelled
+//
+// Firestore, server only (firestore.rules blocks browsers):
+//   codes/{CODE}                     { slug, size, batch, createdAt, claimedBy?, claimedAt?, cancelled? }
+//   code_claims/{CODE}               { uid, at }   made once, by whoever registers the card first. this is the lock:
+//                                                  Firestore refuses to make it twice, so two people can't both win
+//   code_batches/{id}                { slug, size, count, claimed, createdAt, createdBy }   one print run
+//   code_tries/{uid}_{hour}          { count }     wrong guesses by one account in one hour
+//   users/{uid}/collection/{CODE}    { slug, size, at }   the pins someone has registered, kept for good
+//   users/{uid}                      charges, lifetimeCharges go up by one (only ever here, on the server)
+// Codes are kept as they are, not scrambled: the owner needs to download a print run again, and with only five
+// random characters a scrambled copy could be unscrambled by trying them all anyway. See docs/decisions.md.
+
+import {
+  configured, userFromRequest, firestoreGet, firestoreList, firestoreQuery, firestoreCommit
+} from './firebase.js';
+import { siteProducts } from './catalog.js';
+import { userPath } from './account.js';
+
+export const LETTERS = '23456789BCDFGHJKMNPQRSTVWXYZ';
+export const CODE_LENGTH = 8;
+export const TRIES_PER_HOUR = 10;
+export const BATCH_MAX = 200;
+const BATCHES_SHOWN = 300;
+const COLLECTION_MAX = 300;
+
+function json(body, status) {
+  return new Response(JSON.stringify(body), { status: status || 200, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+}
+
+// what someone typed, tidied: capitals, and no spaces or dashes ("aus-7k2m9" is AUS7K2M9). null if it can't be a code
+export function cleanCode(s) {
+  if (typeof s !== 'string' || s.length > 40) return null;
+  const code = s.toUpperCase().replace(/[\s\-_.]/g, '');
+  if (code.length !== CODE_LENGTH || !/^[A-Z]{3}/.test(code)) return null;
+  for (const ch of code.slice(3)) if (!LETTERS.includes(ch)) return null;
+  return code;
+}
+
+// the pins that have code cards: [{ slug, name, prefix, sizes }]
+export function codePins(products) {
+  return (products.items || []).filter((p) => p.kind === 'pin' && typeof p.code === 'string' && /^[A-Z]{3}$/.test(p.code))
+    .map((p) => ({ slug: p.slug, name: p.slug === 'golden' ? 'goldie' : p.name, prefix: p.code, sizes: p.sizes || ['standard'] }));
+}
+
+// five random characters. bytes that would make some characters likelier than others are thrown back
+export function randomTail() {
+  let out = '';
+  const fair = 256 - (256 % LETTERS.length);
+  while (out.length < CODE_LENGTH - 3) {
+    for (const b of crypto.getRandomValues(new Uint8Array(16))) {
+      if (b < fair && out.length < CODE_LENGTH - 3) out += LETTERS[b % LETTERS.length];
+    }
+  }
+  return out;
+}
+
+function pinView(pins, slug, size) {
+  const p = pins.find((x) => x.slug === slug);
+  return { slug, size: size || 'standard', name: p ? p.name : slug.replace(/-/g, ' ') };
+}
+
+/* ---------- the customer's side ---------- */
+export async function codesRoute(request, env, fetchFn = fetch) {
+  const url = new URL(request.url);
+  const isCollection = url.pathname === '/api/collection';
+  if (request.method !== (isCollection ? 'GET' : 'POST')) return json({ error: 'method' }, 405);
+  if (!configured(env)) return json({ error: 'not configured' }, 503);
+  let user;
+  try { user = await userFromRequest(request, env, fetchFn); } catch (e) {
+    console.log('token check failed', e.message);
+    return json({ error: 'unavailable' }, 503);
+  }
+  if (!user) return json({ error: 'signed out' }, 401);
+  try {
+    const pins = codePins(await siteProducts(env, url.origin));
+    if (isCollection) return json(await collection(env, user.sub, pins, fetchFn));
+    // an email nobody has confirmed could be anyone's, so it can't collect yet
+    if (user.email_verified !== true) return json({ error: 'confirm' }, 403);
+    let body = {};
+    try { body = (await request.json()) || {}; } catch (e) {}
+    const code = cleanCode(body.code);
+    if (!code) return json({ error: 'code' }, 400);
+    return json(await register(env, user.sub, code, pins, fetchFn));
+  } catch (e) {
+    console.log('codes error', e.message);
+    return json({ error: 'unavailable' }, 503);
+  }
+}
+
+async function register(env, uid, code, pins, fetchFn) {
+  const hour = new Date().toISOString().slice(0, 13);
+  const triesPath = 'code_tries/' + encodeURIComponent(uid + '_' + hour);
+  const tries = await firestoreGet(env, triesPath, fetchFn);
+  if (tries && tries.count >= TRIES_PER_HOUR) return { status: 'limit' };
+
+  const card = await firestoreGet(env, 'codes/' + code, fetchFn);
+  if (!card || card.cancelled === true) {
+    await firestoreCommit(env, [{ add: triesPath, field: 'count', data: { hour } }], fetchFn);
+    return { status: 'unknown' };
+  }
+  const pin = pinView(pins, card.slug, card.size);
+  if (card.claimedBy) return card.claimedBy === uid ? { status: 'yours', pin } : { status: 'taken' };
+
+  // all of it or none of it: the lock, the card, the collection and the count
+  const at = new Date();
+  const writes = [
+    { create: 'code_claims/' + code, data: { uid, at } },
+    { change: 'codes/' + code, data: { claimedBy: uid, claimedAt: at } },
+    { create: userPath(uid) + '/collection/' + code, data: { slug: card.slug, size: card.size || 'standard', at } },
+    { add: userPath(uid), fields: ['charges', 'lifetimeCharges'], data: { lastPinAt: at } }
+  ];
+  if (card.batch) writes.push({ add: 'code_batches/' + card.batch, field: 'claimed', data: { lastClaimAt: at } });
+  if (!(await firestoreCommit(env, writes, fetchFn))) {
+    // someone got there a moment before (or this is a second press of the same button)
+    const now = await firestoreGet(env, 'code_claims/' + code, fetchFn);
+    return now && now.uid === uid ? { status: 'yours', pin } : { status: 'taken' };
+  }
+  const me = await firestoreGet(env, userPath(uid), fetchFn);
+  return { status: 'registered', pin, charges: (me && me.charges) || 0 };
+}
+
+async function collection(env, uid, pins, fetchFn) {
+  const me = await firestoreGet(env, userPath(uid), fetchFn);
+  const rows = await firestoreList(env, userPath(uid) + '/collection', COLLECTION_MAX, fetchFn);
+  const list = rows.map((r) => ({ ...pinView(pins, r.slug, r.size), at: r.at ? new Date(r.at).toISOString() : '' }));
+  list.sort((a, b) => b.at.localeCompare(a.at));
+  return { charges: (me && me.charges) || 0, pins: list };
+}
+
+// account.js calls this when an account is deleted: the pins come off, the cards stay used
+export async function forgetCollection(env, uid, fetchFn = fetch) {
+  const rows = await firestoreList(env, userPath(uid) + '/collection', COLLECTION_MAX, fetchFn);
+  if (rows.length) await firestoreCommit(env, rows.map((r) => ({ remove: userPath(uid) + '/collection/' + encodeURIComponent(r.id), any: true })), fetchFn);
+}
+
+/* ---------- the owner's side (server/admin.js has already checked who is asking) ---------- */
+// { pins, batches: [{ id, slug, name, size, count, claimed, at }] }, newest print run first
+export async function codeCards(env, origin, fetchFn = fetch) {
+  const pins = codePins(await siteProducts(env, origin));
+  const rows = await firestoreList(env, 'code_batches', BATCHES_SHOWN, fetchFn);
+  const batches = rows.map((b) => ({
+    id: b.id, ...pinView(pins, b.slug, b.size), count: b.count || 0, claimed: b.claimed || 0,
+    at: b.createdAt ? new Date(b.createdAt).toISOString() : ''
+  }));
+  batches.sort((a, b) => b.at.localeCompare(a.at));
+  return { pins, batches, max: BATCH_MAX };
+}
+
+// a new print run. { made: id } or { error, status }
+export async function makeBatch(env, origin, body, who, fetchFn = fetch) {
+  const pins = codePins(await siteProducts(env, origin));
+  const pin = pins.find((p) => p.slug === body.slug);
+  if (!pin) return { error: 'slug', status: 400 };
+  const size = body.size === undefined ? pin.sizes[0] : body.size;
+  if (!pin.sizes.includes(size)) return { error: 'size', status: 400 };
+  const count = body.count;
+  if (!Number.isInteger(count) || count < 1 || count > BATCH_MAX) return { error: 'count', status: 400 };
+
+  const id = crypto.randomUUID().replace(/-/g, '').slice(0, 20);
+  const createdAt = new Date();
+  // a code that's already in use would spoil the whole lot, so on that (very rare) day we draw again
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const codes = new Set();
+    while (codes.size < count) codes.add(pin.prefix + randomTail());
+    const writes = [...codes].map((code) => ({ create: 'codes/' + code, data: { slug: pin.slug, size, batch: id, createdAt } }));
+    writes.push({ create: 'code_batches/' + id, data: { slug: pin.slug, size, count, claimed: 0, createdAt, createdBy: who || '' } });
+    if (await firestoreCommit(env, writes, fetchFn)) return { made: id };
+  }
+  throw new Error('could not draw fresh codes');
+}
+
+function cardView(code, card) {
+  return {
+    code, status: card.cancelled === true ? 'cancelled' : card.claimedBy ? 'registered' : 'open',
+    at: card.claimedAt ? new Date(card.claimedAt).toISOString() : ''
+  };
+}
+
+// every card in one print run, for the spreadsheet: { batch, codes: [{ code, status, at }] } or { error, status }
+export async function batchCodes(env, origin, id, fetchFn = fetch) {
+  if (typeof id !== 'string' || !/^[0-9a-f]{20}$/.test(id)) return { error: 'id', status: 400 };
+  const b = await firestoreGet(env, 'code_batches/' + id, fetchFn);
+  if (!b) return { error: 'no such batch', status: 404 };
+  const pins = codePins(await siteProducts(env, origin));
+  const rows = await firestoreQuery(env, 'codes', { batch: id }, BATCH_MAX, fetchFn);
+  const codes = rows.map((r) => cardView(r.id, r)).sort((a, b2) => a.code.localeCompare(b2.code));
+  return { batch: { id, ...pinView(pins, b.slug, b.size), count: b.count || 0, at: b.createdAt ? new Date(b.createdAt).toISOString() : '' }, codes };
+}
+
+// one card, by its code: { card: { code, status, at, pin, email } } or { error, status }
+export async function lookUp(env, origin, typed, fetchFn = fetch) {
+  const code = cleanCode(typed);
+  if (!code) return { error: 'code', status: 400 };
+  const card = await firestoreGet(env, 'codes/' + code, fetchFn);
+  if (!card) return { error: 'no such card', status: 404 };
+  const pins = codePins(await siteProducts(env, origin));
+  let email = '';
+  if (card.claimedBy) {
+    const who = await firestoreGet(env, userPath(card.claimedBy), fetchFn);
+    email = (who && who.email) || '';
+  }
+  return { card: { ...cardView(code, card), pin: pinView(pins, card.slug, card.size), email } };
+}
+
+// cancel a card that was lost or misprinted, or put it back. a registered card can't be cancelled: the pin is
+// already in someone's collection
+export async function setCancelled(env, origin, typed, cancelled, fetchFn = fetch) {
+  const found = await lookUp(env, origin, typed, fetchFn);
+  if (found.error) return found;
+  if (typeof cancelled !== 'boolean') return { error: 'cancelled must be true or false', status: 400 };
+  if (found.card.status === 'registered') return { error: 'registered', status: 409 };
+  await firestoreCommit(env, [{ change: 'codes/' + found.card.code, data: { cancelled } }], fetchFn);
+  return lookUp(env, origin, typed, fetchFn);
+}

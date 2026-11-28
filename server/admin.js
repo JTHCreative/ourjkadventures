@@ -41,6 +41,10 @@
 //                            answers on website orders, added up (server/heard-report.js), read from Square each time
 //   GET  /api/admin/pin-requests   pins people asked us to make (server/pin-requests.js), newest first
 //   DELETE /api/admin/pin-requests { id }  take one off the list
+//   GET  /api/admin/codes          code cards (server/codes.js): the pins that have them and every print run
+//   POST /api/admin/codes { slug, size, count }  make a print run of new codes
+//   GET  /api/admin/codes/batch?id=  one print run's codes, for the spreadsheet
+//   POST /api/admin/codes/card { code }  look a card up; with cancelled: true | false, cancel it or put it back
 //   GET  /api/admin/instagram  does the key in cloudflare open @ourjkadventures, and how many reels (never the key)
 //
 // Cloudflare setting (Settings > Variables and secrets):
@@ -60,6 +64,7 @@ import { giftList, giftDone } from './ship-to.js';
 import { ordersToShip, markShipped, sendMoved, orderHistory, hideOrder, hiddenHistory } from './shipped.js';
 import { emailConfigured } from './email.js';
 import { listRequests, removeRequest } from './pin-requests.js';
+import { codeCards, makeBatch, batchCodes, lookUp, setCancelled } from './codes.js';
 import { heardReport, PERIODS } from './heard-report.js';
 
 // a pre-order date the owner picked: a real day, from today up to two years out. { date } or { error }
@@ -318,6 +323,28 @@ export async function admin(request, env, fetchFn = fetch) {
       const out = await removeRequest(env, (await readJson(request)).id, fetchFn);
       if (out.error) return json({ error: out.error }, out.status);
       return json(await listRequests(env, fetchFn));
+    }
+
+    // code cards (server/codes.js): print runs, one run's codes for the spreadsheet, and looking a card up
+    if (route === 'codes') {
+      if (request.method === 'GET') return json(await codeCards(env, url.origin, fetchFn));
+      if (request.method !== 'POST') return json({ error: 'method' }, 405);
+      const out = await makeBatch(env, url.origin, await readJson(request), user.email, fetchFn);
+      if (out.error) return json({ error: out.error }, out.status);
+      return json({ ...(await codeCards(env, url.origin, fetchFn)), made: out.made });
+    }
+    if (route === 'codes/batch') {
+      if (request.method !== 'GET') return json({ error: 'method' }, 405);
+      const out = await batchCodes(env, url.origin, url.searchParams.get('id'), fetchFn);
+      return out.error ? json({ error: out.error }, out.status) : json(out);
+    }
+    if (route === 'codes/card') {
+      if (request.method !== 'POST') return json({ error: 'method' }, 405);
+      const body = await readJson(request);
+      const out = 'cancelled' in body
+        ? await setCancelled(env, url.origin, body.code, body.cancelled, fetchFn)
+        : await lookUp(env, url.origin, body.code, fetchFn);
+      return out.error ? json({ error: out.error }, out.status) : json(out);
     }
 
     if (route === 'instagram') {
