@@ -153,6 +153,38 @@
         <div class="admin-requests" data-requests-list></div>
       </section>
 
+      <section class="card clean admin-card" aria-labelledby="admin-codes-title">
+        <h2 class="admin-title" id="admin-codes-title">code cards</h2>
+        <p class="caption">the little card that goes with every pin we sell. each card has its own code: the first three letters say which pin, the rest is random. the buyer types it in (or scans the card) at ourjkadventures.com/register and the pin joins their collection, once, for one account. make a batch here, download it, and send the file to whoever prints the cards: it has each code and the link its QR code should open. a card only ever goes out with a pin.</p>
+        <form class="admin-codes-form" data-codes-form>
+          <div class="field">
+            <label for="codes-pin">which pin?</label>
+            <select id="codes-pin" data-codes-pin></select>
+          </div>
+          <div class="field" data-codes-size-field hidden>
+            <label for="codes-size">which size?</label>
+            <select id="codes-size" data-codes-size></select>
+          </div>
+          <div class="field">
+            <label for="codes-count">how many cards?</label>
+            <input id="codes-count" type="number" inputmode="numeric" min="1" max="200" value="50" data-codes-count>
+          </div>
+          <button class="jka-btn jka-btn--sm" type="submit">make the codes</button>
+        </form>
+        <p class="body-sm" data-codes-state role="status">one moment.</p>
+        <div class="admin-requests" data-codes-list></div>
+        <h3 class="admin-subtitle">look up a card</h3>
+        <p class="caption">type a card's code to see whether it's been registered, and by whom. a lost or misprinted card that nobody has registered can be cancelled, so it stops working.</p>
+        <form class="admin-codes-form" data-card-form>
+          <div class="field">
+            <label for="card-code">the code</label>
+            <input id="card-code" type="text" maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" data-card-code>
+          </div>
+          <button class="jka-btn jka-btn--quiet jka-btn--sm" type="submit">look it up</button>
+        </form>
+        <div data-card-result role="status"></div>
+      </section>
+
       <section class="card clean admin-card" aria-labelledby="admin-featured-title">
         <h2 class="admin-title" id="admin-featured-title">featured in the shop</h2>
         <p class="caption">pick up to eight to turn in the carousel at the top of the shop, in the order you pick them. only pins and boards in stock can be picked. a pick that sells out steps out of the carousel until it's back in stock.</p>

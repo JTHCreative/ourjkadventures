@@ -1080,3 +1080,35 @@ request; the privacy page it links to says plainly that this is Meta and what fo
 (notice and opt-out), and we only ship to the U.S. Worth knowing: the EU and UK ask for a yes first, so if the shop
 ever sells or advertises there, go back to ask-first for those visitors. Still never on `/admin`, sign-in or account
 pages.
+
+## Code cards: the only way to earn a charge (2026-11-28)
+The owner asked for the Collector's Path to run on code cards: a card with its own code goes out with every pin,
+and registering it puts the pin in the buyer's collection and adds one to their path. This replaces the
+2026-10-25 plan (a hidden code plus a serial sticker the owner scanned while packing web orders).
+- **The card is the only way, on every channel.** Nothing is counted from an order, so a pin can't count twice and
+  there's no packing tool, serial sticker or booth mode to build or to remember to use. The cost: someone who buys
+  on our own site types a code like everyone else.
+- **A card only goes out with a pin.** A card handed out alone would be a charge for no purchase, which
+  `pricing-and-loyalty.md` rules out. Keep cards out of sight on a booth table: a visible code can be photographed.
+- **8 characters, the first three for the pin** (AUS, COR, GOL ..., `code` in `products.json`), so the page can say
+  "an aussie pin!" as it's typed. The other five are random from 28 characters: no vowels (a printed card can't
+  spell a word by accident) and no 0, 1 or L (they look like other characters). About 17 million per pin. With 500
+  aussie cards out, a random guess hits about 1 time in 34,000, and an account gets 10 wrong guesses an hour.
+- **The QR code opens `/register?code=...`** with the code in the box, and the code is printed too. The page takes
+  it out of the address straight away, and the Meta Pixel never loads there.
+- **Codes are stored as they are, not hashed** (the old spec said hashed). The owner needs to download a batch
+  again if the printer loses the file, and with five random characters a hash could be undone by trying them all,
+  so it would only have looked safer. Firestore is server only either way.
+- **One lock per card.** Registering is a single all-or-nothing write that makes `code_claims/<code>`; Firestore
+  refuses to make it twice, so two people pressing at the same moment can't both win.
+- **Confirmed email first**, as accounts always planned: an unconfirmed address could be anyone's. Google sign-ins
+  are confirmed already, so that's the quickest way through at a craft fair.
+- **The collection and the count are separate.** Registered pins are kept for good (`users/<uid>/collection`); the
+  count toward 10 starts over after a free pin.
+- **Not one list per Square mode**, unlike the shop's other lists: cards are printed, real things and have nothing
+  to do with Square. A card made while practising is real too; cancel it on `/admin` if it shouldn't work.
+- **Deleting an account** takes its pins with it, and the cards stay used.
+- **No QR pictures from us yet.** The download has the link each QR code should open; card printers and tools like
+  Canva turn a column of links into QR codes. Making the pictures ourselves would mean a new library, so it waits
+  until the owner asks.
+

@@ -80,16 +80,27 @@ also driven end to end in a browser against the real Firebase library with Googl
 
 ## Phase 4. The Collector's Path
 Spec: `collectors-path-spec.md`. Business rules: `pricing-and-loyalty.md`.
-- [ ] Every charge comes from claiming a code (see spec). Codes and serials generated in batches by a script, with a printable QR sticker sheet (QR → `/p/<serial>`) and matching hidden code cards
-- [ ] `/p/<serial>` page: shows that pin to anyone who scans the sticker
+Three stages, each ships on its own (plan agreed with the owner 2026-11-28):
+
+Stage 1, code cards:
+- [x] Every charge comes from registering a code card (2026-11-28): 8 characters, the first three for the pin (`code` in `products.json`), `server/codes.js`
+- [x] "code cards" on `/admin`: make a batch, download it for the printer, look a card up, cancel a lost one
+- [x] `/register`: the page the card's QR code opens, with the code filled in. Signed out, it offers google, the create-account fields or sign in on the spot. Confirmed email needed
+- [x] "register a pin" box and the count on `/account`
+- [ ] Owner: print the first cards (`setup/code-cards.md`)
+- [ ] Flag accounts registering more than 20 cards a day
+
+Stage 2, my collection:
+- [ ] `/collection`: the Collector's Path (charges and what's unlocked at 3, 6, 10) moves here from `/account`
+- [ ] The virtual pin board: registered pins in a tray, placed, moved and turned by the collector, saved to the account
+
+Stage 3, rewards:
 - [ ] 3 and 6 rewards on the first lap only; free pin at 10 every lap
-- [ ] Skip auto-claim on orders from the Square "wholesale" customer group; flag accounts redeeming more than 20 codes a day
-- [ ] `/admin/pack` packing tool: scan serials for paid web orders from signed-in buyers, claims their codes automatically
-- [ ] Account page shows charges and what's unlocked at 3, 6, 10
-- [ ] Free pin at 10 can only be added to a bag that already has a paid item; redeeming resets to 0
-- [ ] "redeem code" on `/account` for everyone else (signed-out web buyers, Etsy, retail), rate-limited
-- [ ] Booth mode in the packing tool: scan serial, enter buyer email, claim if it matches a verified account
 - [ ] Early access (3 charges) gate for new drops
+- [ ] The 6 gift flagged on that buyer's next order in "orders to ship"
+- [ ] Free pin at 10 can only be added to a bag that already has a paid item; redeeming resets to 0; its card adds to the collection but not the count
+
+Dropped 2026-11-28 (the card is the only way to earn): the `/admin/pack` packing tool, booth mode, serial stickers and the `/p/<serial>` page.
 
 **Done when:** every rule in the spec has a test, and a full path from 0 to 10 and redemption works in sandbox.
 

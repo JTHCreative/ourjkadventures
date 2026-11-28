@@ -1332,6 +1332,129 @@ async function loadRequests() {
   try { paintRequests(await api('GET', '/api/admin/pin-requests')); } catch (e) { $('[data-requests-state]').textContent = RESTING; }
 }
 
+/* ---------- code cards: the card that goes with every pin (server/codes.js) ---------- */
+// printed cards always point at the real shop, wherever this page happens to be open
+const REGISTER_LINK = 'https://ourjkadventures.com/register?code=';
+const sizeWords = (b) => (b.size && b.size !== 'standard' ? b.size + ' ' : '') + b.name + ' pin';
+function download(name, text) {
+  const a = el('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function codesCsv(run) {
+  const lines = ['code,pin,size,link for the qr code,status'];
+  run.codes.forEach((c) => lines.push([c.code, run.batch.name, run.batch.size, REGISTER_LINK + c.code, c.status === 'open' ? 'not registered' : c.status].join(',')));
+  return lines.join('\n') + '\n';
+}
+let codePinList = [];
+function paintCodeSizes() {
+  const pin = codePinList.find((p) => p.slug === $('[data-codes-pin]').value);
+  const sizes = (pin && pin.sizes) || ['standard'];
+  const sel = $('[data-codes-size]');
+  sel.textContent = '';
+  sizes.forEach((sz) => { const o = el('option', null, sz); o.value = sz; sel.appendChild(o); });
+  $('[data-codes-size-field]').hidden = sizes.length < 2;
+}
+function paintCodes(data, said) {
+  const state = $('[data-codes-state]');
+  const box = $('[data-codes-list]');
+  const pinSel = $('[data-codes-pin]');
+  codePinList = data.pins || [];
+  if (!pinSel.options.length) {
+    codePinList.forEach((p) => { const o = el('option', null, p.name + ' (' + p.prefix.toLowerCase() + ')'); o.value = p.slug; pinSel.appendChild(o); });
+    paintCodeSizes();
+  }
+  $('[data-codes-count]').max = data.max || 200;
+  box.textContent = '';
+  const runs = data.batches || [];
+  state.textContent = said || (!runs.length ? 'no batches yet.' : runs.length === 1 ? 'one batch.' : runs.length + ' batches, newest first.');
+  runs.forEach((b) => {
+    const item = el('article', 'admin-request');
+    const head = el('p', 'admin-request-head');
+    head.appendChild(el('strong', null, sizeWords(b)));
+    const day = requestDay(b.at);
+    if (day) head.appendChild(el('span', 'caption', day));
+    item.appendChild(head);
+    item.appendChild(el('p', 'body-sm', (b.count === 1 ? '1 card' : b.count + ' cards') + ', ' + (b.claimed || 0) + ' registered.'));
+    const dl = el('button', 'link-btn', 'download for printing');
+    dl.type = 'button';
+    dl.setAttribute('aria-label', 'download the ' + sizeWords(b) + ' batch from ' + day);
+    dl.addEventListener('click', async () => {
+      dl.disabled = true;
+      try {
+        const run = await api('GET', '/api/admin/codes/batch?id=' + encodeURIComponent(b.id));
+        download('code-cards-' + b.slug + (b.size !== 'standard' ? '-' + b.size : '') + '-' + String(b.at).slice(0, 10) + '.csv', codesCsv(run));
+      } catch (e) { state.textContent = "that didn't download. try again in a moment."; }
+      dl.disabled = false;
+    });
+    item.appendChild(dl);
+    box.appendChild(item);
+  });
+}
+function paintCard(card, said) {
+  const box = $('[data-card-result]');
+  box.textContent = '';
+  if (!card) { box.appendChild(el('p', 'body-sm', said)); return; }
+  const day = requestDay(card.at);
+  const words = card.status === 'registered'
+    ? 'registered' + (day ? ' on ' + day : '') + (card.email ? ' by ' + card.email : '') + '.'
+    : card.status === 'cancelled' ? 'cancelled. it won\'t work if someone types it in.' : 'not registered yet.';
+  const item = el('article', 'admin-request');
+  const head = el('p', 'admin-request-head');
+  head.appendChild(el('strong', null, card.code));
+  head.appendChild(el('span', 'caption', sizeWords({ name: card.pin.name, size: card.pin.size })));
+  item.appendChild(head);
+  item.appendChild(el('p', 'body-sm admin-request-about', words));
+  if (card.status !== 'registered') {
+    const cancel = card.status === 'open';
+    const b = el('button', 'link-btn', cancel ? 'cancel this card' : 'put this card back');
+    b.type = 'button';
+    b.addEventListener('click', async () => {
+      if (cancel && !confirm('cancel ' + card.code + '? it will stop working. you can put it back later.')) return;
+      b.disabled = true;
+      try { paintCard((await api('POST', '/api/admin/codes/card', { code: card.code, cancelled: cancel })).card); } catch (e) {
+        b.disabled = false;
+        paintCard(card);
+        box.appendChild(el('p', 'body-sm', "that didn't save. try again in a moment."));
+      }
+    });
+    item.appendChild(b);
+  }
+  box.appendChild(item);
+}
+function wireCodes() {
+  $('[data-codes-pin]').addEventListener('change', paintCodeSizes);
+  $('[data-codes-form]').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const state = $('[data-codes-state]');
+    const btn = e.target.querySelector('button[type="submit"]');
+    const count = Number($('[data-codes-count]').value);
+    const max = Number($('[data-codes-count]').max) || 200;
+    if (!Number.isInteger(count) || count < 1 || count > max) { state.textContent = 'how many cards? a number from 1 to ' + max + '.'; return; }
+    btn.disabled = true;
+    state.textContent = 'one moment.';
+    try {
+      paintCodes(await api('POST', '/api/admin/codes', { slug: $('[data-codes-pin]').value, size: $('[data-codes-size]').value, count }), 'made ' + (count === 1 ? '1 code' : count + ' codes') + '. the new batch is at the top: download it for printing.');
+    } catch (err) { state.textContent = "that didn't work. try again in a moment."; }
+    btn.disabled = false;
+  });
+  $('[data-card-form]').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const code = $('[data-card-code]').value.trim();
+    if (!code) return;
+    try { paintCard((await api('POST', '/api/admin/codes/card', { code })).card); } catch (err) {
+      paintCard(null, err.status === 404 ? 'there\'s no card with that code.' : err.status === 400 ? 'a code is 8 characters, like aus7k2m9.' : RESTING);
+    }
+  });
+}
+async function loadCodes() {
+  try { paintCodes(await api('GET', '/api/admin/codes')); } catch (e) { $('[data-codes-state]').textContent = RESTING; }
+}
+
 /* ---------- where buyers come from: the "how did you hear about us?" answers, added up (server/heard-report.js) ---------- */
 // a pile per answer with a bar for its share of the orders, a count per month, and a spreadsheet of every order.
 // the period picked is remembered in this browser
@@ -1911,6 +2034,8 @@ async function open() {
   loadFeatured();
   loadNotify();
   loadRequests();
+  wireCodes();
+  loadCodes();
   wireHeard();
   wireMedia();
   loadMedia();

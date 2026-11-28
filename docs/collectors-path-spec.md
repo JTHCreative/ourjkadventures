@@ -10,51 +10,62 @@ stop and ask the owner.
 4. Redeeming the free pin **resets the count to 0**. Nothing expires.
 5. The free pin **must ride with a paid order**: it can only be added to a bag that already has at least one paid item, and only through our own site (never a partner or marketplace). The free pin itself earns nothing.
 6. Charges can be **earned anywhere** (web, booth, marketplace, retail) but **spent only with us**.
-7. **Registration codes**: one hidden code per core-catalog pin. Single use, first registration wins. Hidden in packaging until opened.
+7. **Code cards**: every core-catalog pin we sell goes out with a card that has its own code. Single use, first registration wins. A card only ever goes out with a pin.
+8. **The collection is separate from the count.** Every registered pin stays in "my collection" for good. Redeeming the free pin sets the count back to 0 and takes nothing off the board.
 
 ## How charges arrive
-**Every charge comes from claiming a registration code.** One pin, one code, claimed once. That's the
-single rule that prevents double counting.
+**Every charge comes from registering a code card.** One pin, one card, registered once. That's the
+single rule that prevents double counting, and it's the same on every channel: our site, our booth,
+Etsy, a shop's shelf. Nothing is counted from an order, so a web buyer types their code like everyone
+else (owner's decision, 2026-11-28; it replaced the packing tool and the serial stickers).
 
-| Channel | Who claims the code | When |
-|---|---|---|
-| Our site, signed in | automatically, for the buyer | when the owner packs the order and scans the pin's serial |
-| Our site, signed out | the buyer, later | they use "redeem code" on `/account` with the code inside the packaging |
-| Our booth, buyer has an account | automatically | owner scans the serial and enters the buyer's email at the sale |
-| Our booth, no account | the buyer, later | "redeem code" |
-| Etsy, Amazon, retail partners | the end customer | "redeem code" |
-| Wholesale orders (B2B) | nobody at sale time | codes ship unclaimed; the retailer's customer redeems later |
+Once a card is registered it is dead. The same account trying again hears "this pin is already in
+your collection"; another account hears that the card has been registered.
 
-Once a code is claimed, by either route, it is dead. A signed-in web buyer who also tries to type
-the code from their package gets "this pin is already on your path."
+### The code
+- 8 characters, like `AUS7K2M9`. The first three letters say which pin (`code` on each pin in
+  `site/products.json`: AUS aussie, COR corgi, GOL goldie ...). The other five are random, from
+  `23456789BCDFGHJKMNPQRSTVWXYZ`: no vowels, so a card can't spell a word by accident, and no 0, 1 or L,
+  which look like other characters in print. About 17 million codes per pin.
+- The card shows the code in print and as a QR code that opens
+  `https://ourjkadventures.com/register?code=AUS7K2M9`, with the code already in the box. The page takes
+  the code out of the address straight away.
+- Typed codes are forgiving: capitals or not, with or without a dash or spaces.
+
+### Registering (`/register`, and the box on `/account`)
+1. The code goes in the box (typed, or from the QR code). The page says which pin the first three
+   letters belong to ("an aussie pin!").
+2. Signed in with a confirmed email: it registers.
+3. Signed out: the page offers "continue with google", the create-account fields, or sign in, right
+   there, then registers.
+4. Email not confirmed yet: the code waits in that browser (`jka_code`) until the link is clicked.
+5. The server (`POST /api/codes/register`, `server/codes.js`) answers registered, yours, taken, unknown
+   or limit. Ten wrong guesses per account per hour.
+
+### The owner's side (`/admin`, "code cards")
+- Make a batch: pick a pin, a size and how many (up to 200). Download it as a spreadsheet file for
+  the card printer: code, pin, size, the link for the QR code.
+- Each batch shows how many of its cards are registered.
+- Look up a card by its code: registered or not, when and by whom. A card nobody has registered can be
+  cancelled (lost, misprinted) and put back.
 
 ### Wholesale
-Wholesale buyers never claim codes. They're reselling, so the pins they buy keep their codes for the
-end customer. The packing tool and booth mode never auto-claim on a wholesale order. Mark wholesale
-buyers with a **"wholesale" customer group in Square**; the server skips any order whose customer is in
-that group. Safeguard: an account that redeems an unusual number of codes (e.g. more than 20 in a
-day) is flagged for the owner to review. It isn't blocked automatically.
+Wholesale buyers never register cards. They're reselling, so the cards go on to the end customer with
+the pins. Safeguard (not built yet): an account that registers an unusual number of cards (e.g. more
+than 20 in a day) is flagged for the owner to review. It isn't blocked automatically.
 
-### Serial vs code
-Each packaged pin has two identifiers:
-- a **serial** printed on the outside as a **QR code** on the bag sticker. Not secret. Only the owner's packing tool can act on it. The QR encodes a URL, `https://<domain>/p/<serial>`: a customer who scans it lands on that pin's page; the packing tool reads the serial out of the same URL.
-- the **code** hidden inside, revealed when opened. Secret. Customers redeem this one.
-
-The server maps serial → code. That's how the packing tool can claim the right hidden code for a
-signed-in buyer without opening the package.
-
-### Packing tool (`/admin/pack`, owner only)
-- Owner signs in with an account that has an `admin` custom claim.
-- Lists paid web orders that have a signed-in buyer (`metadata.uid`) and pins not yet linked.
-- Owner scans each pin's serial. The server checks the serial's product matches a line in that order, claims the code for the buyer and adds the charge. Works on a phone camera.
-- Booth mode: scan serial(s), enter the buyer's email. If it matches a verified account, claim. If not, do nothing, and the buyer can redeem later.
+## My collection (stage 2, not built yet)
+`/collection`, an account page. The Collector's Path sits at the top (where they are, what 3, 6 and 10
+unlock) and moves here from the account page. Below it, a virtual pin board: every registered pin
+appears in a tray, and the collector places it on the board, moves it and turns it. The layout is saved
+to their account through the server. Works by touch, mouse and keyboard, at 360px wide.
 
 ## Data (Firestore)
 ```
 users/{uid}
   email, firstName, lastName, phone, createdAt   // older documents may have displayName instead of firstName
   charges: number            // current count toward 10, server-written only
-  lifetimeCharges: number
+  lifetimeCharges: number    // every pin they've registered
   earlyAccess: boolean       // set true the first time charges reach 3, never unset
   gift6Awarded: boolean      // set true the first time charges reach 6, never unset (first lap only)
   pendingGift6: boolean      // true until the owner ships the gift with their next order
@@ -63,46 +74,46 @@ users/{uid}
 users/{uid}/orders/{squareOrderId}  // note that this buyer started a checkout, for order history
   createdAt
 
-users/{uid}/ledger/{entryId}  // append-only history, server-written only
-  type: "earn" | "redeem" | "adjust"
-  source: "web" | "booth" | "code" | "owner"
-  ref: string                // Square order ID, code hash, or note
-  slug?: string
-  createdAt
+users/{uid}/collection/{CODE}  // the pins they've registered, kept for good. server-written only
+  slug, size, at
 
-codes/{sha256(code)}          // never store the plain code
-  slug, batch, serial, createdAt
+codes/{CODE}                  // one per card
+  slug, size, batch, createdAt
   claimedBy?: uid, claimedAt?
-  claimedVia?: "redeem" | "pack" | "booth" | "free"
-  orderId?: string           // Square order, when claimed at packing or booth
+  cancelled?: boolean
 
-serials/{serial}              // server-only lookup, for the packing tool
-  codeHash, slug
+code_claims/{CODE}            // the lock: made once, by whoever registers first
+  uid, at
 
-processedEvents/{squareEventId}  // webhook idempotency
+code_batches/{id}             // one print run
+  slug, size, count, claimed, createdAt, createdBy
+
+code_tries/{uid}_{hour}       // wrong guesses, for the limit
+  count
 ```
-Ledger entry ID = the code hash, so a code can only ever produce one charge no matter how many times something retries.
+Registering is one all-or-nothing write: the lock, the card, the collection entry and the count. Firestore
+refuses to make the lock twice, so a card can only ever produce one charge however many times something retries.
 
 ## Security
-- Firestore rules: a signed-in user may **read** `users/{their uid}` and its `ledger`. Nobody writes from the browser. `codes` and `processedEvents` are server-only.
-- All writes go through Pages Functions using the service account.
-- `/admin/*` routes and their APIs require a verified Firebase token with the `admin` custom claim.
-- A serial alone can never be redeemed by a customer. Only the admin packing endpoint accepts serials.
-- Code registration is rate-limited per account (e.g. 10 tries per hour) so codes can't be guessed.
-- Code format: 10 characters from an unambiguous alphabet (no 0/O, 1/I/L), shown as `XXXXX-XXXXX`.
+- Firestore rules: nobody reads or writes from the browser. Everything goes through the Worker with the service account.
+- `/api/admin/*` checks the Firebase ticket and `ADMIN_EMAILS` on every request.
+- Registering needs a signed-in account with a confirmed email, and is limited to 10 wrong guesses per account per hour.
+- Codes are stored as they are, not hashed: the owner needs to download a batch again, and five random
+  characters could be recovered from a hash by trying them all anyway (see `decisions.md`).
+- The Meta Pixel never loads on `/register`: its address can carry a code.
 
-## Free pin redemption flow
-1. Account page shows "your free pin is ready" when `freePinAvailable`.
+## Free pin redemption flow (stage 3, not built yet)
+1. My collection shows "your free pin is ready" when `freePinAvailable`.
 2. In the bag, if there's at least one paid item, offer "add your free pin" with a pin picker (core catalog only).
 3. `/api/checkout` re-checks everything server-side, adds the free pin as a $0 line ("collector's path pin"), and records a **pending** redemption with the order ID.
-4. At packing, the free pin's serial is scanned like any other, but its code is marked **void** (claimedVia "free"), not credited, so a free pin never earns a charge.
-5. On the paid webhook: finalize (charges = 0, freePinAvailable = false, ledger "redeem"). If the checkout is abandoned, the pending hold expires after 24 hours.
+4. The free pin goes out with a card from a "no charge" batch: registering it adds the pin to the collection but not to the count, so a free pin never earns a charge.
+5. On the paid webhook: finalize (charges = 0, freePinAvailable = false). If the checkout is abandoned, the pending hold expires after 24 hours.
 
 ## Open questions for the owner
 - None right now.
 
 ## Resolved
-- **Double counting (2026-10-25):** each code can be claimed once. Signed-in web buyers get their pin's code claimed automatically at packing. Everyone else uses "redeem code". See "How charges arrive".
+- **Code cards (2026-11-28):** the code lives on a card that goes out with the pin, 8 characters, the first three for the pin. The card is the only way to earn a charge, on every channel. The QR code opens `/register` with the code filled in. The packing tool, serial stickers and `/p/<serial>` page are dropped.
+- **Double counting (2026-10-25, simplified 2026-11-28):** each code can be registered once, and nothing else earns a charge. See "How charges arrive".
 - **First-lap rewards (2026-10-25):** the 3 and 6 rewards happen once per person. The free pin at 10 repeats.
 - **Wholesale (2026-10-25):** wholesale buyers never claim. Their customers redeem the codes. Wholesale is a Square customer group.
-- **Sticker (2026-10-25):** QR code linking to `/p/<serial>`.

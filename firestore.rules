@@ -18,6 +18,8 @@ service cloud.firestore {
     // the same goes for "email me when it's here" (notify_<mode>, notify_ips_<mode>) and the daily email count
     // (email_days): addresses are only ever read by the server. pin requests (pin_requests_<mode>,
     // pin_request_ips_<mode>) are server only too.
+    // code cards (codes, code_claims, code_batches, code_tries) and each person's registered pins
+    // (users/<uid>/collection) are server only too: a pin is only ever added to a collection by the server.
 
     // customers, their order notes, reviews and everything else: server only
     match /{document=**} {

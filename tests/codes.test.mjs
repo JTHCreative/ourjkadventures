@@ -159,3 +159,13 @@ test('deleting an account takes its pins with it, and the cards stay used', asyn
   assert.equal(s.g.docs['users/uid123/collection/' + codes[0]], undefined);
   assert.equal((await s.register(codes[0], { sub: 'maple' })).status, 'taken');
 });
+
+test('the register page keeps to itself: not indexed, no pixel, and the same letters as the server', () => {
+  const read = (f) => fs.readFileSync(new URL('../site/' + f, import.meta.url), 'utf8');
+  const page = read('register.html');
+  assert.match(page, /<meta name="robots" content="noindex">/);
+  assert.match(page, /data-account-page="register"/);
+  assert.match(read('assets/pixel.js'), /QUIET = [^\n]*\|register\)/);
+  assert.ok(read('assets/account.js').includes("const CODE_LETTERS = '" + LETTERS + "';"));
+  assert.ok(!read('sitemap.xml').includes('/register'));
+});
