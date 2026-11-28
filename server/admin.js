@@ -306,7 +306,7 @@ export async function admin(request, env, fetchFn = fetch) {
       if (result.error) return json(result, result.status || 400);
       // a gift's card went in the box with it: off the "cards to write" list (never blocks: the order is shipped)
       try { await giftDone(env, body.id, fetchFn); } catch (e) { console.log('gift card clear failed', e.message); }
-      return list({ shipped: body.id, emailed: result.emailed });
+      return list({ shipped: body.id, emailed: result.emailed, pathGift: result.pathGift === true });
     }
 
     if (route === 'gifts') {

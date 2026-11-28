@@ -726,6 +726,7 @@ function orderRow(o, data) {
   if (o.preorder) bits.push('pre-order');
   if (o.moved) bits.push('new date to email');
   if (o.refunded) bits.push('partly refunded');
+  if (o.pathGift) bits.push('collector\'s extra');
   sum.appendChild(el('span', 'caption', bits.filter(Boolean).join(' · ')));
   fold.appendChild(sum);
   const body = el('div', 'order-body');
@@ -742,6 +743,13 @@ function orderRow(o, data) {
   if (o.shipping) how.push('usps ' + o.shipping + ' shipping.');
   if (o.preorder) how.push('has a pre-order: the whole order ships together' + (o.expected ? ' around ' + orderDay(o.expected) : '') + '.');
   body.appendChild(orderPart('what\'s in it', what, how.length ? el('p', 'caption', how.join(' ')) : null));
+
+  // the collector's path: this buyer reached 6 pins, and their little extra rides along with this order
+  if (o.pathGift) {
+    body.appendChild(orderPart('collector\'s path',
+      el('p', 'body-sm', 'this collector reached 6 pins. tuck their little extra into this order (an upgraded backing card, a mini sticker sheet).'),
+      el('p', 'caption', 'marking the order shipped counts the extra as sent.')));
+  }
 
   // a pre-order whose date moved since it was paid for: tell the buyer, and the date moves on the square order too
   if (o.moved) body.appendChild(orderPart('new pre-order date', movedPart(o, data)));

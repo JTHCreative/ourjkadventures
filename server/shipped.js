@@ -11,7 +11,7 @@
 // Unlike server/square.js, this file writes to Square: it needs ORDERS_WRITE (a personal access token has it).
 
 import { SQUARE_VERSION, squareHost, squareConfigured, squareMode } from './square.js';
-import { configured as firebaseConfigured, firestoreList, firestoreSet, firestoreDelete } from './firebase.js';
+import { configured as firebaseConfigured, firestoreGet, firestoreUpdate, firestoreList, firestoreSet, firestoreDelete } from './firebase.js';
 import { readLinks, siteProducts, siteKeys } from './catalog.js';
 import { emailConfigured, emailsLeftToday, sendBatch, escapeHtml } from './email.js';
 import { productNoun, productPath } from './notify.js';
@@ -137,7 +137,26 @@ export async function ordersToShip(env, origin, fetchFn = fetch) {
   if (orders.some((o) => (o.metadata || {}).preorder === 'yes')) {
     try { states = await readShopStates(env, fetchFn); } catch (e) { console.log('orders: pre-order dates ' + e.message); }
   }
-  return orders.map((o) => view(o, nameLine, origin, states));
+  const views = orders.map((o) => view(o, nameLine, origin, states));
+  // the collector's path: a signed-in buyer who reached 6 pins is owed a little extra with their next order.
+  // unreadable: no flags, the list still shows
+  try {
+    const owed = await giftsOwed(env, orders, fetchFn);
+    views.forEach((v, i) => { if (owed.has((orders[i].metadata || {}).uid)) v.pathGift = true; });
+  } catch (e) { console.log('orders: path gifts ' + e.message); }
+  return views;
+}
+
+// which of these orders' buyers still have their 6-pin extra coming (users/<uid>.pendingGift6): a set of account ids
+async function giftsOwed(env, orders, fetchFn) {
+  const owed = new Set();
+  if (!firebaseConfigured(env)) return owed;
+  const uids = [...new Set(orders.map((o) => (o.metadata || {}).uid).filter((u) => typeof u === 'string' && u))];
+  for (const uid of uids) {
+    const who = await firestoreGet(env, 'users/' + encodeURIComponent(uid), fetchFn);
+    if (who && who.pendingGift6 === true) owed.add(uid);
+  }
+  return owed;
 }
 
 /* ---------- order history: website orders already shipped, and ones refunded in full before they shipped ---------- */
@@ -405,5 +424,15 @@ export async function markShipped(env, origin, orderId, rawTracking, fetchFn = f
     o = res.order;
     state = next;
   }
-  return { ok: true, emailed, tracking };
+  // 3. the collector's path: their 6-pin extra went out with this order, so it's no longer owed. never undoes a
+  // shipment: if this can't be written, the order still shows the reminder next time and the owner knows it went
+  let pathGift = false;
+  const uid = o && o.metadata && typeof o.metadata.uid === 'string' ? o.metadata.uid : '';
+  try {
+    if (uid && (await giftsOwed(env, [{ metadata: { uid } }], fetchFn)).has(uid)) {
+      await firestoreUpdate(env, 'users/' + encodeURIComponent(uid), { pendingGift6: false, gift6SentWith: orderId }, fetchFn);
+      pathGift = true;
+    }
+  } catch (e) { console.log('path gift not ticked off', e.message); }
+  return { ok: true, emailed, tracking, pathGift };
 }

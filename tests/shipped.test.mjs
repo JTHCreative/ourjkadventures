@@ -284,3 +284,25 @@ test('remove from history: hidden on /admin only (the order stays in Square), wi
   assert.equal((await call('POST', '', { id: 'TEST', removed: true }, 'someone@example.com')).status, 403);
   assert.equal(s.g.docs['hidden_orders_sandbox/TEST'], undefined);
 });
+
+test("the collector's path: an order from someone owed their 6-pin extra says so, until it ships", async () => {
+  const s = setup({ orders: {
+    MINE: order('MINE', { metadata: { uid: 'juniper' } }),
+    ALSO: order('ALSO', { metadata: { uid: 'juniper' } }),
+    OTHER: order('OTHER', { metadata: { uid: 'maple' } }),
+    GUEST: order('GUEST')
+  } });
+  s.g.docs['users/juniper'] = { pendingGift6: { booleanValue: true }, charges: { integerValue: '6' } };
+  s.g.docs['users/maple'] = { pendingGift6: { booleanValue: false } };
+  const flags = async () => Object.fromEntries((await (await s.call('GET')).json()).orders.map((o) => [o.id, o.pathGift === true]));
+  assert.deepEqual(await flags(), { MINE: true, ALSO: true, OTHER: false, GUEST: false });
+
+  const shipped = await (await s.call('POST', { id: 'MINE', tracking: '9400100000000000000000' })).json();
+  assert.equal(shipped.pathGift, true);
+  assert.equal(s.g.docs['users/juniper'].pendingGift6.booleanValue, false);
+  assert.equal(s.g.docs['users/juniper'].gift6SentWith.stringValue, 'MINE');
+  assert.equal(s.g.docs['users/juniper'].charges.integerValue, '6');
+  // their other order no longer asks for it
+  assert.deepEqual(await flags(), { ALSO: false, OTHER: false, GUEST: false });
+  assert.equal((await (await s.call('POST', { id: 'GUEST', tracking: '9400100000000000000001' })).json()).pathGift, false);
+});
