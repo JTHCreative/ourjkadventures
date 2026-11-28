@@ -411,8 +411,9 @@ async function registerPage() {
       : 'your ' + out.pin.name + ' pin is in your collection. thank you!';
     const count = $('[data-done-count]');
     // a card that came with a pin on us joins the collection without adding a step
-    count.textContent = out.status !== 'registered' ? '' : out.counted === false ? 'this one came as a pin on us, so it joins your collection without adding a step.'
-      : REACHED_WORDS[out.reached] || countWords(out.charges);
+    count.textContent = out.status !== 'registered' ? '' : out.full ? 'you\'ve already walked all ten steps of the path, so this one is just for your board.'
+      : out.counted === false ? 'this one came as a pin on us, so it joins your collection without adding a step.'
+        : REACHED_WORDS[out.reached] || countWords(out.charges);
     count.hidden = !count.textContent;
     card.hidden = true;
     done.hidden = false;
@@ -516,13 +517,12 @@ function paintPath(charges, rewards) {
     if (PATH_MARKS.indexOf(i) >= 0) li.classList.add('is-mark');
     track.appendChild(li);
   }
-  // what's theirs right now. the first look and the little extra are kept for good, so they stay ticked after
-  // the path starts again; the pin on us is ticked only while one is waiting
+  // what's theirs right now, and what has already been sent
   const r = rewards || {};
   const notes = {
     3: r.early ? 'yours.' : '',
     6: r.gift === 'coming' ? 'yours. it\'ll be in your next order from our shop.' : r.gift === 'sent' ? 'sent with one of your orders.' : '',
-    10: r.pin ? 'it\'s ready! pick your pin at checkout, the next time you order.' : ''
+    10: r.pin === 'ready' ? 'it\'s ready! pick your pin at checkout, the next time you order.' : r.pin === 'used' ? 'sent with one of your orders. thank you for collecting with us!' : ''
   };
   document.querySelectorAll('[data-path-step]').forEach(function (li) {
     const step = li.getAttribute('data-path-step');

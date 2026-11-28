@@ -16,7 +16,7 @@
 import { configured, firestoreGet, firestoreSet } from './firebase.js';
 import { isShopOpen } from './shop.js';
 import { squareConfigured, squareMode, getVariations, stockCounts } from './square.js';
-import { readShopStates, isAvailable, isPreorder, readTallies } from './interest.js';
+import { readShopStates, isAvailable, isPreorder, isEarly, readTallies } from './interest.js';
 import { preorderDateFor } from './preorder-words.js';
 import { emailConfigured } from './email.js';
 import { stateList, GIFT_MAX } from './ship-to.js';
@@ -93,11 +93,12 @@ async function build(env, origin, fetchFn) {
   let availability = {};
   let preorder = {};
   let dates = {};
+  let early = {};
   let ok = true;
   try {
     if (configured(env)) {
       links = await readLinks(env, fetchFn);
-      ({ available: availability, preorder, dates } = await readShopStates(env, fetchFn));
+      ({ available: availability, preorder, dates, early } = await readShopStates(env, fetchFn));
     }
     const ids = [...new Set(Object.values(links))];
     if (ids.length && squareConfigured(env)) {
@@ -127,6 +128,8 @@ async function build(env, origin, fetchFn) {
     const onPreorder = isPreorder(preorder, p.slug);
     // a pre-order is only for sale with its date (today or later). without one: "being made now. coming soon."
     const preorderDate = onPreorder ? preorderDateFor(dates[p.slug]) : null;
+    // collectors first: for sale, but only to accounts with a first look (checkout checks). only pins
+    const collectorsFirst = p.kind === 'pin' && isEarly(early, p.slug) && (available || !!preorderDate);
     // not available: no sizes, no price and nothing in byKey, so checkout can't sell it either.
     // on pre-order with a date: sold at its Square price without looking at the shelf or Square's "sold out" tick (the
     // pins are being made, so Square rightly calls them sold out), and ships around its pre-order date
@@ -134,7 +137,7 @@ async function build(env, origin, fetchFn) {
       const v = variations[links[k.key]];
       if (!v || !v.sellable || v.price_cents === null) continue;
       const stock = onPreorder ? PREORDER_MAX : v.marked_sold_out ? 0 : (counts[v.id] || 0);
-      byKey[k.key] = { variation_id: v.id, price_cents: v.price_cents, currency: v.currency, stock, marked_sold_out: onPreorder ? false : v.marked_sold_out, slug: p.slug, size: k.size, kind: p.kind, ...(onPreorder ? { preorder: true } : {}) };
+      byKey[k.key] = { variation_id: v.id, price_cents: v.price_cents, currency: v.currency, stock, marked_sold_out: onPreorder ? false : v.marked_sold_out, slug: p.slug, size: k.size, kind: p.kind, ...(onPreorder ? { preorder: true } : {}), ...(collectorsFirst ? { early: true } : {}) };
       sizes.push({ size: k.size, key: k.key, price_cents: v.price_cents, stock, ...(onPreorder ? { preorder: true } : {}) });
     }
     return {
@@ -145,7 +148,8 @@ async function build(env, origin, fetchFn) {
       // which round of "i'm interested" this is: a browser's remembered vote from an earlier round no longer counts
       interest_round: rounds[p.slug] || 0,
       // when it's expected in stock and shipping, "2026-12-15". only while on pre-order with a date
-      ...(preorderDate ? { preorder_date: preorderDate } : {})
+      ...(preorderDate ? { preorder_date: preorderDate } : {}),
+      ...(collectorsFirst ? { early: true } : {})
     };
   });
 

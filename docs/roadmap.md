@@ -95,12 +95,13 @@ Stage 2, my collection:
 - [x] The virtual pin board (2026-11-28): registered pins in a tray, placed, moved and turned by the collector, saved to the account (`assets/collection.js`, `POST /api/collection/board`)
 
 Stage 3, rewards:
-- [x] 3 and 6 rewards on the first lap only; a pin on us at 10 every lap (2026-11-28, `rewardChanges` in `server/codes.js`)
+- [x] Rewards at 3, 6 and 10, each once (2026-11-28, `rewardChanges` in `server/codes.js`)
 - [x] "collectors" on `/admin`: who has a first look, who is owed their extra, who has a pin on us waiting
 - [x] The 6 extra flagged on that buyer's next order in "orders to ship"; marking it shipped ticks it off
-- [x] A pin on us at 10, picked on `/checkout`, only with a paid order; ten come off the count once it's paid. Its card comes from a "pins on us" batch and adds to the collection but not the count
-- [ ] The first-look gate: only collectors with a first look can buy a chosen pin. Waiting on the owner (see the spec's open questions)
-- [ ] Owner: take one off Square's count by hand for each pin on us (the order line says so), unless the Square key is allowed to change inventory
+- [x] A pin on us at 10, picked on `/checkout`, only with a paid order, once. Its card comes from a "pins on us" batch and adds to the collection but not the count
+- [x] Collectors first (2026-11-28): a switch per pin on `/admin`; only collectors with a first look can buy it, everyone else sees it with "with our collectors first."
+- [x] Stock for a pin on us is taken off by hand in Square (owner's call, 2026-11-28; the order line says so)
+- [ ] After ten: the count stops at 10 and the pin on us is used once, until the owner decides how a second time round works
 
 Dropped 2026-11-28 (the card is the only way to earn): the `/admin/pack` packing tool, booth mode, serial stickers and the `/p/<serial>` page.
 

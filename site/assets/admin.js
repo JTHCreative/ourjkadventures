@@ -168,6 +168,7 @@ function paintProducts(data) {
   const form = $('[data-products-form]');
   const available = data.available || {};
   const preorder = data.preorder || {};
+  const early = data.early || {};
   const dates = data.preorderDates || {};
   const today = data.today || new Date().toISOString().slice(0, 10);
   const interest = data.interest || {};
@@ -230,6 +231,8 @@ function paintProducts(data) {
     };
     const avail = makeSwitch('available', 'available');
     const pre = makeSwitch('pre-order', 'on pre-order');
+    // collectors first: for sale, but only to collectors with a first look (three pins). pins only
+    const first = p.kind === 'pin' ? makeSwitch('collectors first', 'with collectors first') : null;
     // the gear: "pre-order settings", a small window with this product's pre-order date
     const gear = el('button', 'icon-btn gear-btn');
     gear.type = 'button';
@@ -240,18 +243,23 @@ function paintProducts(data) {
       '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
     const switches = el('span', 'link-product-switches');
     switches.append(avail.wrap, pre.wrap, gear);
+    if (first) switches.append(first.wrap);
     head.append(name, switches);
     const words = el('p', 'caption link-product-note');
     words.setAttribute('role', 'status');
     let on = available[p.slug] !== false;
     let preOn = preorder[p.slug] === true;
+    let firstOn = early[p.slug] === true;
     const show = (extra) => {
       avail.sw.setAttribute('aria-checked', on ? 'true' : 'false');
       pre.sw.setAttribute('aria-checked', preOn ? 'true' : 'false');
+      if (first) first.sw.setAttribute('aria-checked', firstOn ? 'true' : 'false');
       box.classList.toggle('is-unavailable', !on && !preOn);
       box.classList.toggle('is-preorder', preOn);
       // in the shop: how many asked before it arrived (this round's tally, or the last round's once "it's here" went out)
-      words.textContent = availableWords(on, (interest[p.slug] || 0) || (on ? asked[p.slug] || 0 : 0), preOn, dates[p.slug], today) + (extra ? ' ' + extra : '');
+      words.textContent = availableWords(on, (interest[p.slug] || 0) || (on ? asked[p.slug] || 0 : 0), preOn, dates[p.slug], today)
+        + (firstOn ? (on || preOn ? ' collectors first: only collectors with a first look can buy it for now.' : ' collectors first is on, and starts once it\'s available or on pre-order.') : '')
+        + (extra ? ' ' + extra : '');
       // the heading's "n not available" and "n on pre-order" counts listen for this
       box.dispatchEvent(new Event('change', { bubbles: true }));
     };
@@ -274,6 +282,10 @@ function paintProducts(data) {
       avail.sw.disabled = false;
       pre.sw.disabled = false;
     };
+    if (first) first.sw.addEventListener('click', () => {
+      const want = !firstOn;
+      flip('/api/admin/early', 'early', want, () => { firstOn = want; early[p.slug] = want; });
+    });
     avail.sw.addEventListener('click', () => {
       const want = !on;
       flip('/api/admin/availability', 'available', want, () => { on = want; available[p.slug] = want; });

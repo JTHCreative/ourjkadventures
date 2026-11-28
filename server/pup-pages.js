@@ -46,7 +46,8 @@ const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 export function pupOffers(catalog, slug) {
   if (!catalog || catalog.open !== true) return [];
   const item = (catalog.items || []).find((p) => p.slug === slug);
-  if (!item || !(item.available || item.preorder)) return [];
+  // collectors first: not something anyone can buy yet, so no price for search engines
+  if (!item || item.early || !(item.available || item.preorder)) return [];
   return (item.sizes || []).filter((s) => Number.isInteger(s.price_cents) && s.price_cents > 0).map((s) => {
     const row = catalog.byKey && catalog.byKey[s.key];
     return {

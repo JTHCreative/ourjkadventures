@@ -54,7 +54,10 @@
         catalog.items[p.slug] = p;
         p.sizes.forEach(function (sz) { catalog.byKey[sz.key] = { product: p, size: sz }; });
       });
-      return catalog;
+      // a pin that's with collectors first: before anything is drawn, find out whether this visitor has a first
+      // look (only asked when there is such a pin, and only of someone signed in)
+      if (!(j.items || []).some(function (p) { return p.early; })) return catalog;
+      return askFirstLook().then(function () { return catalog; });
     });
     catalogPromise.catch(function () { catalogPromise = null; });
     return catalogPromise;
@@ -178,7 +181,38 @@
 
   // the most of one thing the bag may hold: what is on the shelf, and never more than 20
   function maxQty(entry) { return catalog.open ? Math.min(20, entry.size.stock) : 20; }
-  function buyable(entry) { return !!entry && catalog.open && entry.size.stock > 0; }
+  function buyable(entry) { return !!entry && catalog.open && entry.size.stock > 0 && !(entry.product.early && firstLook !== true); }
+
+  /* ---------- collectors first (the collector's path, three pins: server/interest.js, server/codes.js) ---------- */
+  // The owner can switch a pin to "collectors first": it's in the shop for everyone to see, but only an account with
+  // a first look can buy it yet. The server decides at checkout; this only decides what the page offers. null until
+  // asked, then true or false for this visit.
+  var firstLook = null;
+  var firstLookAsk = null;
+  function askFirstLook() {
+    if (firstLookAsk) return firstLookAsk;
+    firstLookAsk = signInTicket().then(function (token) {
+      if (!token) return false;
+      return fetch('/api/collection', { headers: { Authorization: 'Bearer ' + token }, cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : {}; })
+        .then(function (c) { return !!(c.rewards && c.rewards.early); });
+    }).catch(function () { return false; }).then(function (yes) { firstLook = yes; return yes; });
+    return firstLookAsk;
+  }
+  // the same shape as the buy area, with the price but no button: what it is, and how to get a first look
+  function earlyArea(p) {
+    var area = el('div', 'buy');
+    var first = p.sizes[0];
+    area.appendChild(el('p', 'price', first ? money(first.price_cents / 100, catalog.currency) : ''));
+    area.appendChild(el('p', 'caption stock-line', 'with our collectors first. it\'ll be in the shop for everyone soon.'));
+    var how = el('p', 'caption early-how', 'a first look comes with three pins registered. ');
+    var link = el('a', null, read('jka_user') === null ? 'sign in' : 'see my collection');
+    link.href = read('jka_user') === null ? '/sign-in' : '/collection';
+    how.appendChild(link);
+    how.appendChild(document.createTextNode('.'));
+    area.appendChild(how);
+    return area;
+  }
 
   function paintDrawer() {
     bodyEl.textContent = '';
@@ -842,6 +876,7 @@
   function buyArea(p, btnClass) {
     if (p.preorder && !(catalog.open && p.sizes.length)) return preorderArea(p);
     if (p.available === false && !p.preorder) return interestArea(p, btnClass);
+    if (catalog.open && p.early && firstLook !== true) return earlyArea(p);
     var area = el('div', 'buy');
     var price = el('p', 'price', '');
     var stock = el('p', 'caption stock-line', '');

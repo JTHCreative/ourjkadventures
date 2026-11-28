@@ -1143,15 +1143,20 @@ builds by moving and turning pins, with the Collector's Path as part of the same
 - **Used only once the order is paid, and one pay press at a time.** A small hold note in the account stops two
   tabs both getting one; a declined card lets go of it. If the count can't be written after a payment, the
   collector keeps their pin: a mistake in their favour, never against them.
-- **Ten come off; extras carry over.** The owner's document says redeeming "resets the count to zero", written
-  for someone at exactly ten. Someone who registers twelve before ordering would lose two under a hard reset, so
-  twelve becomes two. Flagged to the owner as theirs to change.
+- **The count stops at ten, and the pin on us is used once (owner, 2026-11-28).** First built as "ten come off
+  and extras carry over"; the owner asked to keep it at a maximum of 10 with no reset until they've thought
+  through how a second time round should work. So a pin registered after ten joins the collection but not the
+  count, and using the pin on us marks it used and leaves the count at 10.
 - **A free pin never earns a step.** Its card comes from a "pins on us" batch: it joins the collection, the count
   doesn't move.
 - **The 6-pin extra waits for a signed-in order.** It's flagged on the Square order through the account id the
   checkout already puts there. A collector who checks out signed out isn't recognised, by design: we never match
   people up by email behind their back.
-- **The first-look gate isn't built.** Accounts are marked at 3 and listed on `/admin` with their emails. How a
-  first look should run in the shop (a "collectors first" switch per product is the suggestion) is the owner's
-  call, and it touches the shop board everyone uses, so it waits for a yes.
-
+- **Collectors first is a switch per pin (owner, 2026-11-28).** On, the pin is for sale only to accounts with a
+  first look; everyone else sees it, with its price, and "with our collectors first. it'll be in the shop for
+  everyone soon." Like opening the booth half an hour early for the regulars. The owner turns it off by hand:
+  no timer, so there's no countdown on the page and nothing to forget about in code. The server refuses the
+  order from anyone else; the page only decides what to offer. The page asks who's looking only when such a pin
+  exists and the visitor is signed in, so ordinary visits don't load the sign-in code. Pins only, and no price
+  goes to search engines while it's on.
+- **Stock for a pin on us stays manual (owner, 2026-11-28).**

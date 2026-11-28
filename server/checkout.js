@@ -18,7 +18,7 @@
 
 import { noteOrder } from './account.js';
 import { configured as firebaseConfigured, userFromRequest, firestoreGet, firestoreSet, firestoreCommit } from './firebase.js';
-import { PATH, settleRewards } from './codes.js';
+import { PATH } from './codes.js';
 import { getCatalog, shippingCharge } from './catalog.js';
 import { stockCounts, squareHost, squareMode, SQUARE_VERSION } from './square.js';
 import { cleanShipTo, cleanGift, squareAddress, addressLine, noteGift } from './ship-to.js';
@@ -85,7 +85,7 @@ export function cleanTip(raw, itemsCents) {
 }
 
 /* ---------- the collector's path: a pin on us at ten (docs/collectors-path-spec.md) ---------- */
-// Someone who has registered ten pins may add one pin to an order, on us. It rides with a paid order, never alone
+// Someone who has registered ten pins may add one pin to an order, on us, once. It rides with a paid order, never alone
 // (there's always at least one paid line here), and only through our own checkout page. Like the tenth stamp on a
 // coffee card: the card is checked by us, at the till, not by the customer.
 // The pin goes on the order as its own line with no price ("collector's path pin: corgi pin"), typed in rather
@@ -101,7 +101,16 @@ async function freePinBuyer(request, env) {
   if (!buyer || buyer.email_verified !== true) return null;
   let me = null;
   try { me = await firestoreGet(env, 'users/' + encodeURIComponent(buyer.sub)); } catch (e) { return null; }
-  return me && (me.charges || 0) >= PATH.pin ? buyer : null;
+  return me && (me.charges || 0) >= PATH.pin && me.freePinUsed !== true ? buyer : null;
+}
+// has this buyer a first look at new pins? (the collector's path, three pins)
+async function hasFirstLook(request, env) {
+  const buyer = await buyerOf(request, env);
+  if (!buyer || buyer.email_verified !== true) return false;
+  try {
+    const me = await firestoreGet(env, 'users/' + encodeURIComponent(buyer.sub));
+    return !!me && me.earlyAccess === true;
+  } catch (e) { return false; }
 }
 function pinWordsFor(catalog, key) {
   const en = catalog.byKey[key];
@@ -121,16 +130,16 @@ async function holdFreePin(env, uid) {
 async function letGoFreePin(env, uid) {
   try { await firestoreCommit(env, [{ remove: lockPath(uid), any: true }]); } catch (e) { console.log('free pin hold not released', e.message); }
 }
-// the order is paid: ten come off the count, and the order is noted so it can only ever count once
+// the order is paid: the pin on us is used, and the order is noted. the count stays at ten: the path doesn't start
+// again yet (the owner is still deciding how a second time round should work)
 async function useFreePin(env, uid, orderId, key) {
   const at = new Date();
   const user = 'users/' + encodeURIComponent(uid);
   await firestoreCommit(env, [
     { create: user + '/redemptions/' + orderId, data: { key, at } },
-    { add: user, field: 'charges', by: -PATH.pin, data: { lastFreePinAt: at } },
+    { change: user, data: { freePinUsed: true, freePinAvailable: false, lastFreePinAt: at } },
     { remove: lockPath(uid), any: true }
   ]);
-  await settleRewards(env, uid);
 }
 
 // Everything every checkout shares: read the items, the shelf, shipping, the address and the gift, and put the
@@ -177,6 +186,11 @@ async function prepare(request, env, url, body, addressNeeded, freeAllowed = tru
     qtyByKey[key] = (qtyByKey[key] || 0) + qty;
     if (qtyByKey[key] > MAX_QTY) return { res: json({ error: 'bad item' }, 400) };
   }
+
+  // collectors first: a pin the owner has switched to "collectors first" can only be bought by a signed-in account
+  // with a first look (three pins registered at some point, a confirmed email). checked here, never in the browser
+  const earlyKeys = Object.keys(qtyByKey).filter((k) => catalog.byKey[k].early);
+  if (earlyKeys.length && !(await hasFirstLook(request, env))) return { res: json({ error: 'early', items: earlyKeys.map((k) => ({ key: k })) }, 403) };
 
   // a fresh look at the shelf, not the one-minute-old list, so we never sell what the booth just sold.
   // pre-order pins aren't on the shelf yet: they're limited only by how many one order may hold (MAX_QTY)
@@ -448,7 +462,7 @@ async function charge(request, env, url, body, ctx, p, tip, buyer, source, attem
     return json({ error: 'square' }, 502);
   }
   await afterOrder(env, buyer, p.gift, order.id);
-  // the pin on us is used: ten off the count. the sale is done either way; if this can't be written the hold
+  // the pin on us is used. the sale is done either way; if this can't be written the hold
   // goes stale by itself and their pin is still waiting, which errs in the collector's favour
   if (p.freePin) {
     try { await useFreePin(env, p.freePin.uid, order.id, p.freePin.key); } catch (e) { console.log('free pin not counted', e.message); }

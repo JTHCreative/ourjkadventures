@@ -48,8 +48,12 @@ You can download a batch again at any time.
 Open `/admin`, "collectors", to see who has reached what.
 
 ## 3 pins: a first look at new pins
-1. "collectors" lists everyone with a first look. "copy their emails" copies the list.
-2. For now a first look is by hand: write to them before a new pin goes in the shop.
+1. In "products and square", switch the new pin's "collectors first" on. It needs to be available (or on
+   pre-order) and linked to its Square item, like any pin for sale.
+2. Only collectors with a first look can buy it now. Everyone else sees it with its price and "with our
+   collectors first. it'll be in the shop for everyone soon."
+3. "collectors" lists everyone with a first look. "copy their emails" copies the list, so you can tell them.
+4. When you're ready for everyone, switch "collectors first" off.
 
 ## 6 pins: a little extra with their next order
 1. When that collector next orders while signed in, the order in "orders to ship" says "collector's extra".
@@ -63,5 +67,5 @@ Open `/admin`, "collectors", to see who has reached what.
 3. **Take one off that pin's count in Square.** Square can't do it for a line like this one.
 4. **Send it with a card from a "pins on us" batch.** In "code cards", tick "these go with pins on us" before
    pressing "make the codes". Those cards add the pin to their collection without adding a step.
-5. Ten come off their count by themselves once the order is paid.
+5. Each collector gets one pin on us. Their count stays at 10 for now.
 

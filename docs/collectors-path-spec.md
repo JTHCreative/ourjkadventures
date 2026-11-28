@@ -79,7 +79,8 @@ users/{uid}
   earlyAccess: boolean       // set true the first time charges reach 3, never unset
   gift6Awarded: boolean      // set true the first time charges reach 6, never unset (first lap only)
   pendingGift6: boolean      // true until the owner ships the gift with their next order
-  freePinAvailable: boolean  // true while charges is 10 or more
+  freePinAvailable: boolean  // true at 10 until the pin on us is used
+  freePinUsed?: boolean      // the pin on us went out with an order
   gift6SentWith?: string     // the Square order the 6-pin extra went out with
 
 users/{uid}/orders/{squareOrderId}  // note that this buyer started a checkout, for order history
@@ -118,15 +119,20 @@ refuses to make the lock twice, so a card can only ever produce one charge howev
   characters could be recovered from a hash by trying them all anyway (see `decisions.md`).
 - The Meta Pixel never loads on `/register`: its address can carry a code.
 
-## Rewards (stage 3, built 2026-11-28 except the early access gate)
+## Rewards (stage 3, built 2026-11-28)
 The account's rewards are worked out from its count every time a card is registered or the collection is
 opened (`rewardChanges`, `settleRewards` in `server/codes.js`), so they can't drift from the count.
 
 ### 3 pins: a first look at new pins
 - `earlyAccess` goes true at 3 and stays true. My collection shows "yours."
 - "collectors" on `/admin` lists everyone who has it, with a button to copy their emails.
-- **Not built: the gate itself** (a way for only these accounts to buy a pin before everyone else). See
-  "open questions".
+- **Collectors first** (built 2026-11-28): each pin has a third switch in "products and square" on `/admin`
+  (`settings/early_<square mode>`, `POST /api/admin/early`). On, the pin is for sale only to signed-in accounts
+  with a confirmed email and `earlyAccess`. Everyone else sees it with its price, "with our collectors first.
+  it'll be in the shop for everyone soon." and how to get a first look. The catalog marks it `early: true`; the
+  page asks `/api/collection` whether this visitor has a first look (only when such a pin exists and they're
+  signed in); checkout refuses anyone else (`error: "early"`). No price is given to search engines while it's on.
+  The owner switches it off to let everyone buy. Pins only.
 
 ### 6 pins: a little extra with their next order
 - `gift6Awarded` goes true at 6, once per person, and `pendingGift6` is true until it has gone out.
@@ -136,8 +142,10 @@ opened (`rewardChanges`, `settleRewards` in `server/codes.js`), so they can't dr
 - A collector who checks out signed out never triggers it: it waits for a signed-in order.
 
 ### 10 pins: a pin on us
-1. `freePinAvailable` is true while the count is 10 or more. My collection says "it's ready! pick your pin at
-   checkout, the next time you order."
+1. The count stops at 10. `freePinAvailable` is true at 10 until the pin on us has been used
+   (`freePinUsed`). My collection says "it's ready! pick your pin at checkout, the next time you order."
+   **The path doesn't start again yet**: the owner is still deciding how a second time round should work
+   (2026-11-28). A pin registered after ten joins the collection and `lifetimeCharges`, not the count.
 2. On `/checkout` (our own card form only, never Square's hosted page), a signed-in collector with a
    confirmed email and 10 or more sees "a pin on us" with a drop-down of pins on the shelf (no boards, no
    pre-orders). The page sends only the pin's key (`free_pin`); the quote says whether one is ready
@@ -148,23 +156,18 @@ opened (`rewardChanges`, `settleRewards` in `server/codes.js`), so they can't dr
    ships alone.
 4. One pay press at a time may use it (`users/<uid>/locks/free_pin`, stale after 10 minutes). A declined card
    or any other "not paid" answer lets go of it.
-5. Once the payment goes through: 10 come off the count, `users/<uid>/redemptions/<square order id>` is
-   made, and the rewards are settled again. **Extra pins carry over**: 12 becomes 2, not 0.
+5. Once the payment goes through: `freePinUsed` goes true, `users/<uid>/redemptions/<square order id>` is
+   made, and the count stays at 10. One pin on us per collector, for now.
 6. The line's note asks the owner to take one off that pin's count in Square (Square can't count a typed
    line), and to send it with a card from a "pins on us" batch: those cards (`free: true` on the code and
    its batch) add the pin to the collection without adding a step, so a free pin never earns a charge.
 
 ## Open questions for the owner
-- **How should the first look at new pins work?** The accounts are marked and listed on `/admin`. A gate
-  would be a third switch per product ("collectors first"): while on, only signed-in accounts with a first
-  look can buy it, and everyone else sees it with a line saying collectors get a first look. Until that's
-  decided, a first look is by hand (email the list, or sell at a booth).
-- **Carry-over at ten.** `pricing-and-loyalty.md` says redeeming "resets the count to zero". Built as "ten
-  come off" so an 11th or 12th pin registered before ordering isn't lost. Say so if it should be a hard zero.
-- **Stock for a pin on us** is taken off by hand in Square. It could be done for you if the Square key is
-  allowed to change inventory.
+- **What happens after ten?** For now the count stops at 10 and the pin on us is used once. When the owner
+  decides how a second time round works, `rewardChanges` and `useFreePin` are the two places to change.
 
 ## Resolved
+- **Rewards (2026-11-28):** a first look is a "collectors first" switch per pin. The count is kept at a maximum of 10 with no reset yet. Stock for a pin on us is taken off by hand in Square.
 - **Code cards (2026-11-28):** the code lives on a card that goes out with the pin, 8 characters, the first three for the pin. The card is the only way to earn a charge, on every channel. The QR code opens `/register` with the code filled in. The packing tool, serial stickers and `/p/<serial>` page are dropped.
 - **Double counting (2026-10-25, simplified 2026-11-28):** each code can be registered once, and nothing else earns a charge. See "How charges arrive".
 - **First-lap rewards (2026-10-25):** the 3 and 6 rewards happen once per person. The free pin at 10 repeats.

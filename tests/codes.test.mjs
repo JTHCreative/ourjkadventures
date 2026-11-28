@@ -229,15 +229,16 @@ test('my collection keeps to itself too, and the board keeps pins where they can
   }
 });
 
-test('rewards are worked out from the count: once at 3 and 6, every time at 10', () => {
+test('rewards are worked out from the count, each one once', () => {
   assert.equal(rewardChanges({ charges: 2 }), null);
   assert.deepEqual(rewardChanges({ charges: 3 }), { earlyAccess: true });
   assert.deepEqual(rewardChanges({ charges: 6, earlyAccess: true }), { gift6Awarded: true, pendingGift6: true });
   assert.deepEqual(rewardChanges({ charges: 10, earlyAccess: true, gift6Awarded: true, pendingGift6: false }), { freePinAvailable: true });
-  // second lap: the first look and the extra don't come round again, and a sent extra stays sent
+  // a sent extra stays sent, and isn't owed again
   assert.equal(rewardChanges({ charges: 7, earlyAccess: true, gift6Awarded: true, pendingGift6: false, freePinAvailable: false }), null);
-  // the pin was used and ten came off
-  assert.deepEqual(rewardChanges({ charges: 1, earlyAccess: true, gift6Awarded: true, freePinAvailable: true }), { freePinAvailable: false });
+  // the pin on us was used: it isn't offered again, and the count stays at ten
+  assert.equal(rewardChanges({ charges: 10, earlyAccess: true, gift6Awarded: true, freePinAvailable: false, freePinUsed: true }), null);
+  assert.deepEqual(rewardChanges({ charges: 10, earlyAccess: true, gift6Awarded: true, freePinAvailable: true, freePinUsed: true }), { freePinAvailable: false });
 });
 
 test('registering pins walks the path, and the owner can see who is where', async () => {
@@ -250,10 +251,17 @@ test('registering pins walks the path, and the owner can see who is where', asyn
   const flag = (f) => s.g.docs['users/juniper'][f] && s.g.docs['users/juniper'][f].booleanValue;
   assert.deepEqual([flag('earlyAccess'), flag('gift6Awarded'), flag('pendingGift6'), flag('freePinAvailable')], [true, true, true, true]);
   const mine = await (await s.call('GET', '/api/collection', { token: await sign({ sub: 'juniper' }) })).json();
-  assert.deepEqual(mine.rewards, { early: true, gift: 'coming', pin: true });
+  assert.deepEqual(mine.rewards, { early: true, gift: 'coming', pin: 'ready' });
+
+  // the path stops at ten: an eleventh pin joins the collection, and the count stays where it is
+  const more = await s.print('beagle', 1);
+  const eleventh = await s.register(more.codes[0], { sub: 'juniper' });
+  assert.deepEqual([eleventh.status, eleventh.charges, eleventh.counted, eleventh.full], ['registered', 10, false, true]);
+  assert.equal(s.str('users/juniper', 'lifetimeCharges'), 11);
+  assert.equal((await (await s.call('GET', '/api/collection', { token: await sign({ sub: 'juniper' }) })).json()).pins.length, 11);
 
   const list = await (await s.asOwner('GET', '/api/admin/collectors')).json();
-  for (const k of ['early', 'gift', 'pin']) assert.deepEqual(list[k], [{ email: 'juniper@example.com', name: 'Juniper', pins: 10 }]);
+  for (const k of ['early', 'gift', 'pin']) assert.deepEqual(list[k], [{ email: 'juniper@example.com', name: 'Juniper', pins: 11 }]);
   assert.equal((await s.call('GET', '/api/admin/collectors', { token: await sign({ sub: 'juniper' }) })).status, 403);
 });
 

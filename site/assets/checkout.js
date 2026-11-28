@@ -400,6 +400,7 @@
     return post('/api/checkout/quote', ask).then(function (res) {
       var r = res.r, j = res.j;
       if (j.error === 'free_pin') return freePinRefused(j);
+      if (j.error === 'early') return collectorsFirst(j);
       if (r.status === 409 || r.status === 403) return shelfChanged(j, r.status === 403);
       if (!r.ok) throw new Error('quote');
       if (mine !== quoteAsk) return null;
@@ -462,6 +463,16 @@
         : 'we couldn\'t add your pin on us just now. your order is fine without it, and your pin will keep.';
     msg.hidden = false;
     return J.loadCatalog(true).then(function () { repaint(); return null; }, function () { repaint(); return null; });
+  }
+
+  // a pin in the bag went to "collectors first" (or they signed out) since it was added: it can't be bought by this
+  // visitor yet. nothing is charged; the page says which, and the order goes on once it's out of the bag
+  function collectorsFirst(j) {
+    var names = (j.items || []).map(function (it) { return catalog.byKey[it.key] ? J.lineName(it.key) : ''; }).filter(Boolean);
+    showError((names.length ? 'the ' + names.join(' and the ') + (names.length > 1 ? ' are' : ' is') : 'one of these pins is')
+      + ' with our collectors first for now, and nothing was charged. take ' + (names.length > 1 ? 'them' : 'it') + ' out of your bag to carry on, or sign in if you\'re a collector.');
+    $('[data-co-tax]').textContent = 'added when you pay';
+    return null;
   }
 
   // someone else got there first, or the shop just closed: show the order as it really is now
@@ -668,6 +679,7 @@
   function handleRefusal(res, o) {
     var r = res.r, j = res.j;
     if (j.error === 'free_pin') { freePinRefused(j); showError('nothing was charged. take a look at your order, then press pay again.'); return true; }
+    if (j.error === 'early') { collectorsFirst(j); return true; }
     if (r.status === 409 && j.error === 'total') {
       // a price changed in Square while they were checking out: nothing was charged. show the new total to confirm
       lastQuote = null;

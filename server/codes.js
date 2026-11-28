@@ -50,13 +50,16 @@ export const PATH = { early: 3, gift: 6, pin: 10 };
 // Like a punch card checked against its own punches: it can be run any number of times and lands in the same place.
 //   earlyAccess        true from 3, for good
 //   gift6Awarded       true from 6, for good. pendingGift6 is true until the extra has gone out with an order
-//   freePinAvailable   true while the count is 10 or more (using the pin takes ten off: server/checkout.js)
+//   freePinAvailable   true at 10 until the pin on us has been used (freePinUsed, set by server/checkout.js).
+//                      the count stops at 10 and, for now, the path doesn't start again: the owner hasn't decided
+//                      how a second time round should work (docs/decisions.md)
 export function rewardChanges(me) {
   const count = (me && me.charges) || 0;
   const to = {};
   if (count >= PATH.early && me.earlyAccess !== true) to.earlyAccess = true;
   if (count >= PATH.gift && me.gift6Awarded !== true) { to.gift6Awarded = true; to.pendingGift6 = true; }
-  if ((count >= PATH.pin) !== (me.freePinAvailable === true)) to.freePinAvailable = count >= PATH.pin;
+  const pinReady = count >= PATH.pin && me.freePinUsed !== true;
+  if (pinReady !== (me.freePinAvailable === true)) to.freePinAvailable = pinReady;
   return Object.keys(to).length ? to : null;
 }
 // reads the account, brings its rewards up to date, and returns it with what just changed (`reached`)
@@ -70,7 +73,7 @@ function rewardView(me) {
   return {
     early: me.earlyAccess === true,
     gift: me.pendingGift6 === true ? 'coming' : me.gift6Awarded === true ? 'sent' : '',
-    pin: me.freePinAvailable === true
+    pin: me.freePinAvailable === true ? 'ready' : me.freePinUsed === true ? 'used' : ''
   };
 }
 
@@ -173,8 +176,11 @@ async function register(env, uid, code, pins, fetchFn) {
     { change: 'codes/' + code, data: { claimedBy: uid, claimedAt: at } },
     { create: userPath(uid) + '/collection/' + code, data: { slug: card.slug, size: card.size || 'standard', at } }
   ];
-  // the card that goes with a pin on us: the pin joins the collection, but a free pin never earns a step
-  if (card.free !== true) writes.push({ add: userPath(uid), fields: ['charges', 'lifetimeCharges'], data: { lastPinAt: at } });
+  // the card that goes with a pin on us: the pin joins the collection, but a free pin never earns a step.
+  // the path stops at ten: a pin registered after that still joins the collection and the lifetime count
+  const before = (await firestoreGet(env, userPath(uid), fetchFn)) || {};
+  const atTheEnd = (before.charges || 0) >= PATH.pin;
+  if (card.free !== true) writes.push({ add: userPath(uid), fields: atTheEnd ? ['lifetimeCharges'] : ['charges', 'lifetimeCharges'], data: { lastPinAt: at } });
   if (card.batch) writes.push({ add: 'code_batches/' + card.batch, field: 'claimed', data: { lastClaimAt: at } });
   if (!(await firestoreCommit(env, writes, fetchFn))) {
     // someone got there a moment before (or this is a second press of the same button)
@@ -186,7 +192,7 @@ async function register(env, uid, code, pins, fetchFn) {
   try { me = await settleRewards(env, uid, fetchFn); } catch (e) { console.log('rewards not settled', e.message); }
   const reached = me.reached || {};
   return {
-    status: 'registered', pin, charges: me.charges || 0, counted: card.free !== true,
+    status: 'registered', pin, charges: me.charges || 0, counted: card.free !== true && !atTheEnd, ...(atTheEnd && card.free !== true ? { full: true } : {}),
     // the step this pin just reached, if any: "early" (3), "gift" (6) or "pin" (10)
     ...(reached.freePinAvailable ? { reached: 'pin' } : reached.gift6Awarded ? { reached: 'gift' } : reached.earlyAccess ? { reached: 'early' } : {})
   };
