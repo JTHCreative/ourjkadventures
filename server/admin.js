@@ -42,7 +42,8 @@
 //   GET  /api/admin/pin-requests   pins people asked us to make (server/pin-requests.js), newest first
 //   DELETE /api/admin/pin-requests { id }  take one off the list
 //   GET  /api/admin/codes          code cards (server/codes.js): the pins that have them and every print run
-//   POST /api/admin/codes { slug, size, count }  make a print run of new codes
+//   POST /api/admin/codes { slug, size, count, free? }  make a print run of new codes (free: cards for pins on us)
+//   GET  /api/admin/collectors     who has reached 3, 6 and 10 on the collector's path (server/codes.js)
 //   GET  /api/admin/codes/batch?id=  one print run's codes, for the spreadsheet
 //   POST /api/admin/codes/card { code }  look a card up; with cancelled: true | false, cancel it or put it back
 //   GET  /api/admin/instagram  does the key in cloudflare open @ourjkadventures, and how many reels (never the key)
@@ -64,7 +65,7 @@ import { giftList, giftDone } from './ship-to.js';
 import { ordersToShip, markShipped, sendMoved, orderHistory, hideOrder, hiddenHistory } from './shipped.js';
 import { emailConfigured } from './email.js';
 import { listRequests, removeRequest } from './pin-requests.js';
-import { codeCards, makeBatch, batchCodes, lookUp, setCancelled } from './codes.js';
+import { codeCards, makeBatch, batchCodes, lookUp, setCancelled, collectors } from './codes.js';
 import { heardReport, PERIODS } from './heard-report.js';
 
 // a pre-order date the owner picked: a real day, from today up to two years out. { date } or { error }
@@ -332,6 +333,10 @@ export async function admin(request, env, fetchFn = fetch) {
       const out = await makeBatch(env, url.origin, await readJson(request), user.email, fetchFn);
       if (out.error) return json({ error: out.error }, out.status);
       return json({ ...(await codeCards(env, url.origin, fetchFn)), made: out.made });
+    }
+    if (route === 'collectors') {
+      if (request.method !== 'GET') return json({ error: 'method' }, 405);
+      return json(await collectors(env, fetchFn));
     }
     if (route === 'codes/batch') {
       if (request.method !== 'GET') return json({ error: 'method' }, 405);

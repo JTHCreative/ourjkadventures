@@ -7,7 +7,8 @@
 // accident, and no 0, 1 or L, which look like other characters in print. That's about 17 million codes per pin.
 //
 //   POST /api/codes/register   { code }   (signed in, email confirmed)
-//        -> { status: "registered", pin, charges }   it's yours now
+//        -> { status: "registered", pin, charges, counted, reached? }   it's yours now. reached: the step this
+//                                                    pin just got them to ("early", "gift" or "pin")
 //           { status: "yours", pin }                 you registered this card before
 //           { status: "taken" }                      someone else registered it first
 //           { status: "unknown" }                    no such card (or a cancelled one). counts as a wrong try
@@ -20,10 +21,11 @@
 //        where they've put their pins. x and y are the pin's middle, as a share of the board's width and height
 //        (0 to 1), so the board looks the same on a phone and a desk. r is the turn in degrees, z which pin is on
 //        top. Only pins already in their collection can be moved: the board never adds or removes a pin.
-//   (owner, through server/admin.js) codeCards, makeBatch, batchCodes, lookUp, setCancelled
+//   (owner, through server/admin.js) codeCards, makeBatch, batchCodes, lookUp, setCancelled, collectors
 //
 // Firestore, server only (firestore.rules blocks browsers):
-//   codes/{CODE}                     { slug, size, batch, createdAt, claimedBy?, claimedAt?, cancelled? }
+//   codes/{CODE}                     { slug, size, batch, createdAt, claimedBy?, claimedAt?, cancelled?, free? }
+//                                    free: the card for a pin on us. it joins the collection without a step
 //   code_claims/{CODE}               { uid, at }   made once, by whoever registers the card first. this is the lock:
 //                                                  Firestore refuses to make it twice, so two people can't both win
 //   code_batches/{id}                { slug, size, count, claimed, createdAt, createdBy }   one print run
@@ -35,10 +37,42 @@
 // random characters a scrambled copy could be unscrambled by trying them all anyway. See docs/decisions.md.
 
 import {
-  configured, userFromRequest, firestoreGet, firestoreList, firestoreQuery, firestoreCommit
+  configured, userFromRequest, firestoreGet, firestoreList, firestoreQuery, firestoreCommit, firestoreUpdate
 } from './firebase.js';
 import { siteProducts } from './catalog.js';
 import { userPath } from './account.js';
+
+// the collector's path: what each count brings (docs/pricing-and-loyalty.md). every reward adds something; none of
+// them is ever money off. the first look and the little extra happen once per person; the pin repeats every ten
+export const PATH = { early: 3, gift: 6, pin: 10 };
+
+// What an account should say, worked out from its count: the fields to change, or null when it's already right.
+// Like a punch card checked against its own punches: it can be run any number of times and lands in the same place.
+//   earlyAccess        true from 3, for good
+//   gift6Awarded       true from 6, for good. pendingGift6 is true until the extra has gone out with an order
+//   freePinAvailable   true while the count is 10 or more (using the pin takes ten off: server/checkout.js)
+export function rewardChanges(me) {
+  const count = (me && me.charges) || 0;
+  const to = {};
+  if (count >= PATH.early && me.earlyAccess !== true) to.earlyAccess = true;
+  if (count >= PATH.gift && me.gift6Awarded !== true) { to.gift6Awarded = true; to.pendingGift6 = true; }
+  if ((count >= PATH.pin) !== (me.freePinAvailable === true)) to.freePinAvailable = count >= PATH.pin;
+  return Object.keys(to).length ? to : null;
+}
+// reads the account, brings its rewards up to date, and returns it with what just changed (`reached`)
+export async function settleRewards(env, uid, fetchFn = fetch) {
+  const me = (await firestoreGet(env, userPath(uid), fetchFn)) || {};
+  const to = rewardChanges(me);
+  if (to) await firestoreUpdate(env, userPath(uid), to, fetchFn);
+  return { ...me, ...(to || {}), reached: to || {} };
+}
+function rewardView(me) {
+  return {
+    early: me.earlyAccess === true,
+    gift: me.pendingGift6 === true ? 'coming' : me.gift6Awarded === true ? 'sent' : '',
+    pin: me.freePinAvailable === true
+  };
+}
 
 export const LETTERS = '23456789BCDFGHJKMNPQRSTVWXYZ';
 export const CODE_LENGTH = 8;
@@ -137,21 +171,30 @@ async function register(env, uid, code, pins, fetchFn) {
   const writes = [
     { create: 'code_claims/' + code, data: { uid, at } },
     { change: 'codes/' + code, data: { claimedBy: uid, claimedAt: at } },
-    { create: userPath(uid) + '/collection/' + code, data: { slug: card.slug, size: card.size || 'standard', at } },
-    { add: userPath(uid), fields: ['charges', 'lifetimeCharges'], data: { lastPinAt: at } }
+    { create: userPath(uid) + '/collection/' + code, data: { slug: card.slug, size: card.size || 'standard', at } }
   ];
+  // the card that goes with a pin on us: the pin joins the collection, but a free pin never earns a step
+  if (card.free !== true) writes.push({ add: userPath(uid), fields: ['charges', 'lifetimeCharges'], data: { lastPinAt: at } });
   if (card.batch) writes.push({ add: 'code_batches/' + card.batch, field: 'claimed', data: { lastClaimAt: at } });
   if (!(await firestoreCommit(env, writes, fetchFn))) {
     // someone got there a moment before (or this is a second press of the same button)
     const now = await firestoreGet(env, 'code_claims/' + code, fetchFn);
     return now && now.uid === uid ? { status: 'yours', pin } : { status: 'taken' };
   }
-  const me = await firestoreGet(env, userPath(uid), fetchFn);
-  return { status: 'registered', pin, charges: (me && me.charges) || 0 };
+  // the pin is theirs whatever happens next: a hiccup here is put right the next time their collection is opened
+  let me = {};
+  try { me = await settleRewards(env, uid, fetchFn); } catch (e) { console.log('rewards not settled', e.message); }
+  const reached = me.reached || {};
+  return {
+    status: 'registered', pin, charges: me.charges || 0, counted: card.free !== true,
+    // the step this pin just reached, if any: "early" (3), "gift" (6) or "pin" (10)
+    ...(reached.freePinAvailable ? { reached: 'pin' } : reached.gift6Awarded ? { reached: 'gift' } : reached.earlyAccess ? { reached: 'early' } : {})
+  };
 }
 
 async function collection(env, uid, pins, fetchFn) {
-  const me = await firestoreGet(env, userPath(uid), fetchFn);
+  let me;
+  try { me = await settleRewards(env, uid, fetchFn); } catch (e) { me = (await firestoreGet(env, userPath(uid), fetchFn)) || {}; }
   const rows = await firestoreList(env, userPath(uid) + '/collection', COLLECTION_MAX, fetchFn);
   const num = (v, fallback) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
   const list = rows.map((r) => ({
@@ -159,7 +202,7 @@ async function collection(env, uid, pins, fetchFn) {
     on: r.on === true, x: num(r.x, 0.5), y: num(r.y, 0.5), r: num(r.r, 0), z: num(r.z, 0)
   }));
   list.sort((a, b) => b.at.localeCompare(a.at));
-  return { charges: (me && me.charges) || 0, pins: list };
+  return { charges: (me && me.charges) || 0, rewards: rewardView(me || {}), pins: list };
 }
 
 // one pin's place on the board, tidied. null if it isn't a place
@@ -197,7 +240,7 @@ export async function codeCards(env, origin, fetchFn = fetch) {
   const pins = codePins(await siteProducts(env, origin));
   const rows = await firestoreList(env, 'code_batches', BATCHES_SHOWN, fetchFn);
   const batches = rows.map((b) => ({
-    id: b.id, ...pinView(pins, b.slug, b.size), count: b.count || 0, claimed: b.claimed || 0,
+    id: b.id, ...pinView(pins, b.slug, b.size), count: b.count || 0, claimed: b.claimed || 0, free: b.free === true,
     at: b.createdAt ? new Date(b.createdAt).toISOString() : ''
   }));
   batches.sort((a, b) => b.at.localeCompare(a.at));
@@ -214,14 +257,18 @@ export async function makeBatch(env, origin, body, who, fetchFn = fetch) {
   const count = body.count;
   if (!Number.isInteger(count) || count < 1 || count > BATCH_MAX) return { error: 'count', status: 400 };
 
+  // cards for pins on us (the reward at ten): they add the pin to a collection without adding a step
+  if (body.free !== undefined && typeof body.free !== 'boolean') return { error: 'free', status: 400 };
+  const free = body.free === true;
+
   const id = crypto.randomUUID().replace(/-/g, '').slice(0, 20);
   const createdAt = new Date();
   // a code that's already in use would spoil the whole lot, so on that (very rare) day we draw again
   for (let attempt = 0; attempt < 4; attempt++) {
     const codes = new Set();
     while (codes.size < count) codes.add(pin.prefix + randomTail());
-    const writes = [...codes].map((code) => ({ create: 'codes/' + code, data: { slug: pin.slug, size, batch: id, createdAt } }));
-    writes.push({ create: 'code_batches/' + id, data: { slug: pin.slug, size, count, claimed: 0, createdAt, createdBy: who || '' } });
+    const writes = [...codes].map((code) => ({ create: 'codes/' + code, data: { slug: pin.slug, size, batch: id, createdAt, ...(free ? { free: true } : {}) } }));
+    writes.push({ create: 'code_batches/' + id, data: { slug: pin.slug, size, count, claimed: 0, createdAt, createdBy: who || '', ...(free ? { free: true } : {}) } });
     if (await firestoreCommit(env, writes, fetchFn)) return { made: id };
   }
   throw new Error('could not draw fresh codes');
@@ -242,7 +289,7 @@ export async function batchCodes(env, origin, id, fetchFn = fetch) {
   const pins = codePins(await siteProducts(env, origin));
   const rows = await firestoreQuery(env, 'codes', { batch: id }, BATCH_MAX, fetchFn);
   const codes = rows.map((r) => cardView(r.id, r)).sort((a, b2) => a.code.localeCompare(b2.code));
-  return { batch: { id, ...pinView(pins, b.slug, b.size), count: b.count || 0, at: b.createdAt ? new Date(b.createdAt).toISOString() : '' }, codes };
+  return { batch: { id, ...pinView(pins, b.slug, b.size), count: b.count || 0, free: b.free === true, at: b.createdAt ? new Date(b.createdAt).toISOString() : '' }, codes };
 }
 
 // one card, by its code: { card: { code, status, at, pin, email } } or { error, status }
@@ -257,7 +304,7 @@ export async function lookUp(env, origin, typed, fetchFn = fetch) {
     const who = await firestoreGet(env, userPath(card.claimedBy), fetchFn);
     email = (who && who.email) || '';
   }
-  return { card: { ...cardView(code, card), pin: pinView(pins, card.slug, card.size), email } };
+  return { card: { ...cardView(code, card), pin: pinView(pins, card.slug, card.size), email, free: card.free === true } };
 }
 
 // cancel a card that was lost or misprinted, or put it back. a registered card can't be cancelled: the pin is
@@ -270,3 +317,18 @@ export async function setCancelled(env, origin, typed, cancelled, fetchFn = fetc
   await firestoreCommit(env, [{ change: 'codes/' + found.card.code, data: { cancelled } }], fetchFn);
   return lookUp(env, origin, typed, fetchFn);
 }
+
+// who has reached what on the collector's path, for the owner: { early, gift, pin }, each [{ email, name, pins }].
+// early: everyone with a first look at new pins. gift: their little extra hasn't gone out yet. pin: a pin on us is
+// waiting for their next order
+export async function collectors(env, fetchFn = fetch) {
+  const who = (rows) => rows.map((u) => ({ email: u.email || '', name: [u.firstName, u.lastName].filter(Boolean).join(' '), pins: u.lifetimeCharges || 0 }))
+    .filter((u) => u.email).sort((a, b) => a.email.localeCompare(b.email));
+  const [early, gift, pin] = await Promise.all([
+    firestoreQuery(env, 'users', { earlyAccess: true }, 500, fetchFn),
+    firestoreQuery(env, 'users', { pendingGift6: true }, 500, fetchFn),
+    firestoreQuery(env, 'users', { freePinAvailable: true }, 500, fetchFn)
+  ]);
+  return { early: who(early), gift: who(gift), pin: who(pin), path: PATH };
+}
+

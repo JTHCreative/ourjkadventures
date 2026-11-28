@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import worker from '../site/_worker.js';
 import { _resetCaches } from '../server/firebase.js';
-import { cleanCode, cleanPlace, codePins, randomTail, LETTERS, TRIES_PER_HOUR, BATCH_MAX } from '../server/codes.js';
+import { cleanCode, cleanPlace, rewardChanges, codePins, randomTail, LETTERS, TRIES_PER_HOUR, BATCH_MAX } from '../server/codes.js';
 import { fakeWorld, sign, env as baseEnv } from './helpers.mjs';
 import { inside, tidyTurn, landing } from '../site/assets/collection.js';
 
@@ -227,4 +227,44 @@ test('my collection keeps to itself too, and the board keeps pins where they can
     const spot = landing(n);
     assert.equal(cleanPlace({ id: 'AUS22222', x: inside(spot.x), y: inside(spot.y), r: tidyTurn(n * 37), z: n }).data.on, true);
   }
+});
+
+test('rewards are worked out from the count: once at 3 and 6, every time at 10', () => {
+  assert.equal(rewardChanges({ charges: 2 }), null);
+  assert.deepEqual(rewardChanges({ charges: 3 }), { earlyAccess: true });
+  assert.deepEqual(rewardChanges({ charges: 6, earlyAccess: true }), { gift6Awarded: true, pendingGift6: true });
+  assert.deepEqual(rewardChanges({ charges: 10, earlyAccess: true, gift6Awarded: true, pendingGift6: false }), { freePinAvailable: true });
+  // second lap: the first look and the extra don't come round again, and a sent extra stays sent
+  assert.equal(rewardChanges({ charges: 7, earlyAccess: true, gift6Awarded: true, pendingGift6: false, freePinAvailable: false }), null);
+  // the pin was used and ten came off
+  assert.deepEqual(rewardChanges({ charges: 1, earlyAccess: true, gift6Awarded: true, freePinAvailable: true }), { freePinAvailable: false });
+});
+
+test('registering pins walks the path, and the owner can see who is where', async () => {
+  const s = setup();
+  const { codes } = await s.print('beagle', 10);
+  s.g.docs['users/juniper'] = { email: { stringValue: 'juniper@example.com' }, firstName: { stringValue: 'Juniper' } };
+  const got = [];
+  for (const c of codes) got.push((await s.register(c, { sub: 'juniper' })).reached || '');
+  assert.deepEqual(got, ['', '', 'early', '', '', 'gift', '', '', '', 'pin']);
+  const flag = (f) => s.g.docs['users/juniper'][f] && s.g.docs['users/juniper'][f].booleanValue;
+  assert.deepEqual([flag('earlyAccess'), flag('gift6Awarded'), flag('pendingGift6'), flag('freePinAvailable')], [true, true, true, true]);
+  const mine = await (await s.call('GET', '/api/collection', { token: await sign({ sub: 'juniper' }) })).json();
+  assert.deepEqual(mine.rewards, { early: true, gift: 'coming', pin: true });
+
+  const list = await (await s.asOwner('GET', '/api/admin/collectors')).json();
+  for (const k of ['early', 'gift', 'pin']) assert.deepEqual(list[k], [{ email: 'juniper@example.com', name: 'Juniper', pins: 10 }]);
+  assert.equal((await s.call('GET', '/api/admin/collectors', { token: await sign({ sub: 'juniper' }) })).status, 403);
+});
+
+test('a card for a pin on us joins the collection without adding a step', async () => {
+  const s = setup();
+  const made = await (await s.asOwner('POST', '/api/admin/codes', { slug: 'corgi', count: 1, free: true })).json();
+  assert.equal(made.batches[0].free, true);
+  const run = await (await s.asOwner('GET', '/api/admin/codes/batch?id=' + made.made)).json();
+  const r = await s.register(run.codes[0].code, { sub: 'juniper' });
+  assert.deepEqual([r.status, r.charges, r.counted], ['registered', 0, false]);
+  assert.ok(s.g.docs['users/juniper/collection/' + run.codes[0].code]);
+  assert.equal(s.str('users/juniper', 'charges'), undefined);
+  assert.equal((await s.asOwner('POST', '/api/admin/codes', { slug: 'corgi', count: 1, free: 'yes' })).status, 400);
 });
