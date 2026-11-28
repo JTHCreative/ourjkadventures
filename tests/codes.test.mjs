@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import worker from '../site/_worker.js';
 import { _resetCaches } from '../server/firebase.js';
-import { cleanCode, codePins, randomTail, LETTERS, TRIES_PER_HOUR, BATCH_MAX } from '../server/codes.js';
+import { cleanCode, cleanPlace, codePins, randomTail, LETTERS, TRIES_PER_HOUR, BATCH_MAX } from '../server/codes.js';
 import { fakeWorld, sign, env as baseEnv } from './helpers.mjs';
 
 const OWNER = 'owner@example.com';
@@ -168,4 +168,39 @@ test('the register page keeps to itself: not indexed, no pixel, and the same let
   assert.match(read('assets/pixel.js'), /QUIET = [^\n]*\|register\)/);
   assert.ok(read('assets/account.js').includes("const CODE_LETTERS = '" + LETTERS + "';"));
   assert.ok(!read('sitemap.xml').includes('/register'));
+});
+
+test('the pin board: only your own pins can be placed, and only in sensible spots', async () => {
+  const s = setup();
+  const { codes } = await s.print('corgi', 3);
+  await s.register(codes[0], { sub: 'juniper' });
+  await s.register(codes[1], { sub: 'juniper' });
+  await s.register(codes[2], { sub: 'maple' });
+  const mine = async (sub) => (await (await s.call('GET', '/api/collection', { token: await sign({ sub }) })).json()).pins;
+  const save = async (sub, pins) => (await s.call('POST', '/api/collection/board', { token: await sign({ sub }), body: { pins } })).status;
+
+  // a new pin waits in the tray
+  assert.deepEqual((await mine('juniper')).map((p) => [p.on, p.x, p.y, p.r]), [[false, 0.5, 0.5, 0], [false, 0.5, 0.5, 0]]);
+  assert.equal(await save('juniper', [{ id: codes[0], x: 0.251234, y: 0.75, r: -30.04, z: 2 }]), 200);
+  const placed = (await mine('juniper')).find((p) => p.id === codes[0]);
+  assert.deepEqual([placed.on, placed.x, placed.y, placed.r, placed.z, placed.slug], [true, 0.2512, 0.75, -30, 2, 'corgi']);
+  // back to the tray: it stays in the collection
+  assert.equal(await save('juniper', [{ id: codes[0], off: true }]), 200);
+  assert.equal((await mine('juniper')).find((p) => p.id === codes[0]).on, false);
+  assert.equal((await mine('juniper')).length, 2);
+
+  // someone else's pin, or one nobody has: nothing is saved, not even the good half of the list
+  assert.equal(await save('juniper', [{ id: codes[1], x: 0.1, y: 0.1, r: 0, z: 1 }, { id: codes[2], x: 0.5, y: 0.5, r: 0, z: 1 }]), 404);
+  assert.equal((await mine('juniper')).find((p) => p.id === codes[1]).on, false);
+  assert.equal(s.g.docs['users/juniper/collection/' + codes[2]], undefined);
+  assert.equal((await mine('maple'))[0].on, false);
+
+  for (const bad of [[], 'x', [{ id: codes[1], x: 1.2, y: 0.5, r: 0, z: 1 }], [{ id: codes[1], x: 0.5, y: 0.5, r: 400, z: 1 }], [{ id: codes[1], x: '0.5', y: 0.5, r: 0, z: 1 }],
+    [{ id: 'nope', x: 0.5, y: 0.5, r: 0, z: 1 }], [{ id: codes[1], off: true }, { id: codes[1], off: true }]]) {
+    assert.equal(await save('juniper', bad), 400, JSON.stringify(bad));
+  }
+  assert.equal((await s.call('POST', '/api/collection/board', { body: { pins: [] } })).status, 401);
+  assert.equal(cleanPlace({ id: codes[1].toLowerCase(), off: true }), null);
+  // charges are never touched by the board
+  assert.equal(s.str('users/juniper', 'charges'), 2);
 });

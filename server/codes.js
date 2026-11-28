@@ -13,7 +13,13 @@
 //           { status: "unknown" }                    no such card (or a cancelled one). counts as a wrong try
 //           { status: "limit" }                      too many wrong tries this hour
 //           { error: "code" } (400), { error: "signed out" } (401), { error: "confirm" } (403: email not confirmed)
-//   GET  /api/collection                  (signed in) -> { charges, pins: [{ slug, name, size, at }] }, newest first
+//   GET  /api/collection                  (signed in) -> { charges, pins: [{ id, slug, name, size, at, on, x, y, r, z }] },
+//                                         newest first. "my collection": the pins someone has registered, and where
+//                                         each sits on their own pin board (on: false means still in the tray)
+//   POST /api/collection/board { pins: [{ id, x, y, r, z } | { id, off: true }] }   (signed in) -> { saved: n }
+//        where they've put their pins. x and y are the pin's middle, as a share of the board's width and height
+//        (0 to 1), so the board looks the same on a phone and a desk. r is the turn in degrees, z which pin is on
+//        top. Only pins already in their collection can be moved: the board never adds or removes a pin.
 //   (owner, through server/admin.js) codeCards, makeBatch, batchCodes, lookUp, setCancelled
 //
 // Firestore, server only (firestore.rules blocks browsers):
@@ -22,7 +28,8 @@
 //                                                  Firestore refuses to make it twice, so two people can't both win
 //   code_batches/{id}                { slug, size, count, claimed, createdAt, createdBy }   one print run
 //   code_tries/{uid}_{hour}          { count }     wrong guesses by one account in one hour
-//   users/{uid}/collection/{CODE}    { slug, size, at }   the pins someone has registered, kept for good
+//   users/{uid}/collection/{CODE}    { slug, size, at, on?, x?, y?, r?, z? }   the pins someone has registered, kept
+//                                    for good, and where each sits on their board
 //   users/{uid}                      charges, lifetimeCharges go up by one (only ever here, on the server)
 // Codes are kept as they are, not scrambled: the owner needs to download a print run again, and with only five
 // random characters a scrambled copy could be unscrambled by trying them all anyway. See docs/decisions.md.
@@ -80,6 +87,7 @@ function pinView(pins, slug, size) {
 export async function codesRoute(request, env, fetchFn = fetch) {
   const url = new URL(request.url);
   const isCollection = url.pathname === '/api/collection';
+  const isBoard = url.pathname === '/api/collection/board';
   if (request.method !== (isCollection ? 'GET' : 'POST')) return json({ error: 'method' }, 405);
   if (!configured(env)) return json({ error: 'not configured' }, 503);
   let user;
@@ -91,6 +99,12 @@ export async function codesRoute(request, env, fetchFn = fetch) {
   try {
     const pins = codePins(await siteProducts(env, url.origin));
     if (isCollection) return json(await collection(env, user.sub, pins, fetchFn));
+    if (isBoard) {
+      let layout = {};
+      try { layout = (await request.json()) || {}; } catch (e) {}
+      const out = await saveBoard(env, user.sub, layout, fetchFn);
+      return out.error ? json({ error: out.error }, out.status) : json(out);
+    }
     // an email nobody has confirmed could be anyone's, so it can't collect yet
     if (user.email_verified !== true) return json({ error: 'confirm' }, 403);
     let body = {};
@@ -139,9 +153,36 @@ async function register(env, uid, code, pins, fetchFn) {
 async function collection(env, uid, pins, fetchFn) {
   const me = await firestoreGet(env, userPath(uid), fetchFn);
   const rows = await firestoreList(env, userPath(uid) + '/collection', COLLECTION_MAX, fetchFn);
-  const list = rows.map((r) => ({ ...pinView(pins, r.slug, r.size), at: r.at ? new Date(r.at).toISOString() : '' }));
+  const num = (v, fallback) => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
+  const list = rows.map((r) => ({
+    id: r.id, ...pinView(pins, r.slug, r.size), at: r.at ? new Date(r.at).toISOString() : '',
+    on: r.on === true, x: num(r.x, 0.5), y: num(r.y, 0.5), r: num(r.r, 0), z: num(r.z, 0)
+  }));
   list.sort((a, b) => b.at.localeCompare(a.at));
   return { charges: (me && me.charges) || 0, pins: list };
+}
+
+// one pin's place on the board, tidied. null if it isn't a place
+export function cleanPlace(p) {
+  if (!p || typeof p !== 'object') return null;
+  const id = cleanCode(p.id);
+  if (!id || id !== p.id) return null;
+  if (p.off === true) return { id, data: { on: false } };
+  const ok = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
+  if (!ok(p.x, 0, 1) || !ok(p.y, 0, 1) || !ok(p.r, -180, 180) || !ok(p.z, 0, 100000)) return null;
+  const round = (v, places) => Math.round(v * places) / places;
+  return { id, data: { on: true, x: round(p.x, 10000), y: round(p.y, 10000), r: round(p.r, 10), z: Math.round(p.z) } };
+}
+
+// { saved: n } or { error, status }. all of it or none of it
+async function saveBoard(env, uid, body, fetchFn) {
+  const sent = body.pins;
+  if (!Array.isArray(sent) || !sent.length || sent.length > COLLECTION_MAX) return { error: 'pins', status: 400 };
+  const places = sent.map(cleanPlace);
+  if (places.includes(null) || new Set(places.map((p) => p.id)).size !== places.length) return { error: 'pins', status: 400 };
+  // "change" only touches a pin that's already there, so nobody can add one to their collection this way
+  const done = await firestoreCommit(env, places.map((p) => ({ change: userPath(uid) + '/collection/' + p.id, data: p.data })), fetchFn);
+  return done ? { saved: places.length } : { error: 'not yours', status: 404 };
 }
 
 // account.js calls this when an account is deleted: the pins come off, the cards stay used

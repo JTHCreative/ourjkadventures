@@ -64,7 +64,7 @@ export default {
     if (url.pathname === '/api/notify' || url.pathname.startsWith('/api/notify/')) return notifyRoute(request, env);
     if (url.pathname === '/api/pin-request') return pinRequestRoute(request, env);
     // code cards: registering a pin, and the pins someone has registered (server/codes.js)
-    if (url.pathname === '/api/codes/register' || url.pathname === '/api/collection') return codesRoute(request, env);
+    if (url.pathname === '/api/codes/register' || url.pathname === '/api/collection' || url.pathname === '/api/collection/board') return codesRoute(request, env);
     if (url.pathname === '/api/admin' || url.pathname.startsWith('/api/admin/')) return admin(request, env);
     // a pup club pin's own page, e.g. /pup-club/corgi (server/pup-pages.js)
     const pup = /^\/pup-club\/([a-z0-9-]+)(\/?)$/.exec(url.pathname);

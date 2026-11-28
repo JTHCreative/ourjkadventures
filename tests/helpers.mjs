@@ -42,6 +42,9 @@ export function fakeGoogle() {
         if (w.currentDocument && w.currentDocument.exists === false && docs[path(w.update.name)]) {
           return Response.json({ error: { status: 'ALREADY_EXISTS' } }, { status: 409 });
         }
+        if (w.update && w.currentDocument && w.currentDocument.exists === true && !docs[path(w.update.name)]) {
+          return Response.json({ error: { status: 'NOT_FOUND' } }, { status: 404 });
+        }
         if (w.delete && w.currentDocument && w.currentDocument.exists === true && !docs[path(w.delete)]) {
           return Response.json({ error: { status: 'NOT_FOUND' } }, { status: 404 });
         }
