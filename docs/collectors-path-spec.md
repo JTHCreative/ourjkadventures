@@ -67,8 +67,8 @@ An account page (noindex, no Meta Pixel), linked from `/account` and from the "i
 - **Saving**: a moment after the last move, `POST /api/collection/board` with only the pins that changed. The
   server only changes pins already in that person's collection, all or nothing; the board can't add or remove one.
 - **Register a pin** box at the bottom: a newly registered pin drops straight into the tray.
-- The rewards themselves (stage 3) aren't built: the page says what each step brings, but nothing tells the
-  owner yet when someone reaches one.
+- Each step says what's theirs right now ("yours.", "it'll be in your next order from our shop.", "it's
+  ready! pick your pin at checkout, the next time you order.").
 
 ## Data (Firestore)
 ```
@@ -79,7 +79,8 @@ users/{uid}
   earlyAccess: boolean       // set true the first time charges reach 3, never unset
   gift6Awarded: boolean      // set true the first time charges reach 6, never unset (first lap only)
   pendingGift6: boolean      // true until the owner ships the gift with their next order
-  freePinAvailable: boolean  // true at 10 until redeemed
+  freePinAvailable: boolean  // true while charges is 10 or more
+  gift6SentWith?: string     // the Square order the 6-pin extra went out with
 
 users/{uid}/orders/{squareOrderId}  // note that this buyer started a checkout, for order history
   createdAt
@@ -92,6 +93,10 @@ codes/{CODE}                  // one per card
   slug, size, batch, createdAt
   claimedBy?: uid, claimedAt?
   cancelled?: boolean
+  free?: boolean             // the card for a pin on us: joins the collection, adds no step
+
+users/{uid}/redemptions/{squareOrderId}  // a pin on us that was used: key, at
+users/{uid}/locks/free_pin    // held while one pay press uses the pin on us: at
 
 code_claims/{CODE}            // the lock: made once, by whoever registers first
   uid, at
@@ -113,15 +118,51 @@ refuses to make the lock twice, so a card can only ever produce one charge howev
   characters could be recovered from a hash by trying them all anyway (see `decisions.md`).
 - The Meta Pixel never loads on `/register`: its address can carry a code.
 
-## Free pin redemption flow (stage 3, not built yet)
-1. My collection shows "your free pin is ready" when `freePinAvailable`.
-2. In the bag, if there's at least one paid item, offer "add your free pin" with a pin picker (core catalog only).
-3. `/api/checkout` re-checks everything server-side, adds the free pin as a $0 line ("collector's path pin"), and records a **pending** redemption with the order ID.
-4. The free pin goes out with a card from a "no charge" batch: registering it adds the pin to the collection but not to the count, so a free pin never earns a charge.
-5. On the paid webhook: finalize (charges = 0, freePinAvailable = false). If the checkout is abandoned, the pending hold expires after 24 hours.
+## Rewards (stage 3, built 2026-11-28 except the early access gate)
+The account's rewards are worked out from its count every time a card is registered or the collection is
+opened (`rewardChanges`, `settleRewards` in `server/codes.js`), so they can't drift from the count.
+
+### 3 pins: a first look at new pins
+- `earlyAccess` goes true at 3 and stays true. My collection shows "yours."
+- "collectors" on `/admin` lists everyone who has it, with a button to copy their emails.
+- **Not built: the gate itself** (a way for only these accounts to buy a pin before everyone else). See
+  "open questions".
+
+### 6 pins: a little extra with their next order
+- `gift6Awarded` goes true at 6, once per person, and `pendingGift6` is true until it has gone out.
+- In "orders to ship" on `/admin`, an order from that buyer (signed in at checkout, so the Square order
+  carries `metadata.uid`) says "collector's extra". Marking the order shipped sets `pendingGift6` false and
+  notes the order in `gift6SentWith`.
+- A collector who checks out signed out never triggers it: it waits for a signed-in order.
+
+### 10 pins: a pin on us
+1. `freePinAvailable` is true while the count is 10 or more. My collection says "it's ready! pick your pin at
+   checkout, the next time you order."
+2. On `/checkout` (our own card form only, never Square's hosted page), a signed-in collector with a
+   confirmed email and 10 or more sees "a pin on us" with a drop-down of pins on the shelf (no boards, no
+   pre-orders). The page sends only the pin's key (`free_pin`); the quote says whether one is ready
+   (`free_pin_ready`).
+3. The server re-checks everything, needs one more of that pin on the shelf than is being bought, and adds
+   it as its own line with no price: "collector's path pin: corgi pin", quantity 1, $0. No discount is ever
+   put on the order and no price is marked down. There is always at least one paid line, so the pin never
+   ships alone.
+4. One pay press at a time may use it (`users/<uid>/locks/free_pin`, stale after 10 minutes). A declined card
+   or any other "not paid" answer lets go of it.
+5. Once the payment goes through: 10 come off the count, `users/<uid>/redemptions/<square order id>` is
+   made, and the rewards are settled again. **Extra pins carry over**: 12 becomes 2, not 0.
+6. The line's note asks the owner to take one off that pin's count in Square (Square can't count a typed
+   line), and to send it with a card from a "pins on us" batch: those cards (`free: true` on the code and
+   its batch) add the pin to the collection without adding a step, so a free pin never earns a charge.
 
 ## Open questions for the owner
-- None right now.
+- **How should the first look at new pins work?** The accounts are marked and listed on `/admin`. A gate
+  would be a third switch per product ("collectors first"): while on, only signed-in accounts with a first
+  look can buy it, and everyone else sees it with a line saying collectors get a first look. Until that's
+  decided, a first look is by hand (email the list, or sell at a booth).
+- **Carry-over at ten.** `pricing-and-loyalty.md` says redeeming "resets the count to zero". Built as "ten
+  come off" so an 11th or 12th pin registered before ordering isn't lost. Say so if it should be a hard zero.
+- **Stock for a pin on us** is taken off by hand in Square. It could be done for you if the Square key is
+  allowed to change inventory.
 
 ## Resolved
 - **Code cards (2026-11-28):** the code lives on a card that goes out with the pin, 8 characters, the first three for the pin. The card is the only way to earn a charge, on every channel. The QR code opens `/register` with the code filled in. The packing tool, serial stickers and `/p/<serial>` page are dropped.

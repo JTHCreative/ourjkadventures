@@ -788,6 +788,8 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .admin-codes-form .field { flex: 1 1 150px; min-width: 0; }
 .admin-codes-form .field[hidden] { display: none; }
 .admin-codes-form input { text-transform: none; }
+.admin-codes-free { flex: 1 1 100%; }
+[data-collectors-list] { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-3); }
 .admin-requests { display: flex; flex-direction: column; gap: var(--space-3); margin-top: var(--space-3); }
 .admin-request { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-3) var(--space-4); border: 1.5px solid var(--line); border-radius: var(--radius-sm); }
 .admin-request p { margin: 0; }
@@ -1234,6 +1236,8 @@ a.card.clean:hover::before, a.card.clean:focus-visible::before { border-color: r
 .path-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .path-steps li { display: grid; grid-template-columns: 5.5em 1fr; gap: var(--space-3); font-size: 18px; line-height: 26px; color: var(--ink-soft); }
 .path-steps strong { font-weight: 600; color: var(--ink); }
+.path-steps em { font-style: normal; font-weight: 500; color: var(--honey-800); }
+.path-steps em[hidden] { display: none; }
 .path-steps li.is-reached strong::after { content: " \2713"; color: var(--honey-800); }
 .cb-board {
   position: relative; isolation: isolate; width: 100%; max-width: 640px; aspect-ratio: 1 / 1; margin: var(--space-2) auto 0;

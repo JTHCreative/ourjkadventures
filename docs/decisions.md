@@ -1128,3 +1128,30 @@ builds by moving and turning pins, with the Collector's Path as part of the same
   an order) with no dates and nothing that runs out. Until stage 3 they aren't automatic.
 - Not done: sharing a board with other people, more than one board, or board backgrounds. Worth asking the owner.
 
+## The rewards at 3, 6 and 10 (2026-11-28)
+- **Worked out from the count, every time.** An account's rewards are re-derived whenever a card is registered or
+  the collection is opened, like checking a punch card against its own punches. Nothing can drift, and a hiccup
+  mid-registration puts itself right on the next visit.
+- **The pin on us is a line with no price, not a discount.** It goes on the Square order as its own typed line
+  ("collector's path pin: corgi pin", $0) beside the paid lines. No Square discount is used and no pin's price is
+  ever marked down, so "no discounts, ever" holds in Square's reports too. The cost: Square can't lower the stock
+  count for a typed line, so the line's note asks the owner to take one off by hand.
+- **Picked at checkout, not in the bag.** The checkout page already knows who is signed in; the bag doesn't load
+  the sign-in code. One drop-down, shown only to a collector with ten.
+- **Only on our own card form.** Square's hosted page (the fallback) takes the money later, on Square's site, and
+  we'd have no sure moment to count the pin as used. It refuses an order that asks for one.
+- **Used only once the order is paid, and one pay press at a time.** A small hold note in the account stops two
+  tabs both getting one; a declined card lets go of it. If the count can't be written after a payment, the
+  collector keeps their pin: a mistake in their favour, never against them.
+- **Ten come off; extras carry over.** The owner's document says redeeming "resets the count to zero", written
+  for someone at exactly ten. Someone who registers twelve before ordering would lose two under a hard reset, so
+  twelve becomes two. Flagged to the owner as theirs to change.
+- **A free pin never earns a step.** Its card comes from a "pins on us" batch: it joins the collection, the count
+  doesn't move.
+- **The 6-pin extra waits for a signed-in order.** It's flagged on the Square order through the account id the
+  checkout already puts there. A collector who checks out signed out isn't recognised, by design: we never match
+  people up by email behind their back.
+- **The first-look gate isn't built.** Accounts are marked at 3 and listed on `/admin` with their emails. How a
+  first look should run in the shop (a "collectors first" switch per product is the suggestion) is the owner's
+  call, and it touches the shop board everyone uses, so it waits for a yes.
+

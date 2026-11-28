@@ -1354,8 +1354,8 @@ function download(name, text) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 function codesCsv(run) {
-  const lines = ['code,pin,size,link for the qr code,status'];
-  run.codes.forEach((c) => lines.push([c.code, run.batch.name, run.batch.size, REGISTER_LINK + c.code, c.status === 'open' ? 'not registered' : c.status].join(',')));
+  const lines = ['code,pin,size,link for the qr code,status,goes with'];
+  run.codes.forEach((c) => lines.push([c.code, run.batch.name, run.batch.size, REGISTER_LINK + c.code, c.status === 'open' ? 'not registered' : c.status, run.batch.free ? 'a pin on us' : 'a pin sold'].join(',')));
   return lines.join('\n') + '\n';
 }
 let codePinList = [];
@@ -1383,7 +1383,7 @@ function paintCodes(data, said) {
   runs.forEach((b) => {
     const item = el('article', 'admin-request');
     const head = el('p', 'admin-request-head');
-    head.appendChild(el('strong', null, sizeWords(b)));
+    head.appendChild(el('strong', null, sizeWords(b) + (b.free ? ' · for pins on us' : '')));
     const day = requestDay(b.at);
     if (day) head.appendChild(el('span', 'caption', day));
     item.appendChild(head);
@@ -1414,7 +1414,7 @@ function paintCard(card, said) {
   const item = el('article', 'admin-request');
   const head = el('p', 'admin-request-head');
   head.appendChild(el('strong', null, card.code));
-  head.appendChild(el('span', 'caption', sizeWords({ name: card.pin.name, size: card.pin.size })));
+  head.appendChild(el('span', 'caption', sizeWords({ name: card.pin.name, size: card.pin.size }) + (card.free ? ' · for a pin on us' : '')));
   item.appendChild(head);
   item.appendChild(el('p', 'body-sm admin-request-about', words));
   if (card.status !== 'registered') {
@@ -1446,7 +1446,7 @@ function wireCodes() {
     btn.disabled = true;
     state.textContent = 'one moment.';
     try {
-      paintCodes(await api('POST', '/api/admin/codes', { slug: $('[data-codes-pin]').value, size: $('[data-codes-size]').value, count }), 'made ' + (count === 1 ? '1 code' : count + ' codes') + '. the new batch is at the top: download it for printing.');
+      paintCodes(await api('POST', '/api/admin/codes', { slug: $('[data-codes-pin]').value, size: $('[data-codes-size]').value, count, free: $('[data-codes-free]').checked }), 'made ' + (count === 1 ? '1 code' : count + ' codes') + '. the new batch is at the top: download it for printing.');
     } catch (err) { state.textContent = "that didn't work. try again in a moment."; }
     btn.disabled = false;
   });
@@ -1459,6 +1459,42 @@ function wireCodes() {
     }
   });
 }
+/* ---------- collectors: who has reached 3, 6 and 10 on the collector's path (server/codes.js) ---------- */
+function paintCollectors(data) {
+  const box = $('[data-collectors-list]');
+  box.textContent = '';
+  const groups = [
+    ['a first look at new pins', 'three pins or more, at some point. for good.', data.early || []],
+    ['a little extra still to send', 'reached six pins. it goes out with their next order.', data.gift || []],
+    ['a pin on us waiting', 'at ten pins now. they pick it at checkout.', data.pin || []]
+  ];
+  const total = groups.reduce((n, g) => n + g[2].length, 0);
+  $('[data-collectors-state]').textContent = total ? '' : 'nobody has reached three pins yet.';
+  groups.forEach(([title, words, people]) => {
+    const item = el('article', 'admin-request');
+    const head = el('p', 'admin-request-head');
+    head.appendChild(el('strong', null, title));
+    head.appendChild(el('span', 'caption', people.length === 1 ? '1 collector' : people.length + ' collectors'));
+    item.appendChild(head);
+    item.appendChild(el('p', 'caption', words));
+    if (people.length) {
+      const list = el('ul', 'order-items');
+      people.forEach((u) => list.appendChild(el('li', 'notify-email', (u.name ? u.name + ', ' : '') + u.email + ' (' + (u.pins === 1 ? '1 pin' : u.pins + ' pins') + ')')));
+      item.appendChild(list);
+      const copy = el('button', 'link-btn', 'copy their emails');
+      copy.type = 'button';
+      copy.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(people.map((u) => u.email).join(', ')); copy.textContent = 'copied.'; } catch (e) { copy.textContent = "couldn't copy. select them above instead."; }
+      });
+      item.appendChild(copy);
+    }
+    box.appendChild(item);
+  });
+}
+async function loadCollectors() {
+  try { paintCollectors(await api('GET', '/api/admin/collectors')); } catch (e) { $('[data-collectors-state]').textContent = RESTING; }
+}
+
 async function loadCodes() {
   try { paintCodes(await api('GET', '/api/admin/codes')); } catch (e) { $('[data-codes-state]').textContent = RESTING; }
 }
@@ -2044,6 +2080,7 @@ async function open() {
   loadRequests();
   wireCodes();
   loadCodes();
+  loadCollectors();
   wireHeard();
   wireMedia();
   loadMedia();

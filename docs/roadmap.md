@@ -93,13 +93,14 @@ Stage 1, code cards:
 Stage 2, my collection:
 - [x] `/collection` (2026-11-28): the Collector's Path (pins so far and what 3, 6, 10 bring) moved here from `/account`
 - [x] The virtual pin board (2026-11-28): registered pins in a tray, placed, moved and turned by the collector, saved to the account (`assets/collection.js`, `POST /api/collection/board`)
-- [ ] Note: the page names the rewards, but until stage 3 nothing tells the owner when someone reaches 3, 6 or 10
 
 Stage 3, rewards:
-- [ ] 3 and 6 rewards on the first lap only; free pin at 10 every lap
-- [ ] Early access (3 charges) gate for new drops
-- [ ] The 6 gift flagged on that buyer's next order in "orders to ship"
-- [ ] Free pin at 10 can only be added to a bag that already has a paid item; redeeming resets to 0; its card adds to the collection but not the count
+- [x] 3 and 6 rewards on the first lap only; a pin on us at 10 every lap (2026-11-28, `rewardChanges` in `server/codes.js`)
+- [x] "collectors" on `/admin`: who has a first look, who is owed their extra, who has a pin on us waiting
+- [x] The 6 extra flagged on that buyer's next order in "orders to ship"; marking it shipped ticks it off
+- [x] A pin on us at 10, picked on `/checkout`, only with a paid order; ten come off the count once it's paid. Its card comes from a "pins on us" batch and adds to the collection but not the count
+- [ ] The first-look gate: only collectors with a first look can buy a chosen pin. Waiting on the owner (see the spec's open questions)
+- [ ] Owner: take one off Square's count by hand for each pin on us (the order line says so), unless the Square key is allowed to change inventory
 
 Dropped 2026-11-28 (the card is the only way to earn): the `/admin/pack` packing tool, booth mode, serial stickers and the `/p/<serial>` page.
 

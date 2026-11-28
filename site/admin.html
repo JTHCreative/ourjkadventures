@@ -169,6 +169,7 @@
             <label for="codes-count">how many cards?</label>
             <input id="codes-count" type="number" inputmode="numeric" min="1" max="200" value="50" data-codes-count>
           </div>
+          <label class="gift-tick admin-codes-free"><input type="checkbox" data-codes-free> <span>these go with pins on us (the reward at ten pins): they join a collection without adding a step</span></label>
           <button class="jka-btn jka-btn--sm" type="submit">make the codes</button>
         </form>
         <p class="body-sm" data-codes-state role="status">one moment.</p>
@@ -183,6 +184,13 @@
           <button class="jka-btn jka-btn--quiet jka-btn--sm" type="submit">look it up</button>
         </form>
         <div data-card-result role="status"></div>
+      </section>
+
+      <section class="card clean admin-card" aria-labelledby="admin-collectors-title">
+        <h2 class="admin-title" id="admin-collectors-title">collectors</h2>
+        <p class="caption">who has reached what on the collector's path. three pins: a first look at new pins (copy their emails when you're ready to tell them about one). six pins: a little extra with their next order; it shows on that order in "orders to ship", and marking it shipped ticks it off. ten pins: a pin on us, which they pick themselves at checkout; it shows as its own line on the order.</p>
+        <p class="body-sm" data-collectors-state role="status">one moment.</p>
+        <div data-collectors-list></div>
       </section>
 
       <section class="card clean admin-card" aria-labelledby="admin-featured-title">

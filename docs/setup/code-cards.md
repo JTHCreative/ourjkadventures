@@ -42,3 +42,26 @@ You can download a batch again at any time.
    three letters.
 3. Registered by someone else: the code was seen before the pin was sold. Make a new card for them from a new
    batch.
+
+# The collector's path rewards
+
+Open `/admin`, "collectors", to see who has reached what.
+
+## 3 pins: a first look at new pins
+1. "collectors" lists everyone with a first look. "copy their emails" copies the list.
+2. For now a first look is by hand: write to them before a new pin goes in the shop.
+
+## 6 pins: a little extra with their next order
+1. When that collector next orders while signed in, the order in "orders to ship" says "collector's extra".
+2. Tuck the extra in (an upgraded backing card, a mini sticker sheet).
+3. Press "mark shipped" as usual. That ticks the extra off.
+
+## 10 pins: a pin on us
+1. The collector picks the pin themselves at checkout. It shows on the order as its own line:
+   "collector's path pin: corgi pin", with no price.
+2. Pack that pin with the order.
+3. **Take one off that pin's count in Square.** Square can't do it for a line like this one.
+4. **Send it with a card from a "pins on us" batch.** In "code cards", tick "these go with pins on us" before
+   pressing "make the codes". Those cards add the pin to their collection without adding a step.
+5. Ten come off their count by themselves once the order is paid.
+

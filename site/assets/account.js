@@ -410,7 +410,9 @@ async function registerPage() {
       ? 'this ' + out.pin.name + ' pin is already in your collection.'
       : 'your ' + out.pin.name + ' pin is in your collection. thank you!';
     const count = $('[data-done-count]');
-    count.textContent = out.status === 'registered' ? countWords(out.charges) : '';
+    // a card that came with a pin on us joins the collection without adding a step
+    count.textContent = out.status !== 'registered' ? '' : out.counted === false ? 'this one came as a pin on us, so it joins your collection without adding a step.'
+      : REACHED_WORDS[out.reached] || countWords(out.charges);
     count.hidden = !count.textContent;
     card.hidden = true;
     done.hidden = false;
@@ -501,10 +503,11 @@ async function registerPage() {
 // "my collection": the collector's path, the pin board (assets/collection.js) and a box to register another pin
 const PATH_END = 10;
 const PATH_MARKS = [3, 6, 10];
-function paintPath(charges) {
+function paintPath(charges, rewards) {
   const n = Math.max(0, Math.min(PATH_END, charges || 0));
   $('[data-path-line]').textContent = !n ? 'register your first pin and you\'re on your way.'
-    : n === 1 ? '1 pin so far, on the way to ' + PATH_END + '.' : n + ' pins so far, on the way to ' + PATH_END + '.';
+    : n >= PATH_END ? 'all ' + PATH_END + ' pins. you made it the whole way!'
+      : n === 1 ? '1 pin so far, on the way to ' + PATH_END + '.' : n + ' pins so far, on the way to ' + PATH_END + '.';
   const track = $('[data-path-track]');
   track.textContent = '';
   for (let i = 1; i <= PATH_END; i++) {
@@ -513,10 +516,26 @@ function paintPath(charges) {
     if (PATH_MARKS.indexOf(i) >= 0) li.classList.add('is-mark');
     track.appendChild(li);
   }
+  // what's theirs right now. the first look and the little extra are kept for good, so they stay ticked after
+  // the path starts again; the pin on us is ticked only while one is waiting
+  const r = rewards || {};
+  const notes = {
+    3: r.early ? 'yours.' : '',
+    6: r.gift === 'coming' ? 'yours. it\'ll be in your next order from our shop.' : r.gift === 'sent' ? 'sent with one of your orders.' : '',
+    10: r.pin ? 'it\'s ready! pick your pin at checkout, the next time you order.' : ''
+  };
   document.querySelectorAll('[data-path-step]').forEach(function (li) {
-    li.classList.toggle('is-reached', n >= Number(li.getAttribute('data-path-step')));
+    const step = li.getAttribute('data-path-step');
+    li.classList.toggle('is-reached', !!notes[step] || n >= Number(step));
+    const note = li.querySelector('[data-path-note]');
+    if (note) { note.textContent = notes[step]; note.hidden = !notes[step]; }
   });
 }
+const REACHED_WORDS = {
+  early: 'that\'s three: you\'ll get a first look at new pins from now on.',
+  gift: 'that\'s six: a little something extra will be in your next order from our shop.',
+  pin: 'that\'s ten: your next order comes with a pin on us. pick it at checkout.'
+};
 async function collectionPage() {
   const user = await signedIn();
   if (!user) return;
@@ -536,7 +555,7 @@ async function collectionPage() {
     notice.hidden = false;
     return;
   }
-  paintPath(mine.charges);
+  paintPath(mine.charges, mine.rewards);
   $('#collection-view').hidden = false;
   const board = kit.mountBoard({
     board: $('[data-board]'), tools: $('[data-board-tools]'), toolsName: $('[data-board-name]'), trayWrap: $('[data-tray-wrap]'),
@@ -564,10 +583,10 @@ async function collectionPage() {
     if (!out) return;
     box.set('');
     if (out.status === 'yours') { fkit.say('this ' + out.pin.name + ' pin is already in your collection.', true); return; }
-    fkit.say('your ' + out.pin.name + ' pin is in your collection. thank you! you\'ll find it under the board, ready to put up.', true);
+    fkit.say('your ' + out.pin.name + ' pin is in your collection. thank you! you\'ll find it under the board, ready to put up.' + (REACHED_WORDS[out.reached] ? ' ' + REACHED_WORDS[out.reached] : ''), true);
     try {
       const now = await read();
-      paintPath(now.charges);
+      paintPath(now.charges, now.rewards);
       board.setPins(now.pins);
     } catch (err) {}
   });
